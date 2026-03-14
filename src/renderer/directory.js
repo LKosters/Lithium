@@ -24,6 +24,7 @@ function setDirectory(dir) {
   state.currentDir = dir;
   currentDirLabel.textContent = shortDir(dir);
   app.ipcRenderer.send("directory:add-recent", dir);
+  if (app.refreshGit) app.refreshGit();
 }
 
 function renderRecentDirs() {

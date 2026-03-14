@@ -76,6 +76,13 @@
                         />
                     </svg>
                 </button>
+                <button id="btn-git" class="btn-icon" title="Git">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                        <circle cx="18" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/>
+                        <circle cx="6" cy="6" r="3" stroke="currentColor" stroke-width="1.8"/>
+                        <path d="M6 9v2c0 2.2 1.8 4 4 4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                </button>
                 <button id="btn-settings" class="btn-icon" title="Settings">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
                         <path
@@ -532,6 +539,94 @@
                 </div>
             </div>
         </footer>
+
+        <!-- Git sidebar -->
+        <aside id="git-sidebar" class="git-sidebar hidden">
+            <div class="git-sidebar-header">
+                <span class="git-sidebar-title">Source Control</span>
+                <button id="btn-git-close" class="btn-icon" title="Close">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="git-repo-info" class="git-repo-info hidden">
+                <span id="git-repo-name" class="git-repo-name"></span>
+                <a id="git-repo-url" class="git-repo-url" title="Open remote"></a>
+            </div>
+            <div class="git-branch-bar">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M18 9c0 6-12 6-12 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <span id="git-branch-name" class="git-branch-name">—</span>
+                <button id="btn-git-branches" class="git-icon-btn" title="Branches">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="git-branches-dropdown" class="git-branches-dropdown hidden">
+                <input id="git-branch-search" class="git-branch-search" type="text" placeholder="Search or create branch..." spellcheck="false" />
+                <div id="git-branches-list" class="git-branches-list"></div>
+                <div id="git-branch-create-hint" class="git-branch-create-hint hidden">
+                    Press Enter to create <span id="git-branch-create-name"></span>
+                </div>
+            </div>
+            <div class="git-actions">
+                <button id="btn-git-stage" class="git-action-btn" title="Stage all changes">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    Stage All
+                </button>
+                <button id="btn-git-commit" class="git-action-btn" title="Commit staged changes">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                        <path d="M3 8.5l3 3 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Commit
+                </button>
+                <button id="btn-git-push" class="git-action-btn" title="Push to remote">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 12V4M5 7l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Push
+                </button>
+            </div>
+            <div id="git-commit-input-wrap" class="git-commit-input-wrap hidden">
+                <input id="git-commit-input" class="git-commit-input" type="text" placeholder="Commit message..." spellcheck="false" />
+            </div>
+            <div class="git-scrollable">
+                <div class="git-section">
+                    <div class="git-section-label">
+                        <span>Staged Changes</span>
+                        <span id="git-staged-count" class="git-count">0</span>
+                    </div>
+                    <div id="git-staged-list" class="git-file-list"></div>
+                </div>
+                <div class="git-section">
+                    <div class="git-section-label">
+                        <span>Changes</span>
+                        <span id="git-changes-count" class="git-count">0</span>
+                    </div>
+                    <div id="git-changes-list" class="git-file-list"></div>
+                </div>
+                <div class="git-section">
+                    <div class="git-section-label">
+                        <span>Recent Commits</span>
+                    </div>
+                    <div id="git-log-list" class="git-log-list"></div>
+                </div>
+            </div>
+            <div id="git-no-repo" class="git-empty hidden">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <circle cx="18" cy="18" r="3" stroke="currentColor" stroke-width="1.5"/>
+                    <circle cx="6" cy="6" r="3" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M6 9v2c0 2.2 1.8 4 4 4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <span>No git repository</span>
+            </div>
+        </aside>
 
         <!-- Settings overlay -->
         <div id="settings-overlay" class="settings-overlay hidden">

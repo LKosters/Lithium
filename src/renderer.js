@@ -15,6 +15,7 @@ const { initBrowser } = require("./renderer/browser");
 const { initMusicPlayer, updateTrackProgress } = require("./renderer/music");
 const { enterFocusMode, exitFocusMode } = require("./renderer/focus");
 const { closeSettings, isSettingsOpen } = require("./renderer/settings");
+const { closeGit, isGitOpen, refreshGit } = require("./renderer/git");
 const { pickDirectory, renderRecentDirs } = require("./renderer/directory");
 
 // ── Wire functions onto app for cross-module calls ────
@@ -38,6 +39,7 @@ app.deleteSession = deleteSession;
 app.enterFocusMode = enterFocusMode;
 app.exitFocusMode = exitFocusMode;
 app.pickDirectory = pickDirectory;
+app.refreshGit = refreshGit;
 
 // ── Sidebar resize ────────────────────────────────────
 {
@@ -75,6 +77,10 @@ document.querySelector("#btn-new-session").addEventListener("click", newSession)
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && isSettingsOpen()) {
     closeSettings();
+    return;
+  }
+  if (e.key === "Escape" && isGitOpen()) {
+    closeGit();
     return;
   }
   if (e.key === "Escape" && state.focusMode.active) {
