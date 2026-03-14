@@ -23,8 +23,8 @@
         <header id="titlebar">
             <div class="titlebar-drag"></div>
             <div class="titlebar-left">
-                <span class="titlebar-title">Lithium</span><span class="alpha-tag">Alpha</span
-                >
+                <span class="titlebar-title">Lithium</span
+                ><span class="alpha-tag">Alpha</span>
                 <button
                     id="btn-exit-focus"
                     class="btn-icon exit-focus-btn hidden"
@@ -78,9 +78,26 @@
                 </button>
                 <button id="btn-git" class="btn-icon" title="Git">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                        <circle cx="18" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/>
-                        <circle cx="6" cy="6" r="3" stroke="currentColor" stroke-width="1.8"/>
-                        <path d="M6 9v2c0 2.2 1.8 4 4 4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <circle
+                            cx="18"
+                            cy="18"
+                            r="3"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                        />
+                        <circle
+                            cx="6"
+                            cy="6"
+                            r="3"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                        />
+                        <path
+                            d="M6 9v2c0 2.2 1.8 4 4 4h4"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                        />
                     </svg>
                 </button>
                 <button id="btn-settings" class="btn-icon" title="Settings">
@@ -105,7 +122,7 @@
             <aside id="sidebar">
                 <!-- Workspace header -->
                 <div class="sidebar-workspace">
-                    <div class="workspace-label">Workspace</div>
+                    <div class="workspace-label">Current Workspace</div>
                     <div class="dir-row">
                         <button id="btn-pick-dir" class="dir-button">
                             <svg
@@ -229,23 +246,45 @@
                         <!-- Decorative sun shape -->
                         <div class="welcome-deco">
                             <div class="deco-sun">
-                                <div class="deco-ray" style="--angle: 0deg"></div>
-                                <div class="deco-ray" style="--angle: 45deg"></div>
-                                <div class="deco-ray" style="--angle: 90deg"></div>
-                                <div class="deco-ray" style="--angle: 135deg"></div>
-                                <div class="deco-ray" style="--angle: 180deg"></div>
-                                <div class="deco-ray" style="--angle: 225deg"></div>
-                                <div class="deco-ray" style="--angle: 270deg"></div>
-                                <div class="deco-ray" style="--angle: 315deg"></div>
+                                <div
+                                    class="deco-ray"
+                                    style="--angle: 0deg"
+                                ></div>
+                                <div
+                                    class="deco-ray"
+                                    style="--angle: 45deg"
+                                ></div>
+                                <div
+                                    class="deco-ray"
+                                    style="--angle: 90deg"
+                                ></div>
+                                <div
+                                    class="deco-ray"
+                                    style="--angle: 135deg"
+                                ></div>
+                                <div
+                                    class="deco-ray"
+                                    style="--angle: 180deg"
+                                ></div>
+                                <div
+                                    class="deco-ray"
+                                    style="--angle: 225deg"
+                                ></div>
+                                <div
+                                    class="deco-ray"
+                                    style="--angle: 270deg"
+                                ></div>
+                                <div
+                                    class="deco-ray"
+                                    style="--angle: 315deg"
+                                ></div>
                                 <div class="deco-ring deco-ring-1"></div>
                                 <div class="deco-ring deco-ring-2"></div>
                                 <div class="deco-center"></div>
                             </div>
                         </div>
-                        <h1 class="welcome-title">
-                            Lithium
-                        </h1>
-                        <div class="welcome-line"></div>
+                        <h1 class="welcome-title">Lithium</h1>
+                        <!--<div class="welcome-line"></div>-->
                         <p class="welcome-sub">Vibes first code editor</p>
                         <p class="welcome-hint">
                             Select a workspace. Start building.
@@ -540,61 +579,181 @@
             </div>
         </footer>
 
+        <!-- Quick open -->
+        <div id="quick-open" class="quick-open hidden">
+            <div class="quick-open-backdrop"></div>
+            <div class="quick-open-modal">
+                <input id="quick-open-input" class="quick-open-input" type="text" placeholder="Search sessions..." spellcheck="false" autocomplete="off" />
+                <div id="quick-open-create" class="quick-open-create hidden">
+                    <div class="quick-open-create-row">
+                        <label class="quick-open-create-label">Name</label>
+                        <input id="quick-open-name" class="quick-open-create-input" type="text" placeholder="Session name..." spellcheck="false" />
+                    </div>
+                    <div class="quick-open-create-row" style="position:relative;">
+                        <label class="quick-open-create-label">Directory</label>
+                        <button id="quick-open-dir-btn" class="quick-open-dir-btn">
+                            <span id="quick-open-dir-label">Select directory...</span>
+                            <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                        <div id="quick-open-dir-dropdown" class="dropdown hidden" style="position:absolute; top:100%; left:0; right:0; margin-top:4px; z-index:210;">
+                            <div id="qo-dropdown-tabs" class="dropdown-tabs hidden">
+                                <button class="dropdown-tab active" data-qo-tab="favorites">Favorites</button>
+                                <button class="dropdown-tab" data-qo-tab="recent">Recent</button>
+                            </div>
+                            <div id="qo-dirs-list"></div>
+                            <div class="qo-browse-row">
+                                <button id="qo-browse-btn" class="qo-browse-btn">
+                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                                        <path d="M2 13V3a1 1 0 011-1h4l2 2h4a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                                    </svg>
+                                    Browse...
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="quick-open-create-btn" class="quick-open-create-btn">Create &amp; Open</button>
+                </div>
+                <div id="quick-open-list" class="quick-open-list"></div>
+            </div>
+        </div>
+
         <!-- Git sidebar -->
         <aside id="git-sidebar" class="git-sidebar hidden">
             <div class="git-sidebar-header">
                 <span class="git-sidebar-title">Source Control</span>
                 <button id="btn-git-close" class="btn-icon" title="Close">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <path
+                            d="M4 4l8 8M12 4l-8 8"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                        />
                     </svg>
                 </button>
             </div>
             <div id="git-repo-info" class="git-repo-info hidden">
                 <span id="git-repo-name" class="git-repo-name"></span>
-                <a id="git-repo-url" class="git-repo-url" title="Open remote"></a>
+                <a
+                    id="git-repo-url"
+                    class="git-repo-url"
+                    title="Open remote"
+                ></a>
             </div>
             <div class="git-branch-bar">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                    <path d="M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <path d="M18 9c0 6-12 6-12 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path
+                        d="M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                    />
+                    <path
+                        d="M18 9c0 6-12 6-12 9"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                    />
                 </svg>
                 <span id="git-branch-name" class="git-branch-name">—</span>
-                <button id="btn-git-branches" class="git-icon-btn" title="Branches">
+                <button
+                    id="btn-git-branches"
+                    class="git-icon-btn"
+                    title="Branches"
+                >
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                        <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path
+                            d="M4 6l4 4 4-4"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        />
                     </svg>
                 </button>
             </div>
-            <div id="git-branches-dropdown" class="git-branches-dropdown hidden">
-                <input id="git-branch-search" class="git-branch-search" type="text" placeholder="Search or create branch..." spellcheck="false" />
+            <div
+                id="git-branches-dropdown"
+                class="git-branches-dropdown hidden"
+            >
+                <input
+                    id="git-branch-search"
+                    class="git-branch-search"
+                    type="text"
+                    placeholder="Search or create branch..."
+                    spellcheck="false"
+                />
                 <div id="git-branches-list" class="git-branches-list"></div>
-                <div id="git-branch-create-hint" class="git-branch-create-hint hidden">
-                    Press Enter to create <span id="git-branch-create-name"></span>
+                <div
+                    id="git-branch-create-hint"
+                    class="git-branch-create-hint hidden"
+                >
+                    Press Enter to create
+                    <span id="git-branch-create-name"></span>
                 </div>
             </div>
             <div class="git-actions">
-                <button id="btn-git-stage" class="git-action-btn" title="Stage all changes">
+                <button
+                    id="btn-git-stage"
+                    class="git-action-btn"
+                    title="Stage all changes"
+                >
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <path
+                            d="M8 3v10M3 8h10"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                        />
                     </svg>
                     Stage All
                 </button>
-                <button id="btn-git-commit" class="git-action-btn" title="Commit staged changes">
+                <button
+                    id="btn-git-commit"
+                    class="git-action-btn"
+                    title="Commit staged changes"
+                >
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                        <path d="M3 8.5l3 3 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path
+                            d="M3 8.5l3 3 7-7"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        />
                     </svg>
                     Commit
                 </button>
-                <button id="btn-git-push" class="git-action-btn" title="Push to remote">
+                <button
+                    id="btn-git-push"
+                    class="git-action-btn"
+                    title="Push to remote"
+                >
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 12V4M5 7l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path
+                            d="M8 12V4M5 7l3-3 3 3"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        />
                     </svg>
                     Push
                 </button>
             </div>
-            <div id="git-commit-input-wrap" class="git-commit-input-wrap hidden">
-                <input id="git-commit-input" class="git-commit-input" type="text" placeholder="Commit message..." spellcheck="false" />
+            <div
+                id="git-commit-input-wrap"
+                class="git-commit-input-wrap hidden"
+            >
+                <input
+                    id="git-commit-input"
+                    class="git-commit-input"
+                    type="text"
+                    placeholder="Commit message..."
+                    spellcheck="false"
+                />
             </div>
             <div class="git-scrollable">
                 <div class="git-section">
@@ -620,9 +779,26 @@
             </div>
             <div id="git-no-repo" class="git-empty hidden">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <circle cx="18" cy="18" r="3" stroke="currentColor" stroke-width="1.5"/>
-                    <circle cx="6" cy="6" r="3" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M6 9v2c0 2.2 1.8 4 4 4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle
+                        cx="18"
+                        cy="18"
+                        r="3"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                    />
+                    <circle
+                        cx="6"
+                        cy="6"
+                        r="3"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                    />
+                    <path
+                        d="M6 9v2c0 2.2 1.8 4 4 4h4"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                    />
                 </svg>
                 <span>No git repository</span>
             </div>
@@ -632,122 +808,306 @@
         <div id="settings-overlay" class="settings-overlay hidden">
             <div class="settings-sidebar">
                 <div class="settings-sidebar-header">
-                    <button id="btn-settings-back" class="btn-icon" title="Back">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <button
+                        id="btn-settings-back"
+                        class="btn-icon"
+                        title="Back"
+                    >
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            fill="none"
+                        >
+                            <path
+                                d="M10 3L5 8l5 5"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            />
                         </svg>
                     </button>
                     <span class="settings-sidebar-title">Settings</span>
                 </div>
                 <nav class="settings-nav">
-                    <button class="settings-nav-item active" data-settings-tab="general">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="1.5"/>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.5"/>
+                    <button
+                        class="settings-nav-item active"
+                        data-settings-tab="general"
+                    >
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                        >
+                            <path
+                                d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                            />
+                            <path
+                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                            />
                         </svg>
                         <span>General</span>
                     </button>
-                    <button class="settings-nav-item" data-settings-tab="appearance">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                            <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="1.5"/>
-                            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <button
+                        class="settings-nav-item"
+                        data-settings-tab="appearance"
+                    >
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                        >
+                            <circle
+                                cx="12"
+                                cy="12"
+                                r="5"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                            />
+                            <path
+                                d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                            />
                         </svg>
                         <span>Appearance</span>
                     </button>
-                    <button class="settings-nav-item" data-settings-tab="terminal">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                            <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/>
-                            <path d="M7 15h4M7 9l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <button
+                        class="settings-nav-item"
+                        data-settings-tab="terminal"
+                    >
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                        >
+                            <rect
+                                x="3"
+                                y="3"
+                                width="18"
+                                height="18"
+                                rx="3"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                            />
+                            <path
+                                d="M7 15h4M7 9l3 3-3 3"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            />
                         </svg>
                         <span>Terminal</span>
                     </button>
-                    <button class="settings-nav-item" data-settings-tab="about">
+                    <button class="settings-nav-item" data-settings-tab="shortcuts">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
-                            <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M6 12h2M10 12h4M16 12h2M8 8h2M12 8h0M14 8h2M7 16h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        <span>Shortcuts</span>
+                    </button>
+                    <button class="settings-nav-item" data-settings-tab="about">
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                        >
+                            <circle
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                            />
+                            <path
+                                d="M12 16v-4M12 8h.01"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                            />
                         </svg>
                         <span>About</span>
                     </button>
                 </nav>
             </div>
             <div class="settings-main">
-                <div class="settings-panel active" data-settings-panel="general">
+                <div
+                    class="settings-panel active"
+                    data-settings-panel="general"
+                >
                     <h2 class="settings-panel-title">General</h2>
-                    <p class="settings-panel-desc">General application settings.</p>
+                    <p class="settings-panel-desc">
+                        General application settings.
+                    </p>
                     <div class="settings-group">
                         <div class="settings-row">
                             <div class="settings-row-label">
-                                <span class="settings-row-name">Default directory</span>
-                                <span class="settings-row-desc">Starting workspace when app launches</span>
+                                <span class="settings-row-name"
+                                    >Default directory</span
+                                >
+                                <span class="settings-row-desc"
+                                    >Starting workspace when app launches</span
+                                >
                             </div>
-                            <span class="settings-row-value muted">Not set</span>
+                            <span class="settings-row-value muted"
+                                >Not set</span
+                            >
                         </div>
                         <div class="settings-row">
                             <div class="settings-row-label">
-                                <span class="settings-row-name">Restore sessions</span>
-                                <span class="settings-row-desc">Reopen tabs from last session on launch</span>
+                                <span class="settings-row-name"
+                                    >Restore sessions</span
+                                >
+                                <span class="settings-row-desc"
+                                    >Reopen tabs from last session on
+                                    launch</span
+                                >
                             </div>
-                            <span class="settings-row-value muted">Coming soon</span>
+                            <span class="settings-row-value muted"
+                                >Coming soon</span
+                            >
                         </div>
                     </div>
                 </div>
                 <div class="settings-panel" data-settings-panel="appearance">
                     <h2 class="settings-panel-title">Appearance</h2>
-                    <p class="settings-panel-desc">Customize the look and feel.</p>
+                    <p class="settings-panel-desc">
+                        Customize the look and feel.
+                    </p>
                     <div class="settings-group">
                         <div class="settings-row">
                             <div class="settings-row-label">
                                 <span class="settings-row-name">Theme</span>
-                                <span class="settings-row-desc">Color scheme for the interface</span>
+                                <span class="settings-row-desc"
+                                    >Color scheme for the interface</span
+                                >
                             </div>
-                            <span class="settings-row-value muted">Coming soon</span>
+                            <span class="settings-row-value muted"
+                                >Coming soon</span
+                            >
                         </div>
                         <div class="settings-row">
                             <div class="settings-row-label">
                                 <span class="settings-row-name">Font size</span>
-                                <span class="settings-row-desc">Base font size for the UI</span>
+                                <span class="settings-row-desc"
+                                    >Base font size for the UI</span
+                                >
                             </div>
-                            <span class="settings-row-value muted">Coming soon</span>
+                            <span class="settings-row-value muted"
+                                >Coming soon</span
+                            >
                         </div>
                     </div>
                 </div>
                 <div class="settings-panel" data-settings-panel="terminal">
                     <h2 class="settings-panel-title">Terminal</h2>
-                    <p class="settings-panel-desc">Terminal emulator preferences.</p>
+                    <p class="settings-panel-desc">
+                        Terminal emulator preferences.
+                    </p>
                     <div class="settings-group">
                         <div class="settings-row">
                             <div class="settings-row-label">
-                                <span class="settings-row-name">Font family</span>
-                                <span class="settings-row-desc">Monospace font for terminal output</span>
+                                <span class="settings-row-name"
+                                    >Font family</span
+                                >
+                                <span class="settings-row-desc"
+                                    >Monospace font for terminal output</span
+                                >
                             </div>
-                            <span class="settings-row-value">JetBrains Mono</span>
+                            <span class="settings-row-value"
+                                >JetBrains Mono</span
+                            >
                         </div>
                         <div class="settings-row">
                             <div class="settings-row-label">
                                 <span class="settings-row-name">Font size</span>
-                                <span class="settings-row-desc">Terminal text size in pixels</span>
+                                <span class="settings-row-desc"
+                                    >Terminal text size in pixels</span
+                                >
                             </div>
                             <span class="settings-row-value">14px</span>
                         </div>
                         <div class="settings-row">
                             <div class="settings-row-label">
-                                <span class="settings-row-name">Cursor style</span>
-                                <span class="settings-row-desc">Shape of the terminal cursor</span>
+                                <span class="settings-row-name"
+                                    >Cursor style</span
+                                >
+                                <span class="settings-row-desc"
+                                    >Shape of the terminal cursor</span
+                                >
                             </div>
                             <span class="settings-row-value">Bar</span>
                         </div>
                         <div class="settings-row">
                             <div class="settings-row-label">
-                                <span class="settings-row-name">Scrollback</span>
-                                <span class="settings-row-desc">Number of lines to keep in history</span>
+                                <span class="settings-row-name"
+                                    >Scrollback</span
+                                >
+                                <span class="settings-row-desc"
+                                    >Number of lines to keep in history</span
+                                >
                             </div>
                             <span class="settings-row-value">10,000</span>
                         </div>
                     </div>
                 </div>
+                <div class="settings-panel" data-settings-panel="shortcuts">
+                    <h2 class="settings-panel-title">Shortcuts</h2>
+                    <p class="settings-panel-desc">Keyboard shortcuts for common actions.</p>
+                    <div class="settings-group">
+                        <div class="settings-row">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name">New session</span>
+                                <span class="settings-row-desc">Create a new terminal session</span>
+                            </div>
+                            <kbd class="settings-kbd">&#8984; N</kbd>
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name">Split right</span>
+                                <span class="settings-row-desc">Open new tab to the right of current pane</span>
+                            </div>
+                            <kbd class="settings-kbd">&#8984; D</kbd>
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name">Split down</span>
+                                <span class="settings-row-desc">Open new tab below current pane</span>
+                            </div>
+                            <kbd class="settings-kbd">&#8984; &#8679; D</kbd>
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name">Exit focus mode</span>
+                                <span class="settings-row-desc">Return to normal layout</span>
+                            </div>
+                            <kbd class="settings-kbd">Esc</kbd>
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name">Quick open</span>
+                                <span class="settings-row-desc">Search and open a session by name</span>
+                            </div>
+                            <kbd class="settings-kbd">Shift Shift</kbd>
+                        </div>
+                    </div>
+                </div>
                 <div class="settings-panel" data-settings-panel="about">
                     <h2 class="settings-panel-title">About</h2>
-                    <p class="settings-panel-desc">Lithium — a vibes-first code editor.</p>
+                    <p class="settings-panel-desc">
+                        Lithium — a vibes-first code editor.
+                    </p>
                     <div class="settings-group">
                         <div class="settings-row">
                             <div class="settings-row-label">

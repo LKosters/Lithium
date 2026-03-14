@@ -1,6 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
 const app = require("./app");
-const { state, terminals, findLeafById, findLeafBySession, getAllLeaves, cleanupEmptyLeaves, genPaneId } = require("./state");
+const { state, terminals, findLeafById, findLeafBySession, getAllLeaves, cleanupEmptyLeaves, genPaneId, findParent } = require("./state");
 const { shortDir, getSession, persistSession } = require("./helpers");
 
 function openTab(sessionId) {
@@ -100,4 +100,58 @@ function newSession() {
   openTab(id);
 }
 
-module.exports = { openTab, closeTab, newSession };
+// direction: "horizontal" (left/right) or "vertical" (top/bottom)
+function splitNewSession(direction) {
+  if (!state.currentDir) {
+    app.pickDirectory();
+    return;
+  }
+
+  const id = uuidv4();
+  const session = {
+    id,
+    directory: state.currentDir,
+    title: shortDir(state.currentDir),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  state.sessions.unshift(session);
+  persistSession(session);
+
+  app.createTerminal(id);
+  app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: state.currentDir });
+
+  if (!state.layout) {
+    const paneId = genPaneId();
+    state.layout = { type: "leaf", id: paneId, tabs: [id], activeTab: id };
+    state.focusedPaneId = paneId;
+  } else {
+    const currentLeaf = findLeafById(state.layout, state.focusedPaneId)
+      || getAllLeaves(state.layout)[0];
+    if (!currentLeaf) {
+      openTab(id);
+      return;
+    }
+
+    const newPaneId = genPaneId();
+    const newLeaf = { type: "leaf", id: newPaneId, tabs: [id], activeTab: id };
+    const oldCopy = { ...currentLeaf };
+    const splitId = genPaneId();
+
+    currentLeaf.type = "split";
+    currentLeaf.direction = direction;
+    currentLeaf.ratio = 0.5;
+    currentLeaf.children = [oldCopy, newLeaf];
+    delete currentLeaf.tabs;
+    delete currentLeaf.activeTab;
+    currentLeaf.id = splitId;
+
+    state.focusedPaneId = newPaneId;
+  }
+
+  app.refreshLayout();
+  app.renderSessionList();
+}
+
+module.exports = { openTab, closeTab, newSession, splitNewSession };
