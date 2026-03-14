@@ -1,3 +1,5 @@
+const app = require("./app");
+
 const settingsOverlay = document.querySelector("#settings-overlay");
 const btnSettings = document.querySelector("#btn-settings");
 const btnSettingsBack = document.querySelector("#btn-settings-back");
@@ -14,16 +16,43 @@ navItems.forEach((btn) => {
   });
 });
 
+// ── Player mode setting ──────────────────────────────
+const playerModeBtns = document.querySelectorAll("[data-player-mode]");
+const previewFull = document.querySelector(".pm-preview-full");
+const previewCompact = document.querySelector(".pm-preview-compact");
+const previewNone = document.querySelector(".pm-preview-none");
+const previews = { full: previewFull, compact: previewCompact, none: previewNone };
+
+function updatePlayerModeUI(mode) {
+  playerModeBtns.forEach((b) => b.classList.toggle("active", b.dataset.playerMode === mode));
+  Object.entries(previews).forEach(([key, el]) => {
+    if (el) el.classList.toggle("hidden", key !== mode);
+  });
+}
+
+playerModeBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const mode = btn.dataset.playerMode;
+    updatePlayerModeUI(mode);
+    if (app.setPlayerMode) app.setPlayerMode(mode);
+  });
+});
+
 function openSettings() {
   settingsOpen = true;
   settingsOverlay.classList.remove("hidden");
   btnSettings.classList.add("active");
+
+  // Restore current player mode in UI
+  const currentMode = localStorage.getItem("playerMode") || "full";
+  updatePlayerModeUI(currentMode);
 }
 
 function closeSettings() {
+  if (!settingsOpen) return;
   settingsOpen = false;
-  settingsOverlay.classList.add("hidden");
   btnSettings.classList.remove("active");
+  app.animateClose(settingsOverlay, "fadeDown", 180);
 }
 
 btnSettings.addEventListener("click", () => {

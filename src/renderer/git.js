@@ -222,7 +222,7 @@ function renderBranchList(filter) {
       const branch = el.dataset.branch;
       const dropdown = document.querySelector("#git-branches-dropdown");
       await app.ipcRenderer.invoke("git:checkout", { cwd: getCwd(), branch });
-      dropdown.classList.add("hidden");
+      app.animateClose(dropdown, "dropOut", 150);
       refreshGit();
     });
   });
@@ -240,7 +240,7 @@ async function toggleBranches() {
   const searchInput = document.querySelector("#git-branch-search");
 
   if (!dropdown.classList.contains("hidden")) {
-    dropdown.classList.add("hidden");
+    app.animateClose(dropdown, "dropOut", 150);
     return;
   }
 
@@ -275,11 +275,11 @@ branchSearchInput.addEventListener("keydown", async (e) => {
     } else {
       await app.ipcRenderer.invoke("git:create-branch", { cwd, branch: query });
     }
-    dropdown.classList.add("hidden");
+    app.animateClose(dropdown, "dropOut", 150);
     refreshGit();
   }
   if (e.key === "Escape") {
-    document.querySelector("#git-branches-dropdown").classList.add("hidden");
+    app.animateClose(document.querySelector("#git-branches-dropdown"), "dropOut", 150);
   }
 });
 
@@ -306,11 +306,12 @@ function openGit() {
 }
 
 function closeGit() {
+  if (!gitOpen) return;
   gitOpen = false;
-  gitSidebar.classList.add("hidden");
   btnGit.classList.remove("active");
   document.querySelector("#git-branches-dropdown").classList.add("hidden");
   document.querySelector("#git-commit-input-wrap").classList.add("hidden");
+  app.animateClose(gitSidebar, "gitSlideOut", 180);
   if (pollTimer) {
     clearInterval(pollTimer);
     pollTimer = null;

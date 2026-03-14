@@ -231,6 +231,164 @@
                     <div class="section-header"><span>Sessions</span></div>
                     <div id="session-list"></div>
                 </div>
+
+                <!-- Compact music player (hidden by default) -->
+                <div id="compact-player" class="compact-player hidden">
+                    <div class="cp-track-bar"></div>
+                    <div class="cp-controls">
+                        <button id="cp-prev" class="cp-btn" title="Previous">
+                            <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                            >
+                                <path
+                                    d="M12 3L6 8l6 5V3z"
+                                    fill="currentColor"
+                                />
+                                <rect
+                                    x="3"
+                                    y="3"
+                                    width="2"
+                                    height="10"
+                                    rx="0.5"
+                                    fill="currentColor"
+                                />
+                            </svg>
+                        </button>
+                        <button
+                            id="cp-play"
+                            class="cp-btn cp-play-btn"
+                            title="Play"
+                        >
+                            <svg
+                                id="cp-icon-play"
+                                width="12"
+                                height="12"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                            >
+                                <path
+                                    d="M4 2.5l9 5.5-9 5.5V2.5z"
+                                    fill="currentColor"
+                                />
+                            </svg>
+                            <svg
+                                id="cp-icon-pause"
+                                width="12"
+                                height="12"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                class="hidden"
+                            >
+                                <rect
+                                    x="3"
+                                    y="2"
+                                    width="3.5"
+                                    height="12"
+                                    rx="0.8"
+                                    fill="currentColor"
+                                />
+                                <rect
+                                    x="9.5"
+                                    y="2"
+                                    width="3.5"
+                                    height="12"
+                                    rx="0.8"
+                                    fill="currentColor"
+                                />
+                            </svg>
+                        </button>
+                        <button id="cp-next" class="cp-btn" title="Next">
+                            <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                            >
+                                <path d="M4 3l6 5-6 5V3z" fill="currentColor" />
+                                <rect
+                                    x="11"
+                                    y="3"
+                                    width="2"
+                                    height="10"
+                                    rx="0.5"
+                                    fill="currentColor"
+                                />
+                            </svg>
+                        </button>
+                        <span id="cp-track-name" class="cp-track-name"
+                            >No music</span
+                        >
+                        <button
+                            id="cp-source-btn"
+                            class="cp-source-btn"
+                            title="Switch source"
+                        >
+                            <svg
+                                id="cp-source-icon-lofi"
+                                width="11"
+                                height="11"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                            >
+                                <path
+                                    d="M9 18V5l12-2v13"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+                                <circle
+                                    cx="6"
+                                    cy="18"
+                                    r="3"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                />
+                                <circle
+                                    cx="18"
+                                    cy="16"
+                                    r="3"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                />
+                            </svg>
+                            <svg
+                                id="cp-source-icon-device"
+                                width="11"
+                                height="11"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                class="hidden"
+                            >
+                                <rect
+                                    x="4"
+                                    y="2"
+                                    width="16"
+                                    height="16"
+                                    rx="2"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                />
+                                <path
+                                    d="M8 22h8M12 18v4"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                />
+                                <path
+                                    d="M9.5 8.5l2 1.5v-3l2 1.5"
+                                    stroke="currentColor"
+                                    stroke-width="1.3"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
             </aside>
 
             <div id="sidebar-resize-handle"></div>
@@ -285,7 +443,9 @@
                         </div>
                         <h1 class="welcome-title">Lithium</h1>
                         <!--<div class="welcome-line"></div>-->
-                        <p class="welcome-sub">Vibes first code editor</p>
+                        <p class="welcome-sub">
+                            Battery's included vibes first code editor
+                        </p>
                         <p class="welcome-hint">
                             Select a workspace. Start building.
                         </p>
@@ -583,37 +743,111 @@
         <div id="quick-open" class="quick-open hidden">
             <div class="quick-open-backdrop"></div>
             <div class="quick-open-modal">
-                <input id="quick-open-input" class="quick-open-input" type="text" placeholder="Search sessions..." spellcheck="false" autocomplete="off" />
+                <input
+                    id="quick-open-input"
+                    class="quick-open-input"
+                    type="text"
+                    placeholder="Search sessions..."
+                    spellcheck="false"
+                    autocomplete="off"
+                />
                 <div id="quick-open-create" class="quick-open-create hidden">
                     <div class="quick-open-create-row">
                         <label class="quick-open-create-label">Name</label>
-                        <input id="quick-open-name" class="quick-open-create-input" type="text" placeholder="Session name..." spellcheck="false" />
+                        <input
+                            id="quick-open-name"
+                            class="quick-open-create-input"
+                            type="text"
+                            placeholder="Session name..."
+                            spellcheck="false"
+                        />
                     </div>
-                    <div class="quick-open-create-row" style="position:relative;">
+                    <div
+                        class="quick-open-create-row"
+                        style="position: relative"
+                    >
                         <label class="quick-open-create-label">Directory</label>
-                        <button id="quick-open-dir-btn" class="quick-open-dir-btn">
-                            <span id="quick-open-dir-label">Select directory...</span>
-                            <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-                                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <button
+                            id="quick-open-dir-btn"
+                            class="quick-open-dir-btn"
+                        >
+                            <span id="quick-open-dir-label"
+                                >Select directory...</span
+                            >
+                            <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                            >
+                                <path
+                                    d="M4 6l4 4 4-4"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
                             </svg>
                         </button>
-                        <div id="quick-open-dir-dropdown" class="dropdown hidden" style="position:absolute; top:100%; left:0; right:0; margin-top:4px; z-index:210;">
-                            <div id="qo-dropdown-tabs" class="dropdown-tabs hidden">
-                                <button class="dropdown-tab active" data-qo-tab="favorites">Favorites</button>
-                                <button class="dropdown-tab" data-qo-tab="recent">Recent</button>
+                        <div
+                            id="quick-open-dir-dropdown"
+                            class="dropdown hidden"
+                            style="
+                                position: absolute;
+                                top: 100%;
+                                left: 0;
+                                right: 0;
+                                margin-top: 4px;
+                                z-index: 210;
+                            "
+                        >
+                            <div
+                                id="qo-dropdown-tabs"
+                                class="dropdown-tabs hidden"
+                            >
+                                <button
+                                    class="dropdown-tab active"
+                                    data-qo-tab="favorites"
+                                >
+                                    Favorites
+                                </button>
+                                <button
+                                    class="dropdown-tab"
+                                    data-qo-tab="recent"
+                                >
+                                    Recent
+                                </button>
                             </div>
                             <div id="qo-dirs-list"></div>
                             <div class="qo-browse-row">
-                                <button id="qo-browse-btn" class="qo-browse-btn">
-                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                                        <path d="M2 13V3a1 1 0 011-1h4l2 2h4a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                                <button
+                                    id="qo-browse-btn"
+                                    class="qo-browse-btn"
+                                >
+                                    <svg
+                                        width="12"
+                                        height="12"
+                                        viewBox="0 0 16 16"
+                                        fill="none"
+                                    >
+                                        <path
+                                            d="M2 13V3a1 1 0 011-1h4l2 2h4a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1z"
+                                            stroke="currentColor"
+                                            stroke-width="1.2"
+                                            stroke-linejoin="round"
+                                        />
                                     </svg>
                                     Browse...
                                 </button>
                             </div>
                         </div>
                     </div>
-                    <button id="quick-open-create-btn" class="quick-open-create-btn">Create &amp; Open</button>
+                    <button
+                        id="quick-open-create-btn"
+                        class="quick-open-create-btn"
+                    >
+                        Create &amp; Open
+                    </button>
                 </div>
                 <div id="quick-open-list" class="quick-open-list"></div>
             </div>
@@ -909,10 +1143,31 @@
                         </svg>
                         <span>Terminal</span>
                     </button>
-                    <button class="settings-nav-item" data-settings-tab="shortcuts">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                            <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.5"/>
-                            <path d="M6 12h2M10 12h4M16 12h2M8 8h2M12 8h0M14 8h2M7 16h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <button
+                        class="settings-nav-item"
+                        data-settings-tab="shortcuts"
+                    >
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                        >
+                            <rect
+                                x="2"
+                                y="4"
+                                width="20"
+                                height="16"
+                                rx="3"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                            />
+                            <path
+                                d="M6 12h2M10 12h4M16 12h2M8 8h2M12 8h0M14 8h2M7 16h10"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                            />
                         </svg>
                         <span>Shortcuts</span>
                     </button>
@@ -1008,6 +1263,195 @@
                                 >Coming soon</span
                             >
                         </div>
+                        <div class="settings-row settings-row-player-mode">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name"
+                                    >Media player</span
+                                >
+                                <span class="settings-row-desc"
+                                    >Choose how the music player appears</span
+                                >
+                            </div>
+                            <div class="settings-btn-group">
+                                <button
+                                    class="settings-btn active"
+                                    data-player-mode="full"
+                                >
+                                    Full
+                                </button>
+                                <button
+                                    class="settings-btn"
+                                    data-player-mode="compact"
+                                >
+                                    Compact
+                                </button>
+                                <button
+                                    class="settings-btn"
+                                    data-player-mode="none"
+                                >
+                                    None
+                                </button>
+                            </div>
+                        </div>
+                        <div class="settings-row settings-row-preview">
+                            <div
+                                class="player-mode-preview"
+                                id="player-mode-preview"
+                            >
+                                <!-- Full preview -->
+                                <div class="pm-preview pm-preview-full">
+                                    <div class="pm-mock-titlebar">
+                                        <span
+                                            class="pm-mock-titlebar-dot"
+                                        ></span>
+                                        <span
+                                            class="pm-mock-titlebar-dot"
+                                        ></span>
+                                        <span
+                                            class="pm-mock-titlebar-dot"
+                                        ></span>
+                                    </div>
+                                    <div class="pm-mock-app">
+                                        <div class="pm-mock-sidebar">
+                                            <div
+                                                class="pm-mock-sidebar-line"
+                                            ></div>
+                                            <div
+                                                class="pm-mock-sidebar-line"
+                                            ></div>
+                                            <div
+                                                class="pm-mock-sidebar-line"
+                                            ></div>
+                                        </div>
+                                        <div class="pm-mock-main">
+                                            <div
+                                                class="pm-mock-main-line"
+                                            ></div>
+                                            <div
+                                                class="pm-mock-main-line"
+                                            ></div>
+                                            <div
+                                                class="pm-mock-main-line"
+                                            ></div>
+                                        </div>
+                                    </div>
+                                    <div class="pm-mock-dock">
+                                        <div class="pm-mock-controls">
+                                            <span class="pm-mock-dot"></span>
+                                            <span
+                                                class="pm-mock-dot pm-mock-dot-lg"
+                                            ></span>
+                                            <span class="pm-mock-dot"></span>
+                                        </div>
+                                        <div class="pm-mock-bar"></div>
+                                        <span class="pm-mock-label"
+                                            >Track name</span
+                                        >
+                                    </div>
+                                </div>
+                                <!-- Compact preview -->
+                                <div
+                                    class="pm-preview pm-preview-compact hidden"
+                                >
+                                    <div class="pm-mock-titlebar">
+                                        <span
+                                            class="pm-mock-titlebar-dot"
+                                        ></span>
+                                        <span
+                                            class="pm-mock-titlebar-dot"
+                                        ></span>
+                                        <span
+                                            class="pm-mock-titlebar-dot"
+                                        ></span>
+                                    </div>
+                                    <div class="pm-mock-app">
+                                        <div class="pm-mock-sidebar">
+                                            <div
+                                                class="pm-mock-sidebar-line"
+                                            ></div>
+                                            <div
+                                                class="pm-mock-sidebar-line"
+                                            ></div>
+                                            <div
+                                                class="pm-mock-sidebar-line"
+                                            ></div>
+                                            <div class="pm-mock-cp">
+                                                <div
+                                                    class="pm-mock-cp-bar"
+                                                ></div>
+                                                <div class="pm-mock-cp-row">
+                                                    <span
+                                                        class="pm-mock-dot"
+                                                    ></span>
+                                                    <span
+                                                        class="pm-mock-dot pm-mock-dot-lg"
+                                                    ></span>
+                                                    <span
+                                                        class="pm-mock-dot"
+                                                    ></span>
+                                                    <span
+                                                        class="pm-mock-cp-label"
+                                                        >Track</span
+                                                    >
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="pm-mock-main">
+                                            <div
+                                                class="pm-mock-main-line"
+                                            ></div>
+                                            <div
+                                                class="pm-mock-main-line"
+                                            ></div>
+                                            <div
+                                                class="pm-mock-main-line"
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- None preview -->
+                                <div class="pm-preview pm-preview-none hidden">
+                                    <div class="pm-mock-titlebar">
+                                        <span
+                                            class="pm-mock-titlebar-dot"
+                                        ></span>
+                                        <span
+                                            class="pm-mock-titlebar-dot"
+                                        ></span>
+                                        <span
+                                            class="pm-mock-titlebar-dot"
+                                        ></span>
+                                    </div>
+                                    <div class="pm-mock-app">
+                                        <div class="pm-mock-sidebar">
+                                            <div
+                                                class="pm-mock-sidebar-line"
+                                            ></div>
+                                            <div
+                                                class="pm-mock-sidebar-line"
+                                            ></div>
+                                            <div
+                                                class="pm-mock-sidebar-line"
+                                            ></div>
+                                        </div>
+                                        <div class="pm-mock-main">
+                                            <div
+                                                class="pm-mock-main-line"
+                                            ></div>
+                                            <div
+                                                class="pm-mock-main-line"
+                                            ></div>
+                                            <div
+                                                class="pm-mock-main-line"
+                                            ></div>
+                                        </div>
+                                    </div>
+                                    <div class="pm-mock-none-label">
+                                        No player
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="settings-panel" data-settings-panel="terminal">
@@ -1064,40 +1508,63 @@
                 </div>
                 <div class="settings-panel" data-settings-panel="shortcuts">
                     <h2 class="settings-panel-title">Shortcuts</h2>
-                    <p class="settings-panel-desc">Keyboard shortcuts for common actions.</p>
+                    <p class="settings-panel-desc">
+                        Keyboard shortcuts for common actions.
+                    </p>
                     <div class="settings-group">
                         <div class="settings-row">
                             <div class="settings-row-label">
-                                <span class="settings-row-name">New session</span>
-                                <span class="settings-row-desc">Create a new terminal session</span>
+                                <span class="settings-row-name"
+                                    >New session</span
+                                >
+                                <span class="settings-row-desc"
+                                    >Create a new terminal session</span
+                                >
                             </div>
                             <kbd class="settings-kbd">&#8984; N</kbd>
                         </div>
                         <div class="settings-row">
                             <div class="settings-row-label">
-                                <span class="settings-row-name">Split right</span>
-                                <span class="settings-row-desc">Open new tab to the right of current pane</span>
+                                <span class="settings-row-name"
+                                    >Split right</span
+                                >
+                                <span class="settings-row-desc"
+                                    >Open new tab to the right of current
+                                    pane</span
+                                >
                             </div>
                             <kbd class="settings-kbd">&#8984; D</kbd>
                         </div>
                         <div class="settings-row">
                             <div class="settings-row-label">
-                                <span class="settings-row-name">Split down</span>
-                                <span class="settings-row-desc">Open new tab below current pane</span>
+                                <span class="settings-row-name"
+                                    >Split down</span
+                                >
+                                <span class="settings-row-desc"
+                                    >Open new tab below current pane</span
+                                >
                             </div>
                             <kbd class="settings-kbd">&#8984; &#8679; D</kbd>
                         </div>
                         <div class="settings-row">
                             <div class="settings-row-label">
-                                <span class="settings-row-name">Exit focus mode</span>
-                                <span class="settings-row-desc">Return to normal layout</span>
+                                <span class="settings-row-name"
+                                    >Exit focus mode</span
+                                >
+                                <span class="settings-row-desc"
+                                    >Return to normal layout</span
+                                >
                             </div>
                             <kbd class="settings-kbd">Esc</kbd>
                         </div>
                         <div class="settings-row">
                             <div class="settings-row-label">
-                                <span class="settings-row-name">Quick open</span>
-                                <span class="settings-row-desc">Search and open a session by name</span>
+                                <span class="settings-row-name"
+                                    >Quick open</span
+                                >
+                                <span class="settings-row-desc"
+                                    >Search and open a session by name</span
+                                >
                             </div>
                             <kbd class="settings-kbd">Shift Shift</kbd>
                         </div>

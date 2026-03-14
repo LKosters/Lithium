@@ -11,6 +11,40 @@ const musicPlayer = {
   devicePollTimer: null,
 };
 
+// ── Player mode (full / compact / none) ──────────────
+
+function setPlayerMode(mode) {
+  const dock = document.getElementById("music-dock");
+  const compact = document.getElementById("compact-player");
+  if (!dock || !compact) return;
+
+  dock.classList.toggle("hidden", mode !== "full");
+  compact.classList.toggle("hidden", mode !== "compact");
+  musicPlayer.mode = mode;
+  localStorage.setItem("playerMode", mode);
+}
+
+function syncCompactPlayer() {
+  const cpTrackName = document.querySelector("#cp-track-name");
+  const mpTrackName = document.querySelector("#mp-track-name");
+  if (cpTrackName && mpTrackName) {
+    cpTrackName.textContent = mpTrackName.textContent;
+    cpTrackName.title = mpTrackName.title || "";
+  }
+
+  // Sync play/pause icons
+  const cpIconPlay = document.querySelector("#cp-icon-play");
+  const cpIconPause = document.querySelector("#cp-icon-pause");
+  if (cpIconPlay && cpIconPause) {
+    cpIconPlay.classList.toggle("hidden", musicPlayer.playing);
+    cpIconPause.classList.toggle("hidden", !musicPlayer.playing);
+  }
+
+  // Sync playing class on compact player
+  const compact = document.getElementById("compact-player");
+  if (compact) compact.classList.toggle("playing", musicPlayer.playing);
+}
+
 async function initMusicPlayer() {
   const mpPlay = document.querySelector("#mp-play");
   const mpPrev = document.querySelector("#mp-prev");
@@ -53,6 +87,34 @@ async function initMusicPlayer() {
 
   mpSourceBtn.addEventListener("click", handleSourceToggle);
 
+  // Wire compact player buttons
+  const cpPlay = document.querySelector("#cp-play");
+  const cpPrev = document.querySelector("#cp-prev");
+  const cpNext = document.querySelector("#cp-next");
+  const cpSourceBtn = document.querySelector("#cp-source-btn");
+  if (cpPlay) cpPlay.addEventListener("click", togglePlay);
+  if (cpPrev) cpPrev.addEventListener("click", playPrevTrack);
+  if (cpNext) cpNext.addEventListener("click", playNextTrack);
+  if (cpSourceBtn) cpSourceBtn.addEventListener("click", handleSourceToggle);
+
+  // Compact player progress bar click-to-seek
+  const cpTrackBar = document.querySelector(".cp-track-bar");
+  if (cpTrackBar) {
+    cpTrackBar.addEventListener("click", (e) => {
+      const rect = cpTrackBar.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      if (musicPlayer.source === "device") {
+        if (musicPlayer._deviceDuration > 0) {
+          const pos = pct * musicPlayer._deviceDuration;
+          app.ipcRenderer.invoke("media:control", { action: "seek", position: pos });
+        }
+      } else {
+        if (!musicPlayer.audio.duration) return;
+        musicPlayer.audio.currentTime = pct * musicPlayer.audio.duration;
+      }
+    });
+  }
+
   // Restore saved source preference
   const savedSource = localStorage.getItem("musicSource");
   if (savedSource === "device") {
@@ -61,6 +123,10 @@ async function initMusicPlayer() {
     musicPlayer.index = 0;
     loadCurrentTrack();
   }
+
+  // Restore player mode
+  const savedMode = localStorage.getItem("playerMode") || "full";
+  setPlayerMode(savedMode);
 }
 
 // ── Source switching ───────────────────────────────────
@@ -110,11 +176,14 @@ function switchToLofi() {
     loadCurrentTrack();
   } else {
     document.querySelector("#mp-track-name").textContent = "No music";
+    syncCompactPlayer();
   }
 
   // Reset progress
   const dockTrackBar = document.querySelector(".dock-track-bar");
+  const cpTrackBar = document.querySelector(".cp-track-bar");
   if (dockTrackBar) dockTrackBar.style.setProperty("--track-progress", "0%");
+  if (cpTrackBar) cpTrackBar.style.setProperty("--track-progress", "0%");
 
   musicPlayer.playing = false;
   updatePlayButton();
@@ -131,8 +200,11 @@ async function pollDeviceMedia() {
     musicPlayer._deviceDuration = 0;
     musicPlayer._devicePosition = 0;
     const dockTrackBar = document.querySelector(".dock-track-bar");
+    const cpTrackBar = document.querySelector(".cp-track-bar");
     if (dockTrackBar) dockTrackBar.style.setProperty("--track-progress", "0%");
+    if (cpTrackBar) cpTrackBar.style.setProperty("--track-progress", "0%");
     updatePlayButton();
+    syncCompactPlayer();
     return;
   }
 
@@ -143,6 +215,7 @@ async function pollDeviceMedia() {
   musicPlayer._devicePosition = info.position;
   musicPlayer._deviceLastPoll = Date.now();
   updatePlayButton();
+  syncCompactPlayer();
 }
 
 function updateSourceButton() {
@@ -156,6 +229,14 @@ function updateSourceButton() {
   iconDevice.classList.toggle("hidden", !isDevice);
   label.textContent = isDevice ? "Device" : "Lofi";
   mpSourceBtn.classList.toggle("active", isDevice);
+
+  // Sync compact player source button
+  const cpSourceBtn = document.querySelector("#cp-source-btn");
+  const cpIconLofi = document.querySelector("#cp-source-icon-lofi");
+  const cpIconDevice = document.querySelector("#cp-source-icon-device");
+  if (cpSourceBtn) cpSourceBtn.classList.toggle("active", isDevice);
+  if (cpIconLofi) cpIconLofi.classList.toggle("hidden", isDevice);
+  if (cpIconDevice) cpIconDevice.classList.toggle("hidden", !isDevice);
 
   // Hide/show volume (doesn't apply to device)
   const mpVolume = document.querySelector("#mp-volume");
@@ -173,6 +254,7 @@ function loadCurrentTrack() {
   musicPlayer.audio.src = "file://" + track.path;
   mpTrackName.textContent = track.name;
   mpTrackName.title = track.name;
+  syncCompactPlayer();
 }
 
 function togglePlay() {
@@ -200,25 +282,29 @@ function updatePlayButton() {
   mpIconPause.classList.toggle("hidden", !musicPlayer.playing);
   mpTrackName.classList.toggle("playing", musicPlayer.playing);
   document.getElementById("music-player").classList.toggle("playing", musicPlayer.playing);
+  syncCompactPlayer();
 }
 
 function updateTrackProgress() {
   const dockTrackBar = document.querySelector(".dock-track-bar");
-  if (dockTrackBar) {
-    if (musicPlayer.source === "lofi") {
-      if (musicPlayer.audio.duration) {
-        const pct = (musicPlayer.audio.currentTime / musicPlayer.audio.duration) * 100;
-        dockTrackBar.style.setProperty("--track-progress", pct + "%");
-      }
-    } else if (musicPlayer._deviceDuration > 0) {
-      // Interpolate position between polls for smooth progress
-      let pos = musicPlayer._devicePosition;
-      if (musicPlayer.playing && musicPlayer._deviceLastPoll) {
-        pos += (Date.now() - musicPlayer._deviceLastPoll) / 1000;
-      }
-      const pct = Math.min(100, (pos / musicPlayer._deviceDuration) * 100);
-      dockTrackBar.style.setProperty("--track-progress", pct + "%");
+  const cpTrackBar = document.querySelector(".cp-track-bar");
+  let pctStr = null;
+
+  if (musicPlayer.source === "lofi") {
+    if (musicPlayer.audio.duration) {
+      pctStr = (musicPlayer.audio.currentTime / musicPlayer.audio.duration) * 100 + "%";
     }
+  } else if (musicPlayer._deviceDuration > 0) {
+    let pos = musicPlayer._devicePosition;
+    if (musicPlayer.playing && musicPlayer._deviceLastPoll) {
+      pos += (Date.now() - musicPlayer._deviceLastPoll) / 1000;
+    }
+    pctStr = Math.min(100, (pos / musicPlayer._deviceDuration) * 100) + "%";
+  }
+
+  if (pctStr) {
+    if (dockTrackBar) dockTrackBar.style.setProperty("--track-progress", pctStr);
+    if (cpTrackBar) cpTrackBar.style.setProperty("--track-progress", pctStr);
   }
   requestAnimationFrame(updateTrackProgress);
 }
@@ -264,4 +350,4 @@ function playPrevTrack() {
   }
 }
 
-module.exports = { initMusicPlayer, togglePlay, playNextTrack, playPrevTrack, updateTrackProgress };
+module.exports = { initMusicPlayer, togglePlay, playNextTrack, playPrevTrack, updateTrackProgress, setPlayerMode };

@@ -12,11 +12,11 @@ const { renderLayout, refreshLayout, startDragOverlay, stopDragOverlay } = requi
 const { openTab, closeTab, newSession, splitNewSession } = require("./renderer/tabs");
 const { renderSessionList, deleteSession } = require("./renderer/sessions");
 const { initBrowser } = require("./renderer/browser");
-const { initMusicPlayer, updateTrackProgress } = require("./renderer/music");
+const { initMusicPlayer, updateTrackProgress, setPlayerMode } = require("./renderer/music");
 const { enterFocusMode, exitFocusMode } = require("./renderer/focus");
 const { closeSettings, isSettingsOpen } = require("./renderer/settings");
 const { closeGit, isGitOpen, refreshGit } = require("./renderer/git");
-const { pickDirectory, renderRecentDirs } = require("./renderer/directory");
+const { pickDirectory, setDirectory, renderRecentDirs } = require("./renderer/directory");
 
 // ── Wire functions onto app for cross-module calls ────
 app.state = state;
@@ -40,6 +40,7 @@ app.enterFocusMode = enterFocusMode;
 app.exitFocusMode = exitFocusMode;
 app.pickDirectory = pickDirectory;
 app.refreshGit = refreshGit;
+app.setPlayerMode = setPlayerMode;
 
 // ── Sidebar resize ────────────────────────────────────
 {
@@ -108,10 +109,19 @@ function openQuickOpen() {
 }
 
 function closeQuickOpen() {
-  quickOpen.classList.add("hidden");
+  if (quickOpen.classList.contains("hidden")) return;
   _createMode = false;
-  quickOpenCreate.classList.add("hidden");
   qoDirDropdown.classList.add("hidden");
+  const modal = quickOpen.querySelector(".quick-open-modal");
+  const backdrop = quickOpen.querySelector(".quick-open-backdrop");
+  modal.style.animation = "dropOut 150ms var(--ease-smooth) forwards";
+  backdrop.style.animation = "fadeOut 150ms var(--ease-smooth) forwards";
+  setTimeout(() => {
+    quickOpen.classList.add("hidden");
+    quickOpenCreate.classList.add("hidden");
+    modal.style.animation = "";
+    backdrop.style.animation = "";
+  }, 150);
 }
 
 function showCreateForm() {
@@ -309,7 +319,7 @@ function renderQoDirList() {
       if (e.target.closest(".star-btn")) return;
       _createDir = el.dataset.dir;
       quickOpenDirLabel.textContent = shortDir(el.dataset.dir);
-      qoDirDropdown.classList.add("hidden");
+      app.animateClose(qoDirDropdown, "dropOut", 150);
     });
   });
   qoDirsList.querySelectorAll(".star-btn").forEach((btn) => {
@@ -347,7 +357,7 @@ quickOpenDirBtn.addEventListener("click", (e) => {
     renderQoDirList();
     qoDirDropdown.classList.remove("hidden");
   } else {
-    qoDirDropdown.classList.add("hidden");
+    app.animateClose(qoDirDropdown, "dropOut", 150);
   }
 });
 
@@ -360,7 +370,7 @@ qoBrowseBtn.addEventListener("click", async (e) => {
     state.recentDirs = result.recents;
     state.starredDirs = result.starred || [];
   }
-  qoDirDropdown.classList.add("hidden");
+  app.animateClose(qoDirDropdown, "dropOut", 150);
 });
 
 quickOpenCreateBtn.addEventListener("click", doCreateSession);
@@ -368,7 +378,7 @@ quickOpenCreateBtn.addEventListener("click", doCreateSession);
 document.querySelector(".quick-open-backdrop").addEventListener("click", closeQuickOpen);
 
 document.querySelector(".quick-open-modal").addEventListener("click", () => {
-  qoDirDropdown.classList.add("hidden");
+  app.animateClose(qoDirDropdown, "dropOut", 150);
 });
 
 document.addEventListener("keyup", (e) => {
@@ -460,6 +470,10 @@ async function init() {
   state.recentDirs = dirData.recents || [];
   state.starredDirs = dirData.starred || [];
   renderRecentDirs();
+
+  // Restore last selected workspace
+  const savedDir = localStorage.getItem("currentDir");
+  if (savedDir) setDirectory(savedDir);
 
   state.sessions = await ipcRenderer.invoke("sessions:list");
   renderSessionList();

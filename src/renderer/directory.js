@@ -23,6 +23,7 @@ async function pickDirectory() {
 function setDirectory(dir) {
   state.currentDir = dir;
   currentDirLabel.textContent = shortDir(dir);
+  localStorage.setItem("currentDir", dir);
   app.ipcRenderer.send("directory:add-recent", dir);
   if (app.refreshGit) app.refreshGit();
 }
@@ -68,7 +69,7 @@ function renderRecentDirs() {
     el.addEventListener("click", (e) => {
       if (e.target.closest(".star-btn")) return;
       setDirectory(el.dataset.dir);
-      recentDirsDropdown.classList.add("hidden");
+      app.animateClose(recentDirsDropdown, "dropOut", 150);
     });
   });
   recentDirsList.querySelectorAll(".star-btn").forEach((btn) => {
@@ -104,7 +105,7 @@ btnPickDir.addEventListener("click", (e) => {
     renderRecentDirs();
     recentDirsDropdown.classList.remove("hidden");
   } else {
-    recentDirsDropdown.classList.add("hidden");
+    app.animateClose(recentDirsDropdown, "dropOut", 150);
   }
 });
 
@@ -115,7 +116,7 @@ btnOpenFinder.addEventListener("click", (e) => {
 
 // Close dropdown on outside click
 document.addEventListener("click", () => {
-  recentDirsDropdown.classList.add("hidden");
+  app.animateClose(recentDirsDropdown, "dropOut", 150);
 });
 
 module.exports = { pickDirectory, setDirectory, renderRecentDirs };
