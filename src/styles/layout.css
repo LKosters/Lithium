@@ -222,3 +222,44 @@
   outline: none; box-shadow: 0 0 0 3px var(--primary-soft);
   animation: scaleIn 0.15s var(--ease-out) both;
 }
+
+/* ── Primary small button (titlebar) ─────────────── */
+.btn-primary-sm {
+  padding: 4px 12px;
+  border: none; border-radius: var(--radius-pill);
+  background: var(--primary); color: var(--bg);
+  font-family: var(--font-sans); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s var(--ease-out);
+  white-space: nowrap; -webkit-app-region: no-drag;
+}
+.btn-primary-sm:hover {
+  opacity: 0.88;
+  box-shadow: 0 0 12px rgba(232,168,56,0.3);
+}
+.btn-primary-sm:active { transform: scale(0.96); }
+
+/* Dev server play/stop button */
+.dev-server-btn { -webkit-app-region: no-drag; }
+.dev-server-btn.running { color: var(--secondary); }
+.dev-server-btn.running:hover { color: var(--destructive); }
+
+/* ── Small settings action button ─────────────────── */
+.settings-row-action {
+  display: flex; align-items: center; gap: 8px;
+}
+.settings-btn-sm {
+  padding: 4px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-xs);
+  background: var(--raised); color: var(--fg-dim);
+  font-family: var(--font-sans); font-size: 11px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s var(--ease-out);
+}
+.settings-btn-sm:hover {
+  border-color: var(--border-hover); background: var(--raised-hover); color: var(--fg);
+}
+.settings-btn-primary {
+  border-color: var(--primary-border); background: var(--primary-soft); color: var(--primary);
+}
+.settings-btn-primary:hover {
+  border-color: var(--primary); background: rgba(232,168,56,0.18); color: var(--primary);
+}

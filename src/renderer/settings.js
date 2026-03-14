@@ -67,6 +67,50 @@ function isSettingsOpen() {
   return settingsOpen;
 }
 
+// ── Projects directory setting ───────────────────────
+const settingsProjectsDir = document.querySelector("#settings-projects-dir");
+const btnSettingsProjectsDir = document.querySelector("#btn-settings-projects-dir");
+const btnCreateProjectsDir = document.querySelector("#btn-create-projects-dir");
+const { shortDir } = require("./helpers");
+
+function showProjectsDir(dir) {
+  settingsProjectsDir.textContent = shortDir(dir);
+  settingsProjectsDir.classList.remove("muted");
+  btnCreateProjectsDir.classList.add("hidden");
+}
+
+async function loadProjectsDirSetting() {
+  // resolve auto-detects ~/lithium-projects if it exists
+  const dir = await ipcRenderer.invoke("config:resolve-projects-dir");
+  if (dir) {
+    showProjectsDir(dir);
+  } else {
+    settingsProjectsDir.textContent = "Not set";
+    settingsProjectsDir.classList.add("muted");
+    btnCreateProjectsDir.classList.remove("hidden");
+  }
+}
+
+btnSettingsProjectsDir.addEventListener("click", async () => {
+  const result = await ipcRenderer.invoke("directory:pick");
+  if (result) {
+    ipcRenderer.send("config:set", { key: "projectsDir", value: result.dir });
+    showProjectsDir(result.dir);
+  }
+});
+
+btnCreateProjectsDir.addEventListener("click", async () => {
+  const dir = await ipcRenderer.invoke("config:create-default-projects-dir");
+  if (dir) showProjectsDir(dir);
+});
+
+// Load on settings open
+const _origOpenSettings = openSettings;
+openSettings = function () {
+  _origOpenSettings();
+  loadProjectsDirSetting();
+};
+
 // ── IPC: open settings from app menu (Cmd+,) ─────────
 ipcRenderer.on("menu:open-settings", () => {
   if (!settingsOpen) openSettings();

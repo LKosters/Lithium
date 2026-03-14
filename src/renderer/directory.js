@@ -26,6 +26,7 @@ function setDirectory(dir) {
   localStorage.setItem("currentDir", dir);
   app.ipcRenderer.send("directory:add-recent", dir);
   if (app.refreshGit) app.refreshGit();
+  if (app.checkDevServerAvailable) app.checkDevServerAvailable();
 }
 
 function renderRecentDirs() {

@@ -50,6 +50,60 @@ function initBrowser() {
     browserUrl.value = "https://www.tiktok.com";
   });
 
+  // Viewport size presets
+  const viewportBtns = document.querySelectorAll(".browser-viewport-btn");
+  const viewportFrame = document.querySelector("#browser-viewport-frame");
+  const viewportLabel = document.querySelector("#browser-viewport-label");
+
+  const viewportNames = {
+    responsive: "Responsive",
+    "375": "Mobile · 375px",
+    "768": "Tablet · 768px",
+    "1280": "Desktop · 1280px",
+  };
+
+  viewportBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const vp = btn.dataset.viewport;
+      viewportBtns.forEach((b) => b.classList.toggle("active", b === btn));
+      viewportLabel.textContent = viewportNames[vp] || vp;
+
+      if (vp === "responsive") {
+        viewportFrame.style.width = "100%";
+        viewportFrame.style.maxWidth = "";
+        viewportFrame.classList.remove("constrained");
+      } else {
+        const px = parseInt(vp, 10);
+        viewportFrame.style.maxWidth = px + "px";
+        viewportFrame.style.width = px + "px";
+        viewportFrame.classList.add("constrained");
+      }
+    });
+  });
+
+  // Expose function to open a URL from outside
+  app.openBrowserUrl = function (url) {
+    if (!browserOpen) {
+      browserOpen = true;
+      browserPanel.classList.remove("hidden");
+      browserResizeHandle.classList.remove("hidden");
+      btnToggleBrowser.classList.add("active");
+    }
+    browserWebview.src = url;
+    browserUrl.value = url;
+    requestAnimationFrame(() => app.fitAllVisibleTerminals());
+  };
+
+  // Expose function to close the browser panel
+  app.closeBrowser = function () {
+    if (!browserOpen) return;
+    browserOpen = false;
+    browserPanel.classList.add("hidden");
+    browserResizeHandle.classList.add("hidden");
+    btnToggleBrowser.classList.remove("active");
+    requestAnimationFrame(() => app.fitAllVisibleTerminals());
+  };
+
   // Browser panel resize
   {
     let dragging = false;
@@ -64,7 +118,8 @@ function initBrowser() {
     document.addEventListener("mousemove", (e) => {
       if (!dragging) return;
       const appRect = document.getElementById("app").getBoundingClientRect();
-      const newWidth = Math.min(600, Math.max(280, appRect.right - e.clientX));
+      const maxW = appRect.width * 0.6;
+      const newWidth = Math.min(maxW, Math.max(280, appRect.right - e.clientX));
       browserPanel.style.width = newWidth + "px";
       app.fitAllVisibleTerminals();
     });

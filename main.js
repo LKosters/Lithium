@@ -213,6 +213,164 @@ ipcMain.handle("music:list", () => {
   }
 });
 
+// ── Config get/set (generic key access) ─────────────────
+ipcMain.handle("config:get", (_e, key) => loadConfig()[key] ?? null);
+ipcMain.on("config:set", (_e, { key, value }) => {
+  const c = loadConfig();
+  c[key] = value;
+  saveConfig(c);
+});
+
+// ── Default projects directory ───────────────────────────
+const DEFAULT_PROJECTS_DIR = path.join(os.homedir(), "lithium-projects");
+
+ipcMain.handle("config:resolve-projects-dir", () => {
+  const config = loadConfig();
+  // Already set — return it
+  if (config.projectsDir) return config.projectsDir;
+  // Not set but default folder exists — auto-adopt it
+  if (fs.existsSync(DEFAULT_PROJECTS_DIR)) {
+    config.projectsDir = DEFAULT_PROJECTS_DIR;
+    saveConfig(config);
+    return DEFAULT_PROJECTS_DIR;
+  }
+  return null;
+});
+
+ipcMain.handle("config:create-default-projects-dir", () => {
+  fs.mkdirSync(DEFAULT_PROJECTS_DIR, { recursive: true });
+  const config = loadConfig();
+  config.projectsDir = DEFAULT_PROJECTS_DIR;
+  saveConfig(config);
+  return DEFAULT_PROJECTS_DIR;
+});
+
+// ── Project scaffolding ─────────────────────────────────
+const { spawn } = require("child_process");
+
+ipcMain.handle("project:create", async (_e, { framework, name, projectsDir }) => {
+  const targetDir = path.join(projectsDir, name);
+  if (fs.existsSync(targetDir)) {
+    return { ok: false, error: `Directory "${name}" already exists in projects folder.` };
+  }
+
+  let cmd, args;
+  if (framework === "nextjs") {
+    cmd = "npx";
+    args = ["create-next-app@latest", name, "--yes"];
+  } else {
+    return { ok: false, error: `Unknown framework: ${framework}` };
+  }
+
+  return new Promise((resolve) => {
+    const proc = spawn(cmd, args, {
+      cwd: projectsDir,
+      shell: true,
+      env: { ...process.env },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stderr = "";
+    proc.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+
+    proc.on("error", (err) => {
+      resolve({ ok: false, error: err.message });
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0 && fs.existsSync(targetDir)) {
+        addRecentDir(targetDir);
+        resolve({ ok: true, dir: targetDir });
+      } else {
+        // Filter out noisy npm warn lines (e.g. "npm warn exec package not found")
+        const meaningful = stderr
+          .split("\n")
+          .filter((l) => !/^npm warn\b/i.test(l.trim()))
+          .join("\n")
+          .trim();
+        resolve({ ok: false, error: meaningful || `Process exited with code ${code}` });
+      }
+    });
+  });
+});
+
+// ── Dev server ──────────────────────────────────────────
+let _devServerProc = null;
+let _devServerDir = null;
+
+ipcMain.handle("devserver:has-dev-script", (_e, { cwd }) => {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(cwd, "package.json"), "utf-8"));
+    return !!(pkg.scripts && pkg.scripts.dev);
+  } catch {
+    return false;
+  }
+});
+
+ipcMain.handle("devserver:start", (_e, { cwd }) => {
+  if (_devServerProc) return { ok: false, error: "Dev server already running" };
+
+  _devServerDir = cwd;
+  const proc = spawn("npm", ["run", "dev"], {
+    cwd,
+    shell: true,
+    detached: true,
+    env: { ...process.env },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  _devServerProc = proc;
+
+  const sender = _e.sender;
+
+  proc.stdout.on("data", (chunk) => {
+    const text = chunk.toString();
+    // Detect localhost URL from Next.js output (e.g. "- Local: http://localhost:3000")
+    const match = text.match(/https?:\/\/localhost:\d+/);
+    if (match && sender && !sender.isDestroyed()) {
+      sender.send("devserver:url", match[0]);
+    }
+  });
+
+  proc.stderr.on("data", (chunk) => {
+    const text = chunk.toString();
+    const match = text.match(/https?:\/\/localhost:\d+/);
+    if (match && sender && !sender.isDestroyed()) {
+      sender.send("devserver:url", match[0]);
+    }
+  });
+
+  proc.on("close", () => {
+    _devServerProc = null;
+    _devServerDir = null;
+    if (sender && !sender.isDestroyed()) {
+      sender.send("devserver:stopped");
+    }
+  });
+
+  proc.on("error", () => {
+    _devServerProc = null;
+    _devServerDir = null;
+    if (sender && !sender.isDestroyed()) {
+      sender.send("devserver:stopped");
+    }
+  });
+
+  return { ok: true };
+});
+
+ipcMain.handle("devserver:stop", () => {
+  if (!_devServerProc) return { ok: false };
+  try {
+    // Kill entire process tree (shell: true means we need to kill the group)
+    process.kill(-_devServerProc.pid, "SIGTERM");
+  } catch {
+    try { _devServerProc.kill(); } catch {}
+  }
+  _devServerProc = null;
+  _devServerDir = null;
+  return { ok: true };
+});
+
 // ── System media (Now Playing) ──────────────────────────
 const { execFile } = require("child_process");
 

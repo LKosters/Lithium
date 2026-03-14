@@ -131,3 +131,149 @@
   cursor: pointer; transition: opacity 0.12s var(--ease-out);
 }
 .quick-open-create-btn:hover { opacity: 0.85; }
+
+/* ── New Project modal ──────────────────────────── */
+.np-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding-top: 100px;
+}
+.np-overlay.hidden { display: none !important; }
+.np-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.5);
+  animation: fadeIn 0.15s var(--ease-out) both;
+}
+.np-dialog {
+  position: relative; z-index: 1;
+  width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  animation: quickOpenIn 0.15s var(--ease-out) both;
+}
+
+.np-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px 0;
+}
+.np-title {
+  font-family: var(--font-sans); font-size: 15px; font-weight: 600;
+  color: var(--fg); margin: 0;
+}
+.np-close-btn {
+  flex-shrink: 0;
+}
+
+#np-form {
+  padding: 8px 18px 18px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+
+.np-label {
+  font-family: var(--font-sans); font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); margin-top: 10px;
+}
+
+/* Framework cards */
+.np-frameworks {
+  display: flex; gap: 8px; margin-top: 4px;
+}
+.np-fw-card {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 8px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--raised); color: var(--fg-dim);
+  cursor: pointer; transition: all 0.2s var(--ease-out);
+  font-family: var(--font-sans);
+}
+.np-fw-card:hover {
+  border-color: var(--border-hover); background: var(--raised-hover);
+}
+.np-fw-card.selected {
+  border-color: var(--primary); background: var(--primary-soft);
+  color: var(--fg);
+}
+.np-fw-name {
+  font-size: 12px; font-weight: 500;
+}
+
+/* Input */
+.np-input {
+  padding: 8px 12px; margin-top: 4px;
+  border: 1px solid var(--border); border-radius: var(--radius-xs);
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-sans); font-size: 13px;
+  outline: none; transition: border-color 0.15s var(--ease-out);
+}
+.np-input:focus { border-color: var(--primary); }
+.np-input::placeholder { color: var(--muted); }
+
+/* Directory row */
+.np-dir-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 4px;
+}
+.np-dir-path {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--fg-dim);
+}
+.np-dir-path.muted { color: var(--muted); font-style: italic; }
+.np-dir-change {
+  flex-shrink: 0; padding: 4px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-xs);
+  background: var(--raised); color: var(--fg-dim);
+  font-family: var(--font-sans); font-size: 11px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s var(--ease-out);
+}
+.np-dir-change:hover {
+  border-color: var(--border-hover); background: var(--raised-hover); color: var(--fg);
+}
+
+/* Error */
+.np-error {
+  padding: 6px 10px; margin-top: 6px;
+  border-radius: var(--radius-xs);
+  background: rgba(201,66,52,0.12); color: var(--destructive);
+  font-family: var(--font-sans); font-size: 12px;
+}
+.np-error.hidden { display: none; }
+
+/* Actions */
+.np-actions {
+  display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;
+}
+.np-btn-cancel {
+  padding: 7px 16px; border: 1px solid var(--border); border-radius: var(--radius-xs);
+  background: none; color: var(--fg-dim);
+  font-family: var(--font-sans); font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s var(--ease-out);
+}
+.np-btn-cancel:hover { border-color: var(--border-hover); color: var(--fg); }
+.np-btn-create {
+  padding: 7px 20px; border: none; border-radius: var(--radius-xs);
+  background: var(--primary); color: var(--bg);
+  font-family: var(--font-sans); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s var(--ease-out);
+}
+.np-btn-create:hover { opacity: 0.85; }
+.np-btn-create:active { transform: scale(0.97); }
+
+/* Progress state */
+.np-progress {
+  padding: 40px 18px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.np-progress.hidden { display: none; }
+.np-progress-text {
+  font-family: var(--font-sans); font-size: 13px; color: var(--fg-dim);
+}
+.np-spinner {
+  width: 28px; height: 28px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: npSpin 0.7s linear infinite;
+}
+@keyframes npSpin { to { transform: rotate(360deg); } }

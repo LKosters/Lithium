@@ -41,6 +41,15 @@
                 </button>
             </div>
             <div class="titlebar-right">
+                <button id="btn-new-project" class="btn-primary-sm">New Project</button>
+                <button id="btn-dev-server" class="btn-icon dev-server-btn hidden" title="Start Dev Server">
+                    <svg id="dev-server-play" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 2.5v11l9-5.5L4 2.5z" fill="currentColor"/>
+                    </svg>
+                    <svg id="dev-server-stop" class="hidden" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor"/>
+                    </svg>
+                </button>
                 <button
                     id="btn-toggle-browser"
                     class="btn-icon"
@@ -526,12 +535,41 @@
                         placeholder="Enter URL..."
                     />
                 </div>
+                <div class="browser-viewport-bar">
+                    <button class="browser-viewport-btn active" data-viewport="responsive" title="Responsive (fill panel)">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                            <rect x="1" y="3" width="14" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+                            <path d="M1 5.5h14" stroke="currentColor" stroke-width="0.8" opacity="0.4"/>
+                        </svg>
+                    </button>
+                    <button class="browser-viewport-btn" data-viewport="375" title="Mobile (375px)">
+                        <svg width="12" height="14" viewBox="0 0 12 16" fill="none">
+                            <rect x="1.5" y="1" width="9" height="14" rx="2" stroke="currentColor" stroke-width="1.2"/>
+                            <line x1="4.5" y1="13" x2="7.5" y2="13" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <button class="browser-viewport-btn" data-viewport="768" title="Tablet (768px)">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                            <rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.2"/>
+                            <circle cx="8" cy="13" r="0.7" fill="currentColor"/>
+                        </svg>
+                    </button>
+                    <button class="browser-viewport-btn" data-viewport="1280" title="Desktop (1280px)">
+                        <svg width="16" height="14" viewBox="0 0 18 16" fill="none">
+                            <rect x="1" y="1" width="16" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+                            <path d="M6 13h6M9 12v1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <span id="browser-viewport-label" class="browser-viewport-label">Responsive</span>
+                </div>
                 <div class="browser-webview-container">
-                    <webview
-                        id="browser-webview"
-                        src="https://www.google.com"
-                        class="browser-webview"
-                    ></webview>
+                    <div id="browser-viewport-frame" class="browser-viewport-frame">
+                        <webview
+                            id="browser-webview"
+                            src="https://www.google.com"
+                            class="browser-webview"
+                        ></webview>
+                    </div>
                 </div>
                 <div class="browser-bottom-bar">
                     <button
@@ -850,6 +888,64 @@
                     </button>
                 </div>
                 <div id="quick-open-list" class="quick-open-list"></div>
+            </div>
+        </div>
+
+        <!-- New Project modal -->
+        <div id="new-project-modal" class="np-overlay hidden">
+            <div class="np-backdrop"></div>
+            <div class="np-dialog">
+                <!-- Form state -->
+                <div id="np-form">
+                    <div class="np-header">
+                        <h3 class="np-title">New Project</h3>
+                        <button id="np-close" class="btn-icon np-close-btn" title="Close">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <label class="np-label">Framework</label>
+                    <div class="np-frameworks">
+                        <button class="np-fw-card" data-framework="nextjs">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="10" fill="#fff"/>
+                                <path d="M7 17V7h1.2l6.5 8.5V7h1.1v10h-1L8.1 8.3V17H7z" fill="#000"/>
+                            </svg>
+                            <span class="np-fw-name">Next.js</span>
+                        </button>
+                    </div>
+
+                    <label class="np-label">Project name</label>
+                    <input
+                        id="np-name"
+                        class="np-input"
+                        type="text"
+                        placeholder="my-awesome-app"
+                        spellcheck="false"
+                        autocomplete="off"
+                    />
+
+                    <label class="np-label">Projects directory</label>
+                    <div class="np-dir-row">
+                        <span id="np-dir-path" class="np-dir-path">Not set</span>
+                        <button id="np-dir-change" class="np-dir-change">Change</button>
+                    </div>
+
+                    <div id="np-error" class="np-error hidden"></div>
+
+                    <div class="np-actions">
+                        <button id="np-cancel" class="np-btn-cancel">Cancel</button>
+                        <button id="np-create" class="np-btn-create">Create</button>
+                    </div>
+                </div>
+
+                <!-- Progress state -->
+                <div id="np-progress" class="np-progress hidden">
+                    <div class="np-spinner"></div>
+                    <span class="np-progress-text">Creating project...</span>
+                </div>
             </div>
         </div>
 
@@ -1218,6 +1314,23 @@
                             <span class="settings-row-value muted"
                                 >Not set</span
                             >
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name"
+                                    >Projects directory</span
+                                >
+                                <span class="settings-row-desc"
+                                    >Where new projects are created</span
+                                >
+                            </div>
+                            <div class="settings-row-action">
+                                <span id="settings-projects-dir" class="settings-row-value muted"
+                                    >Not set</span
+                                >
+                                <button id="btn-create-projects-dir" class="settings-btn-sm settings-btn-primary hidden">Create ~/lithium-projects</button>
+                                <button id="btn-settings-projects-dir" class="settings-btn-sm">Select...</button>
+                            </div>
                         </div>
                         <div class="settings-row">
                             <div class="settings-row-label">

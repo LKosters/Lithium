@@ -393,8 +393,197 @@ document.addEventListener("keyup", (e) => {
   }
 });
 
+// ── New Project modal ─────────────────────────────
+const npModal = document.querySelector("#new-project-modal");
+const npForm = document.querySelector("#np-form");
+const npProgress = document.querySelector("#np-progress");
+const npNameInput = document.querySelector("#np-name");
+const npDirPath = document.querySelector("#np-dir-path");
+const npError = document.querySelector("#np-error");
+const npFwCards = document.querySelectorAll(".np-fw-card");
+let _npFramework = null;
+let _npProjectsDir = null;
+
+async function openNewProject() {
+  // Resolve projects dir (auto-detects ~/lithium-projects)
+  _npProjectsDir = await ipcRenderer.invoke("config:resolve-projects-dir");
+  npDirPath.textContent = _npProjectsDir ? shortDir(_npProjectsDir) : "Not set";
+  npDirPath.classList.toggle("muted", !_npProjectsDir);
+
+  // Reset state
+  _npFramework = null;
+  npNameInput.value = "";
+  npError.classList.add("hidden");
+  npFwCards.forEach((c) => c.classList.remove("selected"));
+  npForm.classList.remove("hidden");
+  npProgress.classList.add("hidden");
+
+  npModal.classList.remove("hidden");
+  npNameInput.focus();
+}
+
+function closeNewProject() {
+  if (npModal.classList.contains("hidden")) return;
+  const dialog = npModal.querySelector(".np-dialog");
+  const backdrop = npModal.querySelector(".np-backdrop");
+  dialog.style.animation = "dropOut 150ms var(--ease-smooth) forwards";
+  backdrop.style.animation = "fadeOut 150ms var(--ease-smooth) forwards";
+  setTimeout(() => {
+    npModal.classList.add("hidden");
+    dialog.style.animation = "";
+    backdrop.style.animation = "";
+  }, 150);
+}
+
+// Framework card clicks
+npFwCards.forEach((card) => {
+  card.addEventListener("click", () => {
+    npFwCards.forEach((c) => c.classList.remove("selected"));
+    card.classList.add("selected");
+    _npFramework = card.dataset.framework;
+  });
+});
+
+// Change directory
+document.querySelector("#np-dir-change").addEventListener("click", async () => {
+  const result = await ipcRenderer.invoke("directory:pick");
+  if (result) {
+    _npProjectsDir = result.dir;
+    npDirPath.textContent = shortDir(result.dir);
+    npDirPath.classList.remove("muted");
+    // Also persist as projectsDir config
+    ipcRenderer.send("config:set", { key: "projectsDir", value: result.dir });
+    state.recentDirs = result.recents;
+    state.starredDirs = result.starred || [];
+  }
+});
+
+// Cancel
+document.querySelector("#np-cancel").addEventListener("click", closeNewProject);
+document.querySelector("#np-close").addEventListener("click", closeNewProject);
+document.querySelector(".np-backdrop").addEventListener("click", closeNewProject);
+
+// Create
+document.querySelector("#np-create").addEventListener("click", async () => {
+  npError.classList.add("hidden");
+
+  const name = npNameInput.value.trim();
+  if (!_npFramework) {
+    npError.textContent = "Please select a framework.";
+    npError.classList.remove("hidden");
+    return;
+  }
+  if (!name) {
+    npError.textContent = "Please enter a project name.";
+    npError.classList.remove("hidden");
+    return;
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+    npError.textContent = "Name can only contain letters, numbers, dashes and underscores.";
+    npError.classList.remove("hidden");
+    return;
+  }
+  if (!_npProjectsDir) {
+    // Auto-create ~/lithium-projects when user tries to create without a dir set
+    _npProjectsDir = await ipcRenderer.invoke("config:create-default-projects-dir");
+    npDirPath.textContent = shortDir(_npProjectsDir);
+    npDirPath.classList.remove("muted");
+  }
+
+  // Show progress
+  npForm.classList.add("hidden");
+  npProgress.classList.remove("hidden");
+
+  const result = await ipcRenderer.invoke("project:create", {
+    framework: _npFramework,
+    name,
+    projectsDir: _npProjectsDir,
+  });
+
+  if (result.ok) {
+    // Switch workspace to the new project dir and open a new session
+    setDirectory(result.dir);
+    newSession();
+    closeNewProject();
+    // Show the dev server button
+    btnDevServer.classList.remove("hidden");
+  } else {
+    // Show error, return to form
+    npProgress.classList.add("hidden");
+    npForm.classList.remove("hidden");
+    npError.textContent = result.error;
+    npError.classList.remove("hidden");
+  }
+});
+
+// Wire titlebar button
+document.querySelector("#btn-new-project").addEventListener("click", openNewProject);
+
+// ── Dev server play/stop ──────────────────────────
+const btnDevServer = document.querySelector("#btn-dev-server");
+const devPlayIcon = document.querySelector("#dev-server-play");
+const devStopIcon = document.querySelector("#dev-server-stop");
+let _devServerRunning = false;
+
+function setDevServerUI(running) {
+  _devServerRunning = running;
+  btnDevServer.classList.toggle("running", running);
+  btnDevServer.title = running ? "Stop Dev Server" : "Start Dev Server";
+  devPlayIcon.classList.toggle("hidden", running);
+  devStopIcon.classList.toggle("hidden", !running);
+}
+
+async function stopDevServer() {
+  if (!_devServerRunning) return;
+  await ipcRenderer.invoke("devserver:stop");
+  setDevServerUI(false);
+  if (app.closeBrowser) app.closeBrowser();
+}
+
+btnDevServer.addEventListener("click", async () => {
+  if (_devServerRunning) {
+    await stopDevServer();
+  } else {
+    if (!state.currentDir) return;
+    const result = await ipcRenderer.invoke("devserver:start", { cwd: state.currentDir });
+    if (result.ok) setDevServerUI(true);
+  }
+});
+
+// Listen for dev server URL → open in browser sidebar
+ipcRenderer.on("devserver:url", (_e, url) => {
+  if (app.openBrowserUrl) app.openBrowserUrl(url);
+});
+
+// Listen for dev server stopped (e.g. process crashed)
+ipcRenderer.on("devserver:stopped", () => {
+  setDevServerUI(false);
+  if (app.closeBrowser) app.closeBrowser();
+});
+
+// Check if current workspace has a dev script → show/hide button
+// Also stops running dev server when switching workspaces
+async function checkDevServerAvailable() {
+  // Stop any running dev server on workspace switch
+  if (_devServerRunning) await stopDevServer();
+
+  if (!state.currentDir) {
+    btnDevServer.classList.add("hidden");
+    return;
+  }
+  const has = await ipcRenderer.invoke("devserver:has-dev-script", { cwd: state.currentDir });
+  btnDevServer.classList.toggle("hidden", !has);
+}
+
+// Expose for use after setDirectory calls
+app.checkDevServerAvailable = checkDevServerAvailable;
+
 // ── Global keydown ────────────────────────────────────
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !npModal.classList.contains("hidden")) {
+    closeNewProject();
+    return;
+  }
   if (e.key === "Escape" && !quickOpen.classList.contains("hidden")) {
     closeQuickOpen();
     return;
