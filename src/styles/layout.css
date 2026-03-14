@@ -1,0 +1,224 @@
+/* ── App layout (with gaps) ────────────────────────── */
+#app {
+  flex: 1; display: flex; overflow: hidden;
+  padding: var(--gap) var(--gap) 0 0;
+  gap: var(--gap);
+}
+
+/* ── Sidebar ────────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar-w); min-width: 180px; max-width: 500px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  overflow: hidden;
+  padding-bottom: var(--gap);
+  border-radius: 0 var(--radius) 0 0;
+}
+
+#sidebar-resize-handle {
+  width: 1px; flex-shrink: 0; cursor: col-resize;
+  background: transparent;
+  transition: background 0.3s var(--ease-out);
+  position: relative;
+}
+#sidebar-resize-handle::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -3px; right: -3px; z-index: 1;
+}
+#sidebar-resize-handle:hover, #sidebar-resize-handle.dragging {
+  background: var(--primary);
+}
+
+/* Workspace header */
+.sidebar-workspace {
+  padding: 14px 14px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.workspace-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.15em; color: var(--muted);
+}
+
+.dir-row { display: flex; align-items: center; gap: 4px; position: relative; }
+.dir-row .dir-button { flex: 1; min-width: 0; }
+
+.dir-button {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--raised); color: var(--fg-dim);
+  font-family: var(--font-mono); font-size: 11px;
+  cursor: pointer; transition: all 0.2s var(--ease-out); text-align: left;
+}
+.dir-button:hover { border-color: var(--border-hover); background: var(--raised-hover); color: var(--fg); }
+.dir-button span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dir-button .chevron { flex-shrink: 0; opacity: 0.3; transition: all 0.2s var(--ease-out); }
+.dir-button:hover .chevron { opacity: 0.6; transform: translateY(1px); }
+
+/* New session button — full width, prominent */
+.btn-new-session {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 8px;
+  border: 1px dashed var(--primary-border);
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-family: var(--font-sans); font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all 0.25s var(--ease-out);
+}
+.btn-new-session:hover {
+  background: rgba(232,168,56,0.18);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(232,168,56,0.08);
+}
+.btn-new-session:active { transform: translateY(0) scale(0.98); }
+
+.sidebar-divider {
+  height: 1px; margin: 0 14px;
+  background: var(--border);
+}
+
+/* ── Dropdown ──────────────────────────────────────── */
+.dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px;
+  background: var(--raised); border: 1px solid var(--border-hover);
+  border-radius: var(--radius); z-index: 50;
+  max-height: 240px; overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  animation: dropIn 0.2s var(--ease-out) both;
+}
+.dropdown.hidden { display: none; }
+
+.dropdown-tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 4px; }
+.dropdown-tabs.hidden { display: none; }
+.dropdown-tab {
+  flex: 1; padding: 8px 0; font-size: 11px; font-family: var(--font-sans);
+  text-align: center; color: var(--muted); background: none; border: none;
+  border-bottom: 2px solid transparent; cursor: pointer;
+  transition: all 0.2s var(--ease-out); font-weight: 500;
+}
+.dropdown-tab:hover { color: var(--fg-dim); }
+.dropdown-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+.dropdown-empty { padding: 20px; text-align: center; font-size: 12px; color: var(--muted); }
+.dropdown-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; font-size: 11px; font-family: var(--font-mono); color: var(--fg-dim);
+  cursor: pointer; transition: all 0.15s var(--ease-out);
+  border-radius: var(--radius-xs); margin: 2px 4px;
+}
+.dropdown-item:hover { background: var(--surface); color: var(--fg); }
+.dropdown-item-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.star-btn {
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; width: 20px; height: 20px;
+  border: none; background: none; color: var(--muted);
+  cursor: pointer; border-radius: 4px; padding: 0;
+  transition: all 0.2s var(--ease-out);
+}
+.star-btn:hover { color: var(--primary); transform: scale(1.2); }
+.star-btn:active { transform: scale(0.8); }
+.star-btn.starred { color: var(--primary); }
+
+/* ── Session list ──────────────────────────────────── */
+.session-list-section {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+  padding: 4px 8px; gap: 0;
+}
+.section-header {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em;
+  color: var(--muted); padding: 8px 8px 6px; font-weight: 600;
+}
+
+.chat-group { margin-bottom: 4px; }
+.chat-group-label {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 8px; cursor: pointer; border-radius: var(--radius-xs);
+  transition: all 0.15s var(--ease-out); user-select: none;
+}
+.chat-group-label:hover { background: var(--raised); }
+
+.group-chevron { flex-shrink: 0; opacity: 0.35; transition: transform 0.2s var(--ease-out); display: flex; align-items: center; }
+.group-chevron.collapsed { transform: rotate(-90deg); }
+
+.group-label-text {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11.5px; font-family: var(--font-sans); color: var(--fg-dim); font-weight: 500;
+}
+
+.group-count {
+  flex-shrink: 0; font-size: 10px; color: var(--muted); opacity: 0.5;
+  font-family: var(--font-mono);
+}
+
+/* Session items — clean list style */
+.session-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px 7px 24px; margin: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-xs);
+  cursor: pointer; position: relative;
+  transition: all 0.15s var(--ease-out);
+}
+.session-item:hover {
+  background: var(--raised);
+}
+.session-item.active {
+  background: var(--primary-soft);
+}
+
+.session-item-status {
+  width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+  background: var(--border);
+  transition: all 0.3s var(--ease-smooth);
+}
+.session-item-status.alive {
+  background: var(--secondary);
+  animation: pulseAlive 2.5s var(--ease-smooth) infinite;
+}
+
+.session-item-title {
+  flex: 1; min-width: 0;
+  font-size: 12px; color: var(--fg-dim); font-weight: 400;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.session-item.active .session-item-title { color: var(--primary); font-weight: 500; }
+
+.session-item-meta {
+  flex-shrink: 0; font-size: 10px; color: var(--muted); opacity: 0.4;
+  font-family: var(--font-mono);
+  transition: opacity 0.15s var(--ease-out);
+}
+.session-item:hover .session-item-meta { opacity: 0; }
+
+.session-item-actions {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; gap: 1px; opacity: 0;
+  transition: opacity 0.15s var(--ease-out);
+}
+.session-item:hover .session-item-actions { opacity: 1; }
+
+.session-item-btn {
+  border: none; background: none; color: var(--muted);
+  cursor: pointer; padding: 4px; border-radius: var(--radius-xs);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s var(--ease-out);
+}
+.session-item-btn:hover { color: var(--fg); background: var(--surface); }
+.session-item-btn:active { transform: scale(0.88); }
+.session-item-btn[data-delete-id]:hover { color: var(--destructive); background: rgba(201,66,52,0.1); }
+.session-item-btn[data-focus-id]:hover { color: var(--accent); background: rgba(212,101,74,0.1); }
+
+.session-empty { padding: 24px 0; text-align: center; color: var(--muted); font-size: 12px; }
+
+.rename-input {
+  width: 100%; padding: 3px 6px;
+  font-family: var(--font-sans); font-size: 12px;
+  background: var(--surface); color: var(--fg);
+  border: 1px solid var(--primary); border-radius: var(--radius-xs);
+  outline: none; box-shadow: 0 0 0 3px var(--primary-soft);
+  animation: scaleIn 0.15s var(--ease-out) both;
+}

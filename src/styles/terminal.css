@@ -1,0 +1,215 @@
+/* ── Main area ──────────────────────────────────────── */
+#main {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
+  background: var(--surface);
+  border-radius: var(--radius) var(--radius) 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+}
+
+/* Tab bar — hidden; using per-pane pill tabs */
+#tab-bar { height: 0; display: none; }
+#tab-bar.split-mode { display: none; }
+#tabs { display: none; }
+
+/* ── Terminal area ──────────────────────────────────── */
+#terminal-area {
+  flex: 1; overflow: hidden; position: relative;
+  background: var(--bg);
+  margin: 0 1px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.terminal-pane { position: absolute; inset: 0; padding: 6px; display: none; }
+.terminal-pane.active { display: block; }
+.terminal-pane .xterm { height: 100%; }
+.terminal-pane .xterm-viewport { background: var(--bg) !important; }
+.terminal-pane .xterm-viewport::-webkit-scrollbar { width: 4px; }
+.terminal-pane .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
+.terminal-pane .xterm-viewport::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+/* ── Welcome screen ────────────────────────────────── */
+.welcome-screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  animation: fadeUp 0.8s var(--ease-out) both;
+}
+
+/* Decorative sun shape */
+.welcome-deco {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+}
+.deco-sun {
+  position: absolute; top: 50%; left: 50%;
+  width: 0; height: 0;
+  animation: sunSpin 120s linear infinite;
+}
+.deco-ray {
+  position: absolute;
+  width: 300px; height: 3px;
+  background: linear-gradient(to right, transparent 105px, var(--primary) 115px);
+  opacity: 0.07;
+  top: -1.5px; left: 0;
+  transform-origin: 0 50%;
+  transform: rotate(var(--angle));
+  border-radius: 0 2px 2px 0;
+}
+.deco-ring {
+  position: absolute;
+  border-radius: 50%;
+}
+.deco-ring-1 {
+  width: 210px; height: 210px;
+  top: -105px; left: -105px;
+  border: 3px solid var(--primary);
+  opacity: 0.08;
+  animation: ringPulse 6s var(--ease-smooth) infinite;
+}
+.deco-ring-2 {
+  width: 120px; height: 120px;
+  top: -60px; left: -60px;
+  border: 2px solid var(--primary);
+  opacity: 0.06;
+  animation: ringPulse 8s var(--ease-smooth) infinite 1s;
+}
+.deco-center {
+  position: absolute;
+  width: 40px; height: 40px;
+  top: -20px; left: -20px;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.06;
+}
+
+.welcome-title {
+  position: relative; z-index: 1;
+  font-family: var(--font-display); font-size: 64px; font-weight: 400;
+  font-style: italic; color: var(--fg); letter-spacing: -0.04em;
+  animation: fadeUp 0.8s var(--ease-out) 0.1s both;
+}
+.welcome-title-accent { color: var(--primary); font-style: normal; font-weight: 600; }
+
+.welcome-line {
+  position: relative; z-index: 1;
+  width: 60px; height: 2px; margin: 14px 0;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  border-radius: 2px;
+  animation: fadeUp 0.8s var(--ease-out) 0.2s both;
+}
+
+.welcome-sub {
+  position: relative; z-index: 1;
+  font-size: 14px; font-weight: 300; color: var(--fg-dim);
+  letter-spacing: 0.06em;
+  animation: fadeUp 0.8s var(--ease-out) 0.25s both;
+}
+.welcome-hint {
+  position: relative; z-index: 1;
+  margin-top: 24px; font-size: 11px; color: var(--muted);
+  font-family: var(--font-mono);
+  animation: fadeUp 0.8s var(--ease-out) 0.4s both;
+}
+
+.hidden { display: none !important; }
+
+/* ── Split pane layout ─────────────────────────────── */
+.split-container { display: flex; flex: 1; width: 100%; height: 100%; overflow: hidden; }
+.split-container.horizontal { flex-direction: row; }
+.split-container.vertical { flex-direction: column; }
+
+.pane-container {
+  display: flex; flex: 1; flex-direction: column; overflow: hidden;
+  min-width: 80px; min-height: 60px; position: relative;
+}
+.pane-container.focused > .pane-tab-bar {
+  background: var(--raised);
+}
+
+/* Per-pane tab bar — pill style */
+.pane-tab-bar {
+  height: 36px; flex-shrink: 0;
+  display: flex; align-items: center;
+  padding: 0 8px; gap: 4px;
+  background: var(--surface);
+  overflow-x: auto; overflow-y: hidden;
+  user-select: none;
+  transition: background 0.3s var(--ease-out);
+}
+.pane-tab-bar::-webkit-scrollbar { height: 0; }
+
+/* Pill tabs */
+.pane-tab {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border: none;
+  font-size: 11px; color: var(--muted); cursor: pointer;
+  white-space: nowrap; max-width: 160px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  transition: all 0.2s var(--ease-out);
+  position: relative;
+}
+.pane-tab:hover { background: var(--raised); color: var(--fg-dim); }
+.pane-tab.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.pane-tab-status {
+  width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+  background: var(--border); transition: all 0.3s var(--ease-smooth);
+}
+.pane-tab-status.alive { background: var(--secondary); }
+
+.pane-tab-title { overflow: hidden; text-overflow: ellipsis; }
+
+.pane-tab-close {
+  display: flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border: none; background: none;
+  color: var(--muted); cursor: pointer; border-radius: 50%;
+  font-size: 11px; line-height: 1; opacity: 0;
+  transition: all 0.2s var(--ease-out); transform: scale(0.7);
+}
+.pane-tab:hover .pane-tab-close { opacity: 1; transform: scale(1); }
+.pane-tab-close:hover { background: var(--border); color: var(--fg); }
+
+/* Pane terminal */
+.pane-terminal {
+  flex: 1; overflow: hidden; position: relative;
+  background: var(--bg); padding: 4px;
+}
+.pane-terminal .terminal-pane {
+  position: relative; inset: auto;
+  width: 100%; height: 100%; display: block; padding: 0;
+}
+
+/* Split handles */
+.split-handle {
+  flex-shrink: 0; background: var(--border);
+  transition: all 0.3s var(--ease-out); z-index: 5; position: relative;
+}
+.split-handle.horizontal { width: 1px; cursor: col-resize; }
+.split-handle.vertical { height: 1px; cursor: row-resize; }
+.split-handle::after { content: ""; position: absolute; }
+.split-handle.horizontal::after { top: 0; bottom: 0; left: -3px; right: -3px; }
+.split-handle.vertical::after { left: 0; right: 0; top: -3px; bottom: -3px; }
+.split-handle:hover, .split-handle.dragging { background: var(--primary); }
+
+/* Drop zones */
+.drop-overlay { position: absolute; inset: 0; z-index: 20; pointer-events: none; display: none; }
+.drop-overlay.visible { display: block; pointer-events: auto; }
+.drop-zone { position: absolute; background: transparent; transition: all 0.2s var(--ease-out); z-index: 21; }
+.drop-zone.center { inset: 25%; }
+.drop-zone.left { top: 0; bottom: 0; left: 0; width: 25%; }
+.drop-zone.right { top: 0; bottom: 0; right: 0; width: 25%; }
+.drop-zone.top { top: 0; left: 0; right: 0; height: 25%; }
+.drop-zone.bottom { bottom: 0; left: 0; right: 0; height: 25%; }
+.drop-zone.drag-over {
+  background: var(--primary-soft);
+  border: 2px dashed var(--primary-border);
+  border-radius: var(--radius);
+}
+
+#drag-overlay { position: fixed; inset: 0; z-index: 9999; cursor: col-resize; display: none; }
+#drag-overlay.active { display: block; }
+#drag-overlay.row-resize { cursor: row-resize; }
