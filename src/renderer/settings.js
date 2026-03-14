@@ -1,3 +1,4 @@
+const { ipcRenderer } = require("electron");
 const app = require("./app");
 
 const settingsOverlay = document.querySelector("#settings-overlay");
@@ -65,5 +66,10 @@ btnSettingsBack.addEventListener("click", closeSettings);
 function isSettingsOpen() {
   return settingsOpen;
 }
+
+// ── IPC: open settings from app menu (Cmd+,) ─────────
+ipcRenderer.on("menu:open-settings", () => {
+  if (!settingsOpen) openSettings();
+});
 
 module.exports = { openSettings, closeSettings, isSettingsOpen };

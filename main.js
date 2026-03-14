@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, nativeImage } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, dialog, nativeImage } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -78,7 +78,7 @@ function deleteSession(sessionId) {
 // ── PTY processes ──────────────────────────────────────
 const ptyProcesses = new Map();
 
-function spawnSession(sessionId, cwd, resume) {
+function spawnSession(sessionId, cwd, resume, senderWebContents) {
   if (ptyProcesses.has(sessionId)) return;
 
   const env = { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" };
@@ -99,37 +99,35 @@ function spawnSession(sessionId, cwd, resume) {
     env,
   });
 
-  ptyProcesses.set(sessionId, proc);
+  ptyProcesses.set(sessionId, { proc, webContents: senderWebContents });
   const spawnTime = Date.now();
 
   proc.onData((data) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("pty:data", { sessionId, data });
+    if (senderWebContents && !senderWebContents.isDestroyed()) {
+      senderWebContents.send("pty:data", { sessionId, data });
     }
   });
 
   proc.onExit(({ exitCode }) => {
     ptyProcesses.delete(sessionId);
     const lifetime = Date.now() - spawnTime;
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("pty:exit", { sessionId, exitCode, resume, lifetime });
+    if (senderWebContents && !senderWebContents.isDestroyed()) {
+      senderWebContents.send("pty:exit", { sessionId, exitCode, resume, lifetime });
     }
   });
 }
 
 function killSession(sessionId) {
-  const proc = ptyProcesses.get(sessionId);
-  if (proc) {
-    proc.kill();
+  const entry = ptyProcesses.get(sessionId);
+  if (entry) {
+    entry.proc.kill();
     ptyProcesses.delete(sessionId);
   }
 }
 
 // ── Window ─────────────────────────────────────────────
-let mainWindow;
-
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  const win = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 700,
@@ -145,30 +143,36 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, "src", "index.html"));
+  win.loadFile(path.join(__dirname, "src", "index.html"));
 
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-    for (const [, proc] of ptyProcesses) proc.kill();
-    ptyProcesses.clear();
+  win.on("closed", () => {
+    // Kill PTY processes owned by this window
+    for (const [sid, entry] of ptyProcesses) {
+      if (entry.webContents === win.webContents) {
+        entry.proc.kill();
+        ptyProcesses.delete(sid);
+      }
+    }
   });
+
+  return win;
 }
 
 // ── IPC ────────────────────────────────────────────────
 ipcMain.on("pty:input", (_e, { sessionId, data }) => {
-  const proc = ptyProcesses.get(sessionId);
-  if (proc) proc.write(data);
+  const entry = ptyProcesses.get(sessionId);
+  if (entry) entry.proc.write(data);
 });
 
 ipcMain.on("pty:resize", (_e, { sessionId, cols, rows }) => {
-  const proc = ptyProcesses.get(sessionId);
-  if (proc) {
-    try { proc.resize(cols, rows); } catch {}
+  const entry = ptyProcesses.get(sessionId);
+  if (entry) {
+    try { entry.proc.resize(cols, rows); } catch {}
   }
 });
 
-ipcMain.on("pty:spawn", (_e, { sessionId, cwd, resume }) => {
-  spawnSession(sessionId, cwd, resume);
+ipcMain.on("pty:spawn", (e, { sessionId, cwd, resume }) => {
+  spawnSession(sessionId, cwd, resume, e.sender);
 });
 
 ipcMain.on("pty:kill", (_e, { sessionId }) => {
@@ -179,8 +183,9 @@ ipcMain.handle("sessions:list", () => loadAllSessions());
 ipcMain.on("sessions:save", (_e, session) => saveSession(session));
 ipcMain.on("sessions:delete", (_e, sessionId) => deleteSession(sessionId));
 
-ipcMain.handle("directory:pick", async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+ipcMain.handle("directory:pick", async (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const result = await dialog.showOpenDialog(win, {
     properties: ["openDirectory"],
   });
   if (result.canceled || result.filePaths.length === 0) return null;
@@ -408,12 +413,89 @@ ipcMain.handle("git:create-branch", async (_e, { cwd, branch }) => {
   return res !== null;
 });
 
+// ── Application menu ───────────────────────────────────
+function buildAppMenu() {
+  const isMac = process.platform === "darwin";
+  const template = [
+    ...(isMac
+      ? [
+          {
+            label: "Lithium",
+            submenu: [
+              { role: "about", label: "About Lithium" },
+              { type: "separator" },
+              {
+                label: "Settings…",
+                accelerator: "CmdOrCtrl+,",
+                click: () => {
+                  const win = BrowserWindow.getFocusedWindow();
+                  if (win) win.webContents.send("menu:open-settings");
+                },
+              },
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          },
+        ]
+      : []),
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "selectAll" },
+      ],
+    },
+    {
+      label: "View",
+      submenu: [
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { role: "resetZoom" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+    {
+      label: "Window",
+      submenu: [
+        { role: "minimize" },
+        { role: "zoom" },
+        { role: "close" },
+        { type: "separator" },
+        { role: "front" },
+      ],
+    },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 // ── Lifecycle ──────────────────────────────────────────
 app.whenReady().then(() => {
+  app.name = "Lithium";
   ensureDirs();
+  buildAppMenu();
   if (process.platform === "darwin" && app.dock) {
     const icon = nativeImage.createFromPath(path.join(__dirname, "public", "logo.png"));
     app.dock.setIcon(icon);
+    app.dock.setMenu(
+      Menu.buildFromTemplate([
+        { label: "New Window", click: () => createWindow() },
+      ])
+    );
   }
   createWindow();
   app.on("activate", () => {
@@ -422,7 +504,7 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-  for (const [, proc] of ptyProcesses) proc.kill();
+  for (const [, entry] of ptyProcesses) entry.proc.kill();
   ptyProcesses.clear();
   if (process.platform !== "darwin") app.quit();
 });

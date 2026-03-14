@@ -10,7 +10,12 @@
       "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && node --check src/renderer/git.js 2>&1; node --check main.js 2>&1; node --check src/renderer.js 2>&1)",
       "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && node --check src/renderer/git.js 2>&1 && node --check main.js 2>&1)",
       "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && node --check src/renderer/tabs.js 2>&1 && node --check src/renderer.js 2>&1)",
-      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && node --check src/renderer.js 2>&1)"
+      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && node --check src/renderer.js 2>&1)",
+      "Bash(ls -la \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public\" && find \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" -maxdepth 1 -name \"*.js\" -o -name \"*.config.*\" -o -name \"*.json\" 2>/dev/null | head -20)",
+      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && node scripts/patch-electron-name.js)",
+      "Bash(find \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/node_modules/@electron\" -name \"*.app\" -maxdepth 5 2>/dev/null | head -3; find \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/node_modules\" -name \"Electron.app\" -maxdepth 5 2>/dev/null | head -3)",
+      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && node -e \"console.log\\(require\\('electron'\\)\\)\")",
+      "Bash(find ~/Library/Caches -path \"*/electron/dist/Electron.app\" -maxdepth 6 2>/dev/null | head -3; find ~/.npm/_npx -name \"Electron.app\" -maxdepth 8 2>/dev/null | head -3)"
     ]
   }
 }

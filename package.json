@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "description": "Lithium — UI for Claude Code",
   "main": "main.js",
+  "productName": "Lithium",
   "scripts": {
     "start": "npx electron .",
-    "rebuild": "npx @electron/rebuild"
+    "rebuild": "npx @electron/rebuild",
+    "postinstall": "node scripts/patch-electron-name.js"
   },
   "dependencies": {
     "node-pty": "^1.0.0",
