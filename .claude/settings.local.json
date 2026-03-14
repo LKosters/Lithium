@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/src/renderer/\"*.js \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/src/renderer.js\")",
+      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && node --check src/renderer/app.js && node --check src/renderer/theme.js && node --check src/renderer/helpers.js && node --check src/renderer/state.js && node --check src/renderer/terminal.js && node --check src/renderer/layout.js && node --check src/renderer/tabs.js && node --check src/renderer/sessions.js && node --check src/renderer/browser.js && node --check src/renderer/music.js && node --check src/renderer/focus.js && node --check src/renderer/settings.js && node --check src/renderer/directory.js && node --check src/renderer.js && echo \"All files pass syntax check\")",
+      "Bash(node --check \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/src/renderer/music.js\" && node --check \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/main.js\" && echo \"All OK\")",
+      "Bash(node --check \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/main.js\" && echo \"OK\")",
+      "Bash(node --check \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/main.js\" && node --check \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/src/renderer/music.js\" && echo \"All OK\")",
+      "Bash(node --check \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/src/renderer/sessions.js\" && echo \"OK\")"
+    ]
+  }
+}

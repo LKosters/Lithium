@@ -1,0 +1,26 @@
+const theme = {
+  background: "#0C0B09",
+  foreground: "#F0ECE3",
+  cursor: "#E8A838",
+  cursorAccent: "#0C0B09",
+  selectionBackground: "rgba(232, 168, 56, 0.2)",
+  selectionForeground: "#F0ECE3",
+  black: "#141310",
+  red: "#D4654A",
+  green: "#5BA88C",
+  yellow: "#E8A838",
+  blue: "#6B9FCC",
+  magenta: "#B07DB8",
+  cyan: "#6BC4B4",
+  white: "#C4BFB3",
+  brightBlack: "#7A7468",
+  brightRed: "#E87B62",
+  brightGreen: "#7BC4A4",
+  brightYellow: "#F0C060",
+  brightBlue: "#8BB8E0",
+  brightMagenta: "#CA9AD0",
+  brightCyan: "#88DAC8",
+  brightWhite: "#F0ECE3",
+};
+
+module.exports = theme;
