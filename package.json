@@ -1,13 +1,18 @@
 {
   "name": "lithium",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Lithium — UI for Claude Code",
+  "author": "Laurens Kosters",
   "main": "main.js",
   "productName": "Lithium",
   "scripts": {
     "start": "npx electron .",
     "rebuild": "npx @electron/rebuild",
-    "postinstall": "node scripts/patch-electron-name.js"
+    "postinstall": "node scripts/patch-electron-name.js",
+    "build": "npx electron-builder --mac",
+    "build:win": "npx electron-builder --win",
+    "build:linux": "npx electron-builder --linux",
+    "build:all": "npx electron-builder --mac --win --linux"
   },
   "dependencies": {
     "node-pty": "^1.0.0",
@@ -17,7 +22,35 @@
     "uuid": "^11.0.0"
   },
   "devDependencies": {
-    "electron": "^33.4.11",
-    "@electron/rebuild": "^3.6.0"
+    "electron": "33.4.11",
+    "@electron/rebuild": "^3.6.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.lithium.app",
+    "productName": "Lithium",
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icon.png",
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "public/icon.png"
+    },
+    "linux": {
+      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "icon": "public/icon.png",
+      "category": "Development"
+    },
+    "files": [
+      "main.js",
+      "src/**/*",
+      "public/**/*",
+      "music/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [],
+    "asar": true
   }
 }

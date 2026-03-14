@@ -14,12 +14,17 @@ function initBrowser() {
 
   let browserOpen = false;
 
-  btnToggleBrowser.addEventListener("click", () => {
-    browserOpen = !browserOpen;
-    browserPanel.classList.toggle("hidden", !browserOpen);
-    browserResizeHandle.classList.toggle("hidden", !browserOpen);
-    btnToggleBrowser.classList.toggle("active", browserOpen);
+  function setBrowserOpen(open) {
+    browserOpen = open;
+    browserPanel.classList.toggle("hidden", !open);
+    browserResizeHandle.classList.toggle("hidden", !open);
+    btnToggleBrowser.classList.toggle("active", open);
+    localStorage.setItem("browserOpen", open ? "1" : "");
     requestAnimationFrame(() => app.fitAllVisibleTerminals());
+  }
+
+  btnToggleBrowser.addEventListener("click", () => {
+    setBrowserOpen(!browserOpen);
   });
 
   browserUrl.addEventListener("keydown", (e) => {
@@ -32,9 +37,13 @@ function initBrowser() {
 
   browserWebview.addEventListener("did-navigate", (e) => {
     browserUrl.value = e.url;
+    localStorage.setItem("browserUrl", e.url);
   });
   browserWebview.addEventListener("did-navigate-in-page", (e) => {
-    if (e.isMainFrame) browserUrl.value = e.url;
+    if (e.isMainFrame) {
+      browserUrl.value = e.url;
+      localStorage.setItem("browserUrl", e.url);
+    }
   });
 
   browserBack.addEventListener("click", () => {
@@ -83,25 +92,15 @@ function initBrowser() {
 
   // Expose function to open a URL from outside
   app.openBrowserUrl = function (url) {
-    if (!browserOpen) {
-      browserOpen = true;
-      browserPanel.classList.remove("hidden");
-      browserResizeHandle.classList.remove("hidden");
-      btnToggleBrowser.classList.add("active");
-    }
+    if (!browserOpen) setBrowserOpen(true);
     browserWebview.src = url;
     browserUrl.value = url;
-    requestAnimationFrame(() => app.fitAllVisibleTerminals());
+    localStorage.setItem("browserUrl", url);
   };
 
   // Expose function to close the browser panel
   app.closeBrowser = function () {
-    if (!browserOpen) return;
-    browserOpen = false;
-    browserPanel.classList.add("hidden");
-    browserResizeHandle.classList.add("hidden");
-    btnToggleBrowser.classList.remove("active");
-    requestAnimationFrame(() => app.fitAllVisibleTerminals());
+    if (browserOpen) setBrowserOpen(false);
   };
 
   // Browser panel resize
@@ -131,6 +130,17 @@ function initBrowser() {
       document.body.style.userSelect = "";
       stopDragOverlay();
     });
+  }
+
+  // Restore browser panel state from previous session
+  const savedOpen = localStorage.getItem("browserOpen");
+  const savedUrl = localStorage.getItem("browserUrl");
+  if (savedOpen === "1") {
+    if (savedUrl) {
+      browserWebview.src = savedUrl;
+      browserUrl.value = savedUrl;
+    }
+    setBrowserOpen(true);
   }
 }
 

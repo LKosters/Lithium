@@ -135,7 +135,7 @@ function createWindow() {
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 16, y: 16 },
     backgroundColor: "#0C0B09",
-    icon: path.join(__dirname, "public", "logo.png"),
+    icon: path.join(__dirname, "public", "icon.png"),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -145,14 +145,17 @@ function createWindow() {
 
   win.loadFile(path.join(__dirname, "src", "index.html"));
 
+  const wc = win.webContents;
   win.on("closed", () => {
     // Kill PTY processes owned by this window
     for (const [sid, entry] of ptyProcesses) {
-      if (entry.webContents === win.webContents) {
+      if (entry.webContents === wc) {
         entry.proc.kill();
         ptyProcesses.delete(sid);
       }
     }
+    // Kill dev server if running
+    killDevServer();
   });
 
   return win;
@@ -358,16 +361,20 @@ ipcMain.handle("devserver:start", (_e, { cwd }) => {
   return { ok: true };
 });
 
-ipcMain.handle("devserver:stop", () => {
-  if (!_devServerProc) return { ok: false };
+function killDevServer() {
+  if (!_devServerProc) return;
   try {
-    // Kill entire process tree (shell: true means we need to kill the group)
     process.kill(-_devServerProc.pid, "SIGTERM");
   } catch {
     try { _devServerProc.kill(); } catch {}
   }
   _devServerProc = null;
   _devServerDir = null;
+}
+
+ipcMain.handle("devserver:stop", () => {
+  if (!_devServerProc) return { ok: false };
+  killDevServer();
   return { ok: true };
 });
 
@@ -647,8 +654,6 @@ app.whenReady().then(() => {
   ensureDirs();
   buildAppMenu();
   if (process.platform === "darwin" && app.dock) {
-    const icon = nativeImage.createFromPath(path.join(__dirname, "public", "logo.png"));
-    app.dock.setIcon(icon);
     app.dock.setMenu(
       Menu.buildFromTemplate([
         { label: "New Window", click: () => createWindow() },
@@ -664,5 +669,10 @@ app.whenReady().then(() => {
 app.on("window-all-closed", () => {
   for (const [, entry] of ptyProcesses) entry.proc.kill();
   ptyProcesses.clear();
+  killDevServer();
   if (process.platform !== "darwin") app.quit();
+});
+
+app.on("before-quit", () => {
+  killDevServer();
 });

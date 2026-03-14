@@ -15,7 +15,20 @@
       "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && node scripts/patch-electron-name.js)",
       "Bash(find \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/node_modules/@electron\" -name \"*.app\" -maxdepth 5 2>/dev/null | head -3; find \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/node_modules\" -name \"Electron.app\" -maxdepth 5 2>/dev/null | head -3)",
       "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && node -e \"console.log\\(require\\('electron'\\)\\)\")",
-      "Bash(find ~/Library/Caches -path \"*/electron/dist/Electron.app\" -maxdepth 6 2>/dev/null | head -3; find ~/.npm/_npx -name \"Electron.app\" -maxdepth 8 2>/dev/null | head -3)"
+      "Bash(find ~/Library/Caches -path \"*/electron/dist/Electron.app\" -maxdepth 6 2>/dev/null | head -3; find ~/.npm/_npx -name \"Electron.app\" -maxdepth 8 2>/dev/null | head -3)",
+      "Bash(file \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/logo.png\" && sips -g pixelWidth -g pixelHeight -g hasAlpha \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/logo.png\")",
+      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && python3 -c \"\nfrom PIL import Image, ImageDraw\nimport math\n\n# Create 1024x1024 icon with dark rounded rect background\nsize = 1024\nimg = Image.new\\('RGBA', \\(size, size\\), \\(0, 0, 0, 0\\)\\)\ndraw = ImageDraw.Draw\\(img\\)\n\n# Draw rounded rectangle background \\(#1C1B18 dark\\)\nradius = int\\(size * 0.22\\)\nbg_color = \\(28, 27, 24, 255\\)\ndraw.rounded_rectangle\\([0, 0, size-1, size-1], radius=radius, fill=bg_color\\)\n\n# Load and composite the logo on top, padded\nlogo = Image.open\\('public/logo.png'\\).convert\\('RGBA'\\)\n# Pad the logo to ~60% of icon size\nlogo_size = int\\(size * 0.58\\)\nlogo = logo.resize\\(\\(logo_size, logo_size\\), Image.LANCZOS\\)\noffset = \\(size - logo_size\\) // 2\nimg.paste\\(logo, \\(offset, offset\\), logo\\)\n\nimg.save\\('public/icon.png'\\)\nprint\\('Created icon.png', img.size\\)\n\" 2>&1 || echo \"Pillow not available, trying sips approach\")",
+      "Bash(pip3 install Pillow 2>&1 | tail -3)",
+      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && node -e \"\nconst { createCanvas, loadImage } = require\\('canvas'\\);\n\" 2>&1 || echo \"no canvas module\")",
+      "Bash(sips -g all \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/icon.png\" 2>/dev/null)",
+      "WebSearch",
+      "WebFetch(domain:www.electron.build)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:paultreanor.com)",
+      "Bash(plutil -p \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/dist/mac-arm64/Lithium.app/Contents/Info.plist\" 2>/dev/null | grep -i icon)",
+      "Bash(file \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/icon.png\" && sips -g all \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/icon.png\" 2>/dev/null | head -20)",
+      "Bash(sips -g hasAlpha \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/icon.png\" 2>/dev/null)",
+      "Bash(sips -g all \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/logo.png\" 2>/dev/null)"
     ]
   }
 }

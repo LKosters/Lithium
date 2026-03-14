@@ -216,6 +216,38 @@ function refreshLayout() {
   });
 
   app.renderSessionList();
+
+  // Persist open tabs layout for restore on relaunch
+  saveLayoutState();
+}
+
+function saveLayoutState() {
+  try {
+    if (state.layout) {
+      localStorage.setItem("layoutState", JSON.stringify(state.layout));
+      localStorage.setItem("focusedPaneId", state.focusedPaneId || "");
+    } else {
+      localStorage.removeItem("layoutState");
+      localStorage.removeItem("focusedPaneId");
+    }
+  } catch {}
+}
+
+function getSavedLayout() {
+  try {
+    const raw = localStorage.getItem("layoutState");
+    if (!raw) return null;
+    const layout = JSON.parse(raw);
+    const focusedPaneId = localStorage.getItem("focusedPaneId") || null;
+    return { layout, focusedPaneId };
+  } catch {
+    return null;
+  }
+}
+
+function clearSavedLayout() {
+  localStorage.removeItem("layoutState");
+  localStorage.removeItem("focusedPaneId");
 }
 
 function showDropOverlays(excludePaneId) {
@@ -285,4 +317,4 @@ function handleTabDrop(sessionId, targetPaneId, zone) {
   refreshLayout();
 }
 
-module.exports = { renderLayout, refreshLayout, showDropOverlays, hideDropOverlays, handleTabDrop, startDragOverlay, stopDragOverlay };
+module.exports = { renderLayout, refreshLayout, showDropOverlays, hideDropOverlays, handleTabDrop, startDragOverlay, stopDragOverlay, getSavedLayout, clearSavedLayout };

@@ -8,7 +8,7 @@ app.ipcRenderer = ipcRenderer;
 const { state, terminals, collapsedDirs } = require("./renderer/state");
 const { groupSessionsByDir } = require("./renderer/helpers");
 const { createTerminal, fitAllVisibleTerminals } = require("./renderer/terminal");
-const { renderLayout, refreshLayout, startDragOverlay, stopDragOverlay } = require("./renderer/layout");
+const { renderLayout, refreshLayout, startDragOverlay, stopDragOverlay, getSavedLayout, clearSavedLayout } = require("./renderer/layout");
 const { openTab, closeTab, newSession, splitNewSession } = require("./renderer/tabs");
 const { renderSessionList, deleteSession } = require("./renderer/sessions");
 const { initBrowser } = require("./renderer/browser");
@@ -531,6 +531,12 @@ function setDevServerUI(running) {
   btnDevServer.title = running ? "Stop Dev Server" : "Start Dev Server";
   devPlayIcon.classList.toggle("hidden", running);
   devStopIcon.classList.toggle("hidden", !running);
+  localStorage.setItem("devServerRunning", running ? "1" : "");
+  if (running) {
+    localStorage.setItem("devServerDir", state.currentDir || "");
+  } else {
+    localStorage.removeItem("devServerDir");
+  }
 }
 
 async function stopDevServer() {
@@ -665,10 +671,55 @@ async function init() {
   if (savedDir) setDirectory(savedDir);
 
   state.sessions = await ipcRenderer.invoke("sessions:list");
+
+  // Restore previously open tabs/layout
+  const saved = getSavedLayout();
+  if (saved && saved.layout) {
+    const { getAllLeaves, cleanupEmptyLeaves, findLeafById } = require("./renderer/state");
+    const sessionIds = new Set(state.sessions.map((s) => s.id));
+
+    // Strip deleted sessions from saved layout leaves
+    for (const leaf of getAllLeaves(saved.layout)) {
+      leaf.tabs = leaf.tabs.filter((id) => sessionIds.has(id));
+      if (leaf.activeTab && !sessionIds.has(leaf.activeTab)) {
+        leaf.activeTab = leaf.tabs[leaf.tabs.length - 1] || null;
+      }
+    }
+    const cleaned = cleanupEmptyLeaves(saved.layout);
+
+    if (cleaned) {
+      // Create terminals and spawn PTYs (resume) for each tab
+      for (const leaf of getAllLeaves(cleaned)) {
+        for (const sid of leaf.tabs) {
+          const s = state.sessions.find((ss) => ss.id === sid);
+          if (s && !terminals.has(sid)) {
+            createTerminal(sid);
+            ipcRenderer.send("pty:spawn", { sessionId: sid, cwd: s.directory, resume: true });
+          }
+        }
+      }
+      state.layout = cleaned;
+      state.focusedPaneId = findLeafById(cleaned, saved.focusedPaneId)
+        ? saved.focusedPaneId
+        : getAllLeaves(cleaned)[0].id;
+    } else {
+      clearSavedLayout();
+    }
+  }
+
   renderSessionList();
   refreshLayout();
 
   initMusicPlayer();
+
+  // Restore dev server if it was running before quit
+  const savedDevDir = localStorage.getItem("devServerDir");
+  const savedDevRunning = localStorage.getItem("devServerRunning") === "1";
+  if (savedDevRunning && savedDevDir && state.currentDir === savedDevDir) {
+    btnDevServer.classList.remove("hidden");
+    const result = await ipcRenderer.invoke("devserver:start", { cwd: savedDevDir });
+    if (result.ok) setDevServerUI(true);
+  }
 
   const sessionListEl = app.dom.sessionListEl;
   requestAnimationFrame(() => {
