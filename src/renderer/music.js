@@ -4,6 +4,21 @@ const { shuffleArray } = require("./helpers");
 const _audio = new Audio();
 _audio.preload = "auto";
 
+// Shared seek handler for both dock and compact track bars
+function handleTrackBarSeek(e, trackBar) {
+  const rect = trackBar.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  if (musicPlayer.source === "device") {
+    if (musicPlayer._deviceDuration > 0) {
+      const pos = pct * musicPlayer._deviceDuration;
+      app.ipcRenderer.invoke("media:control", { action: "seek", position: pos });
+    }
+  } else {
+    if (!musicPlayer.audio.duration) return;
+    musicPlayer.audio.currentTime = pct * musicPlayer.audio.duration;
+  }
+}
+
 const musicPlayer = {
   audio: _audio,
   tracks: [],
@@ -79,21 +94,7 @@ async function initMusicPlayer() {
 
   const dockTrackBar = document.querySelector(".dock-track-bar");
   if (dockTrackBar) {
-    dockTrackBar.addEventListener("click", (e) => {
-      const rect = dockTrackBar.getBoundingClientRect();
-      const pct = (e.clientX - rect.left) / rect.width;
-
-      if (musicPlayer.source === "device") {
-        // Seek system media via stored duration
-        if (musicPlayer._deviceDuration > 0) {
-          const pos = pct * musicPlayer._deviceDuration;
-          app.ipcRenderer.invoke("media:control", { action: "seek", position: pos });
-        }
-      } else {
-        if (!musicPlayer.audio.duration) return;
-        musicPlayer.audio.currentTime = pct * musicPlayer.audio.duration;
-      }
-    });
+    dockTrackBar.addEventListener("click", (e) => handleTrackBarSeek(e, dockTrackBar));
   }
 
   mpSourceBtn.addEventListener("click", handleSourceToggle);
@@ -111,19 +112,7 @@ async function initMusicPlayer() {
   // Compact player progress bar click-to-seek
   const cpTrackBar = document.querySelector(".cp-track-bar");
   if (cpTrackBar) {
-    cpTrackBar.addEventListener("click", (e) => {
-      const rect = cpTrackBar.getBoundingClientRect();
-      const pct = (e.clientX - rect.left) / rect.width;
-      if (musicPlayer.source === "device") {
-        if (musicPlayer._deviceDuration > 0) {
-          const pos = pct * musicPlayer._deviceDuration;
-          app.ipcRenderer.invoke("media:control", { action: "seek", position: pos });
-        }
-      } else {
-        if (!musicPlayer.audio.duration) return;
-        musicPlayer.audio.currentTime = pct * musicPlayer.audio.duration;
-      }
-    });
+    cpTrackBar.addEventListener("click", (e) => handleTrackBarSeek(e, cpTrackBar));
   }
 
   // Restore saved source preference

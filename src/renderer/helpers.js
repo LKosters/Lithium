@@ -46,6 +46,12 @@ function persistSession(s) {
   app.ipcRenderer.send("sessions:save", s);
 }
 
+function dirName(dir) {
+  if (!dir || dir === "Unknown") return "Unknown";
+  const parts = dir.replace(/\/+$/, "").split("/");
+  return parts[parts.length - 1] || dir;
+}
+
 function shuffleArray(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -55,4 +61,4 @@ function shuffleArray(arr) {
   return a;
 }
 
-module.exports = { shortDir, timeAgo, escapeHtml, groupSessionsByDir, getSession, persistSession, shuffleArray };
+module.exports = { shortDir, timeAgo, escapeHtml, dirName, groupSessionsByDir, getSession, persistSession, shuffleArray };

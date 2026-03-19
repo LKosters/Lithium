@@ -1,6 +1,6 @@
 const app = require("./app");
 const { state } = require("./state");
-const { shortDir, escapeHtml } = require("./helpers");
+const { shortDir, escapeHtml, dirName } = require("./helpers");
 
 const currentDirLabel = document.querySelector("#current-dir-label");
 const recentDirsDropdown = document.querySelector("#recent-dirs-dropdown");
@@ -40,12 +40,6 @@ function setDirectory(dir) {
   // Re-render projects to highlight active + re-render sessions for this workspace
   renderProjectsList();
   if (app.renderSessionList) app.renderSessionList();
-}
-
-function dirName(dir) {
-  if (!dir || dir === "Unknown") return "Unknown";
-  const parts = dir.replace(/\/+$/, "").split("/");
-  return parts[parts.length - 1] || dir;
 }
 
 function renderProjectsList() {

@@ -47,6 +47,9 @@ function openSettings() {
   // Restore current player mode in UI
   const currentMode = localStorage.getItem("playerMode") || "full";
   updatePlayerModeUI(currentMode);
+
+  // Load settings data
+  loadProjectsDirSetting();
 }
 
 function closeSettings() {
@@ -80,36 +83,40 @@ function showProjectsDir(dir) {
 }
 
 async function loadProjectsDirSetting() {
-  // resolve auto-detects ~/lithium-projects if it exists
-  const dir = await ipcRenderer.invoke("config:resolve-projects-dir");
-  if (dir) {
-    showProjectsDir(dir);
-  } else {
-    settingsProjectsDir.textContent = "Not set";
-    settingsProjectsDir.classList.add("muted");
-    btnCreateProjectsDir.classList.remove("hidden");
+  try {
+    const dir = await ipcRenderer.invoke("config:resolve-projects-dir");
+    if (dir) {
+      showProjectsDir(dir);
+    } else {
+      settingsProjectsDir.textContent = "Not set";
+      settingsProjectsDir.classList.add("muted");
+      btnCreateProjectsDir.classList.remove("hidden");
+    }
+  } catch (err) {
+    console.error("Failed to load projects directory setting:", err.message);
   }
 }
 
 btnSettingsProjectsDir.addEventListener("click", async () => {
-  const result = await ipcRenderer.invoke("directory:pick");
-  if (result) {
-    ipcRenderer.send("config:set", { key: "projectsDir", value: result.dir });
-    showProjectsDir(result.dir);
+  try {
+    const result = await ipcRenderer.invoke("directory:pick");
+    if (result) {
+      ipcRenderer.send("config:set", { key: "projectsDir", value: result.dir });
+      showProjectsDir(result.dir);
+    }
+  } catch (err) {
+    console.error("Failed to pick projects directory:", err.message);
   }
 });
 
 btnCreateProjectsDir.addEventListener("click", async () => {
-  const dir = await ipcRenderer.invoke("config:create-default-projects-dir");
-  if (dir) showProjectsDir(dir);
+  try {
+    const dir = await ipcRenderer.invoke("config:create-default-projects-dir");
+    if (dir) showProjectsDir(dir);
+  } catch (err) {
+    console.error("Failed to create projects directory:", err.message);
+  }
 });
-
-// Load on settings open
-const _origOpenSettings = openSettings;
-openSettings = function () {
-  _origOpenSettings();
-  loadProjectsDirSetting();
-};
 
 // ── IPC: open settings from app menu (Cmd+,) ─────────
 ipcRenderer.on("menu:open-settings", () => {

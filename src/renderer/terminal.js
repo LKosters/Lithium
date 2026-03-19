@@ -46,7 +46,9 @@ function fitAllVisibleTerminals() {
     if (leaf.activeTab) {
       const t = terminals.get(leaf.activeTab);
       if (t && t.paneEl.offsetParent !== null) {
-        try { t.fitAddon.fit(); } catch (_) {}
+        try { t.fitAddon.fit(); } catch (err) {
+          console.warn("fitAddon.fit() failed:", err.message);
+        }
       }
     }
   }
@@ -60,7 +62,9 @@ function fitAllVisibleTerminals() {
       if (leaf.activeTab) {
         const t = terminals.get(leaf.activeTab);
         if (t && t.paneEl.offsetParent !== null) {
-          try { t.fitAddon.fit(); } catch (_) {}
+          try { t.fitAddon.fit(); } catch (err) {
+            console.warn("fitAddon.fit() failed:", err.message);
+          }
         }
       }
     }
