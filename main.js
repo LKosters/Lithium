@@ -450,25 +450,23 @@ ipcMain.handle("media:now-playing", async () => {
 });
 
 ipcMain.handle("media:control", async (_e, { action, position }) => {
-  // Build a single JXA script for the control action
+  // Use the cached app name from the last now-playing poll to avoid
+  // the expensive process enumeration via System Events
+  const appName = _nowPlayingCache.data && _nowPlayingCache.data.app;
+  if (!appName) return false;
+
+  const actionLine =
+    action === "toggle" ? "a.playpause();" :
+    action === "next"   ? "a.nextTrack();" :
+    action === "prev"   ? "a.previousTrack();" :
+    action === "seek"   ? `a.playerPosition = ${position || 0};` : "";
+
   const script = `
-    var apps = Application("System Events").processes().map(function(p){return p.name()});
-    var done = false;
-    var targets = ["Spotify", "Music"];
-    for (var i = 0; i < targets.length; i++) {
-      if (apps.indexOf(targets[i]) === -1) continue;
-      try {
-        var a = Application(targets[i]);
-        var st = a.playerState();
-        if (st !== "playing" && st !== "paused") continue;
-        ${action === "toggle" ? "a.playpause();" : ""}
-        ${action === "next" ? "a.nextTrack();" : ""}
-        ${action === "prev" ? "a.previousTrack();" : ""}
-        ${action === "seek" ? `a.playerPosition = ${position || 0};` : ""}
-        done = true; break;
-      } catch(e) {}
-    }
-    done;
+    try {
+      var a = Application("${appName}");
+      ${actionLine}
+      true;
+    } catch(e) { false; }
   `;
   const result = await runOsaAsync(script);
   return result === "true";
