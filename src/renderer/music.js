@@ -1,8 +1,11 @@
 const app = require("./app");
 const { shuffleArray } = require("./helpers");
 
+const _audio = new Audio();
+_audio.preload = "auto";
+
 const musicPlayer = {
-  audio: new Audio(),
+  audio: _audio,
   tracks: [],
   index: -1,
   playing: false,
@@ -10,7 +13,6 @@ const musicPlayer = {
   lofiTracks: [],
   devicePollTimer: null,
   _devicePollInFlight: false,
-  _loadId: 0,           // monotonic counter to detect stale loads
 };
 
 // ── Player mode (full / compact / none) ──────────────
@@ -123,7 +125,7 @@ async function initMusicPlayer() {
     switchToDevice();
   } else if (musicPlayer.tracks.length > 0) {
     musicPlayer.index = 0;
-    await loadCurrentTrack();
+    loadCurrentTrack();
   }
 
   // Restore player mode
@@ -161,7 +163,7 @@ function switchToDevice() {
   musicPlayer.devicePollTimer = setInterval(pollDeviceMedia, 2000);
 }
 
-async function switchToLofi() {
+function switchToLofi() {
   // Stop device polling
   if (musicPlayer.devicePollTimer) {
     clearInterval(musicPlayer.devicePollTimer);
@@ -175,7 +177,7 @@ async function switchToLofi() {
 
   if (musicPlayer.tracks.length > 0) {
     musicPlayer.index = 0;
-    await loadCurrentTrack();
+    loadCurrentTrack();
   } else {
     document.querySelector("#mp-track-name").textContent = "No music";
     syncCompactPlayer();
@@ -262,30 +264,13 @@ function updateSourceButton() {
 
 function loadCurrentTrack() {
   const track = musicPlayer.tracks[musicPlayer.index];
-  if (!track) return Promise.resolve();
+  if (!track) return;
   const mpTrackName = document.querySelector("#mp-track-name");
+  musicPlayer.audio.src = "file://" + track.path;
+  musicPlayer.audio.load();
   mpTrackName.textContent = track.name;
   mpTrackName.title = track.name;
   syncCompactPlayer();
-
-  const loadId = ++musicPlayer._loadId;
-  return new Promise((resolve) => {
-    const audio = musicPlayer.audio;
-    const onReady = () => {
-      audio.removeEventListener("canplaythrough", onReady);
-      audio.removeEventListener("error", onError);
-      resolve(loadId === musicPlayer._loadId);
-    };
-    const onError = () => {
-      audio.removeEventListener("canplaythrough", onReady);
-      audio.removeEventListener("error", onError);
-      resolve(false);
-    };
-    audio.addEventListener("canplaythrough", onReady);
-    audio.addEventListener("error", onError);
-    audio.src = "file://" + track.path;
-    audio.load();
-  });
 }
 
 function togglePlay() {
@@ -300,11 +285,12 @@ function togglePlay() {
     musicPlayer.playing = false;
     updatePlayButton();
   } else {
-    musicPlayer.audio.play().then(() => {
-      musicPlayer.playing = true;
+    // Update UI immediately for responsiveness, revert if play fails
+    musicPlayer.playing = true;
+    updatePlayButton();
+    musicPlayer.audio.play().catch(() => {
+      musicPlayer.playing = false;
       updatePlayButton();
-    }).catch(() => {
-      // Play failed (e.g. no audio loaded yet) — don't change state
     });
   }
 }
@@ -344,7 +330,7 @@ function updateTrackProgress() {
   requestAnimationFrame(updateTrackProgress);
 }
 
-async function playNextTrack() {
+function playNextTrack() {
   if (musicPlayer.source === "device") {
     app.ipcRenderer.invoke("media:control", { action: "next" }).catch(() => {});
     return;
@@ -361,13 +347,13 @@ async function playNextTrack() {
     }
     musicPlayer.index = 0;
   }
-  const ready = await loadCurrentTrack();
-  if (ready && musicPlayer.playing) {
+  loadCurrentTrack();
+  if (musicPlayer.playing) {
     musicPlayer.audio.play().catch(() => {});
   }
 }
 
-async function playPrevTrack() {
+function playPrevTrack() {
   if (musicPlayer.source === "device") {
     app.ipcRenderer.invoke("media:control", { action: "prev" }).catch(() => {});
     return;
@@ -379,8 +365,8 @@ async function playPrevTrack() {
     return;
   }
   musicPlayer.index = (musicPlayer.index - 1 + musicPlayer.tracks.length) % musicPlayer.tracks.length;
-  const ready = await loadCurrentTrack();
-  if (ready && musicPlayer.playing) {
+  loadCurrentTrack();
+  if (musicPlayer.playing) {
     musicPlayer.audio.play().catch(() => {});
   }
 }

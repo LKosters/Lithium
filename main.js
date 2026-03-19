@@ -140,6 +140,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       webviewTag: true,
+      backgroundThrottling: false,
     },
   });
 
@@ -649,6 +650,8 @@ function buildAppMenu() {
 }
 
 // ── Lifecycle ──────────────────────────────────────────
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+
 app.whenReady().then(() => {
   app.name = "Lithium";
   ensureDirs();
