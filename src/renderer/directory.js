@@ -27,6 +27,7 @@ function setDirectory(dir) {
   app.ipcRenderer.send("directory:add-recent", dir);
   if (app.refreshGit) app.refreshGit();
   if (app.checkDevServerAvailable) app.checkDevServerAvailable();
+  if (app.updateSearchBarWorkspace) app.updateSearchBarWorkspace();
 }
 
 function renderRecentDirs() {

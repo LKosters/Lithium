@@ -393,6 +393,155 @@ document.addEventListener("keyup", (e) => {
   }
 });
 
+// ── Search bar (VS Code style) ────────────────────────
+const searchBar = document.querySelector("#search-bar");
+const searchBarInput = document.querySelector("#search-bar-input");
+const searchBarWorkspace = document.querySelector("#search-bar-workspace");
+const searchBarResults = document.querySelector("#search-bar-results");
+let _searchSelectedIdx = -1;
+
+function updateSearchBarWorkspace() {
+  const dir = state.currentDir;
+  searchBarWorkspace.textContent = dir ? shortDir(dir) : "No workspace selected";
+}
+
+function showSearchBarWorkspace() {
+  if (!searchBarInput.value) {
+    searchBarWorkspace.classList.remove("hidden");
+  }
+}
+
+function hideSearchBarWorkspace() {
+  searchBarWorkspace.classList.add("hidden");
+}
+
+function openSearchBar() {
+  searchBar.classList.add("focused");
+  hideSearchBarWorkspace();
+  searchBarInput.focus();
+  renderSearchResults(searchBarInput.value);
+}
+
+function closeSearchBar() {
+  searchBar.classList.remove("focused");
+  searchBarInput.value = "";
+  searchBarResults.classList.add("hidden");
+  _searchSelectedIdx = -1;
+  showSearchBarWorkspace();
+  searchBarInput.blur();
+}
+
+function renderSearchResults(query) {
+  const q = query.toLowerCase().trim();
+  const matches = state.sessions.filter((s) => {
+    const title = (s.title || "").toLowerCase();
+    const dir = (s.directory || "").toLowerCase();
+    return !q || title.includes(q) || dir.includes(q);
+  });
+
+  if (matches.length === 0 && q) {
+    searchBarResults.innerHTML = '<div class="search-bar-empty">No sessions found</div>';
+    searchBarResults.classList.remove("hidden");
+    return;
+  }
+
+  if (matches.length === 0 && !q) {
+    searchBarResults.innerHTML = '<div class="search-bar-empty">No sessions yet</div>';
+    searchBarResults.classList.remove("hidden");
+    return;
+  }
+
+  let html = matches.map((s, i) => {
+    const t = termsMap.get(s.id);
+    const alive = t?.alive ? "alive" : "";
+    const sel = i === _searchSelectedIdx ? "selected" : "";
+    return `<div class="search-bar-result ${sel}" data-sid="${s.id}">
+      <span class="search-bar-result-status ${alive}"></span>
+      <div class="search-bar-result-info">
+        <span class="search-bar-result-title">${escapeHtml(s.title || "Session")}</span>
+        <span class="search-bar-result-dir">${escapeHtml(shortDir(s.directory || ""))}</span>
+      </div>
+    </div>`;
+  }).join("");
+
+  html += `<div class="search-bar-hint"><kbd>↑↓</kbd> navigate <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>`;
+
+  searchBarResults.innerHTML = html;
+  searchBarResults.classList.remove("hidden");
+
+  searchBarResults.querySelectorAll(".search-bar-result").forEach((el, i) => {
+    el.addEventListener("click", () => {
+      openTab(el.dataset.sid);
+      closeSearchBar();
+    });
+    el.addEventListener("mouseenter", () => {
+      _searchSelectedIdx = i;
+      updateSearchSelection();
+    });
+  });
+}
+
+function updateSearchSelection() {
+  searchBarResults.querySelectorAll(".search-bar-result").forEach((el, i) => {
+    el.classList.toggle("selected", i === _searchSelectedIdx);
+  });
+  // Scroll selected into view
+  const sel = searchBarResults.querySelector(".search-bar-result.selected");
+  if (sel) sel.scrollIntoView({ block: "nearest" });
+}
+
+searchBar.addEventListener("click", () => {
+  if (!searchBar.classList.contains("focused")) {
+    openSearchBar();
+  }
+});
+
+searchBarInput.addEventListener("focus", () => {
+  openSearchBar();
+});
+
+searchBarInput.addEventListener("input", () => {
+  _searchSelectedIdx = -1;
+  renderSearchResults(searchBarInput.value);
+});
+
+searchBarInput.addEventListener("keydown", (e) => {
+  const items = searchBarResults.querySelectorAll(".search-bar-result");
+  const total = items.length;
+
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    _searchSelectedIdx = Math.min(_searchSelectedIdx + 1, total - 1);
+    updateSearchSelection();
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    _searchSelectedIdx = Math.max(_searchSelectedIdx - 1, -1);
+    updateSearchSelection();
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    if (_searchSelectedIdx >= 0 && items[_searchSelectedIdx]) {
+      openTab(items[_searchSelectedIdx].dataset.sid);
+      closeSearchBar();
+    }
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    closeSearchBar();
+  }
+});
+
+// Close search bar when clicking outside
+document.addEventListener("mousedown", (e) => {
+  if (searchBar.classList.contains("focused") && !searchBar.contains(e.target)) {
+    closeSearchBar();
+  }
+});
+
+// Update workspace display when directory changes
+app.updateSearchBarWorkspace = updateSearchBarWorkspace;
+
+// Initial workspace display
+updateSearchBarWorkspace();
+
 // ── New Project modal ─────────────────────────────
 const npModal = document.querySelector("#new-project-modal");
 const npForm = document.querySelector("#np-form");
@@ -604,6 +753,12 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape" && state.focusMode.active) {
     exitFocusMode();
+    return;
+  }
+  // Cmd+P — focus search bar
+  if (e.code === "KeyP" && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+    e.preventDefault();
+    openSearchBar();
     return;
   }
   // Cmd+Shift+D — split vertical (top/bottom) — check shift first
