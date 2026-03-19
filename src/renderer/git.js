@@ -109,15 +109,6 @@ function renderGitData(data) {
     })
     .join("");
 
-  stagedList.querySelectorAll("[data-unstage]").forEach((el) => {
-    el.addEventListener("click", async () => {
-      const cwd = getCwd();
-      if (!cwd) return;
-      await app.ipcRenderer.invoke("git:unstage-file", { cwd, file: el.dataset.unstage });
-      refreshGit();
-    });
-  });
-
   changesList.innerHTML = data.changes
     .map((f) => {
       const s = statusInfo(f.status);
@@ -128,15 +119,6 @@ function renderGitData(data) {
       </div>`;
     })
     .join("");
-
-  changesList.querySelectorAll("[data-stage]").forEach((el) => {
-    el.addEventListener("click", async () => {
-      const cwd = getCwd();
-      if (!cwd) return;
-      await app.ipcRenderer.invoke("git:stage-file", { cwd, file: el.dataset.stage });
-      refreshGit();
-    });
-  });
 
   logList.innerHTML = data.log
     .map(
@@ -317,6 +299,29 @@ function closeGit() {
     pollTimer = null;
   }
 }
+
+// ── Event delegation for staged/changes lists ─────────
+// Using delegation avoids memory leaks from re-attaching listeners on every render
+const stagedListEl = document.querySelector("#git-staged-list");
+const changesListEl = document.querySelector("#git-changes-list");
+
+stagedListEl.addEventListener("click", async (e) => {
+  const el = e.target.closest("[data-unstage]");
+  if (!el) return;
+  const cwd = getCwd();
+  if (!cwd) return;
+  await app.ipcRenderer.invoke("git:unstage-file", { cwd, file: el.dataset.unstage });
+  refreshGit();
+});
+
+changesListEl.addEventListener("click", async (e) => {
+  const el = e.target.closest("[data-stage]");
+  if (!el) return;
+  const cwd = getCwd();
+  if (!cwd) return;
+  await app.ipcRenderer.invoke("git:stage-file", { cwd, file: el.dataset.stage });
+  refreshGit();
+});
 
 // ── Event listeners ───────────────────────────────────
 

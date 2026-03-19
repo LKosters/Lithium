@@ -1,77 +1,57 @@
 const app = require("./app");
 const { state, terminals, collapsedDirs } = require("./state");
-const { escapeHtml, shortDir, timeAgo, getSession, groupSessionsByDir, persistSession } = require("./helpers");
-
-function dirName(dir) {
-  if (!dir || dir === "Unknown") return "Unknown";
-  const parts = dir.replace(/\/+$/, "").split("/");
-  return parts[parts.length - 1] || dir;
-}
+const { escapeHtml, shortDir, timeAgo, dirName, getSession, groupSessionsByDir, persistSession } = require("./helpers");
 
 function renderSessionList() {
   const sessionListEl = app.dom.sessionListEl;
-  const groups = groupSessionsByDir(state.sessions);
-  let html = "";
 
-  for (const [dir, sessions] of groups) {
-    const collapsed = collapsedDirs.has(dir);
-    const chevronClass = collapsed ? "group-chevron collapsed" : "group-chevron";
-    const count = sessions.length;
-    html += `<div class="chat-group" data-group-dir="${escapeHtml(dir)}">
-      <div class="chat-group-label" title="${escapeHtml(shortDir(dir))}">
-        <svg class="${chevronClass}" width="8" height="8" viewBox="0 0 16 16" fill="none">
-          <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span class="group-label-text">${escapeHtml(dirName(dir))}</span>
-        <span class="group-count">${count}</span>
+  // Filter sessions to only show those matching the current workspace
+  const currentDir = state.currentDir;
+  const filtered = currentDir
+    ? state.sessions.filter((s) => s.directory === currentDir)
+    : state.sessions;
+
+  // Sort by most recently updated
+  const sorted = [...filtered].sort((a, b) => b.updatedAt - a.updatedAt);
+
+  let html = "";
+  for (const s of sorted) {
+    const active = s.id === state.activeId ? "active" : "";
+    const t = terminals.get(s.id);
+    const alive = t?.alive ? "alive" : "";
+    html += `
+      <div class="session-item ${active}" data-session-id="${s.id}">
+        <span class="session-item-status ${alive}"></span>
+        <span class="session-item-title">${escapeHtml(s.title || "Session")}</span>
+        <span class="session-item-meta">${timeAgo(s.updatedAt)}</span>
+        <div class="session-item-actions">
+          <button class="session-item-btn" data-focus-id="${s.id}" title="Focus Mode">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+              <path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="session-item-btn" data-rename-id="${s.id}" title="Rename">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+              <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="session-item-btn" data-delete-id="${s.id}" title="Delete">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+              <path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M5 4v8.5a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
       </div>`;
-    if (!collapsed) {
-      for (const s of sessions) {
-        const active = s.id === state.activeId ? "active" : "";
-        const t = terminals.get(s.id);
-        const alive = t?.alive ? "alive" : "";
-        html += `
-          <div class="session-item ${active}" data-session-id="${s.id}">
-            <span class="session-item-status ${alive}"></span>
-            <span class="session-item-title">${escapeHtml(s.title || "Session")}</span>
-            <span class="session-item-meta">${timeAgo(s.updatedAt)}</span>
-            <div class="session-item-actions">
-              <button class="session-item-btn" data-focus-id="${s.id}" title="Focus Mode">
-                <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-                  <path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-              <button class="session-item-btn" data-rename-id="${s.id}" title="Rename">
-                <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-                  <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-              <button class="session-item-btn" data-delete-id="${s.id}" title="Delete">
-                <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-                  <path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M5 4v8.5a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-            </div>
-          </div>`;
-      }
-    }
-    html += `</div>`;
   }
 
-  if (state.sessions.length === 0) {
-    html = `<div class="session-empty">No sessions yet</div>`;
+  if (sorted.length === 0) {
+    html = currentDir
+      ? `<div class="session-empty">No sessions in this workspace</div>`
+      : `<div class="session-empty">Select a project to see sessions</div>`;
   }
 
   sessionListEl.innerHTML = html;
 
-  sessionListEl.querySelectorAll(".chat-group[data-group-dir]").forEach((el) => {
-    el.querySelector(".chat-group-label").addEventListener("click", () => {
-      const dir = el.dataset.groupDir;
-      if (collapsedDirs.has(dir)) collapsedDirs.delete(dir);
-      else collapsedDirs.add(dir);
-      renderSessionList();
-    });
-  });
   sessionListEl.querySelectorAll(".session-item").forEach((el) => {
     el.addEventListener("click", (e) => {
       if (e.target.closest(".session-item-actions")) return;

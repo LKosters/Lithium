@@ -30,7 +30,10 @@ function initBrowser() {
   browserUrl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       let url = browserUrl.value.trim();
-      if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
+      if (!url) return;
+      // Block dangerous protocols
+      if (/^(javascript|data|vbscript):/i.test(url)) return;
+      if (!/^https?:\/\//i.test(url)) url = "https://" + url;
       browserWebview.src = url;
     }
   });

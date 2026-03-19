@@ -24,7 +24,7 @@
             <div class="titlebar-drag"></div>
             <div class="titlebar-left">
                 <span class="titlebar-title">Lithium</span
-                ><span class="alpha-tag">Alpha</span>
+                ><span id="version-tag" class="alpha-tag">Alpha</span>
                 <button
                     id="btn-exit-focus"
                     class="btn-icon exit-focus-btn hidden"
@@ -39,6 +39,50 @@
                         />
                     </svg>
                 </button>
+            </div>
+            <div class="titlebar-center">
+                <div id="search-bar" class="search-bar">
+                    <svg class="search-bar-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.3"/>
+                        <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                    </svg>
+                    <input id="search-bar-input" class="search-bar-input" type="text" placeholder="Search sessions..." spellcheck="false" autocomplete="off" />
+                    <span id="search-bar-workspace" class="search-bar-workspace"></span>
+                    <div id="search-bar-results" class="search-bar-results hidden">
+                        <div id="sb-create" class="sb-create hidden">
+                            <div class="sb-create-row">
+                                <label class="sb-create-label">Name</label>
+                                <input id="sb-create-name" class="sb-create-input" type="text" placeholder="Session name..." spellcheck="false" />
+                            </div>
+                            <div class="sb-create-row" style="position:relative">
+                                <label class="sb-create-label">Directory</label>
+                                <button id="sb-dir-btn" class="sb-dir-btn">
+                                    <span id="sb-dir-label">Select directory...</span>
+                                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                                        <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </button>
+                                <div id="sb-dir-dropdown" class="dropdown hidden" style="position:absolute;top:100%;left:0;right:0;margin-top:4px;z-index:210">
+                                    <div id="sb-dropdown-tabs" class="dropdown-tabs hidden">
+                                        <button class="dropdown-tab active" data-sb-tab="favorites">Favorites</button>
+                                        <button class="dropdown-tab" data-sb-tab="recent">Recent</button>
+                                    </div>
+                                    <div id="sb-dirs-list"></div>
+                                    <div class="qo-browse-row">
+                                        <button id="sb-browse-btn" class="qo-browse-btn">
+                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                                                <path d="M2 13V3a1 1 0 011-1h4l2 2h4a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                                            </svg>
+                                            Browse...
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <button id="sb-create-btn" class="sb-create-btn">Create</button>
+                        </div>
+                        <div id="sb-list" class="sb-list"></div>
+                    </div>
+                </div>
             </div>
             <div class="titlebar-right">
                 <button id="btn-new-project" class="btn-primary-sm">New Project</button>
@@ -127,121 +171,40 @@
         </header>
 
         <div id="app">
-            <!-- Sidebar -->
+            <!-- Sidebar: split into Projects + Sessions -->
             <aside id="sidebar">
-                <!-- Workspace header -->
-                <div class="sidebar-workspace">
-                    <div class="workspace-label">Current Workspace</div>
-                    <div class="dir-row">
-                        <button id="btn-pick-dir" class="dir-button">
-                            <svg
-                                width="13"
-                                height="13"
-                                viewBox="0 0 16 16"
-                                fill="none"
-                            >
-                                <path
-                                    d="M2 4.5C2 3.67 2.67 3 3.5 3H6l1.5 1.5H12.5c.83 0 1.5.67 1.5 1.5v6c0 .83-.67 1.5-1.5 1.5h-9C2.67 13.5 2 12.83 2 12V4.5z"
-                                    stroke="currentColor"
-                                    stroke-width="1.2"
-                                />
-                            </svg>
-                            <span id="current-dir-label"
-                                >Select directory...</span
-                            >
-                            <svg
-                                class="chevron"
-                                width="10"
-                                height="10"
-                                viewBox="0 0 16 16"
-                                fill="none"
-                            >
-                                <path
-                                    d="M4 6l4 4 4-4"
-                                    stroke="currentColor"
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                />
-                            </svg>
-                        </button>
-                        <button
-                            id="btn-open-finder"
-                            class="btn-icon btn-sidebar-action"
-                            title="Browse..."
-                        >
-                            <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 16 16"
-                                fill="none"
-                            >
-                                <path
-                                    d="M2 4.5C2 3.67 2.67 3 3.5 3H6l1.5 1.5H12.5c.83 0 1.5.67 1.5 1.5v6c0 .83-.67 1.5-1.5 1.5h-9C2.67 13.5 2 12.83 2 12V4.5z"
-                                    stroke="currentColor"
-                                    stroke-width="1.2"
-                                />
-                                <path
-                                    d="M6 9.5h4"
-                                    stroke="currentColor"
-                                    stroke-width="1.2"
-                                    stroke-linecap="round"
-                                />
-                                <path
-                                    d="M8 7.5v4"
-                                    stroke="currentColor"
-                                    stroke-width="1.2"
-                                    stroke-linecap="round"
-                                />
-                            </svg>
-                        </button>
-                        <div id="recent-dirs-dropdown" class="dropdown hidden">
-                            <div
-                                id="dropdown-tabs"
-                                class="dropdown-tabs hidden"
-                            >
-                                <button
-                                    class="dropdown-tab active"
-                                    data-dropdown-tab="favorites"
-                                >
-                                    Favorites
-                                </button>
-                                <button
-                                    class="dropdown-tab"
-                                    data-dropdown-tab="recent"
-                                >
-                                    Recent
-                                </button>
-                            </div>
-                            <div id="recent-dirs-list"></div>
-                        </div>
+                <!-- Projects panel (left) -->
+                <div id="projects-panel" class="projects-panel">
+                    <div class="projects-header">
+                        <span class="projects-title">Projects</span>
                     </div>
-                    <button id="btn-new-session" class="btn-new-session">
-                        <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 16 16"
-                            fill="none"
-                        >
-                            <path
-                                d="M8 3v10M3 8h10"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                stroke-linecap="round"
-                            />
+                    <div id="projects-list" class="projects-list"></div>
+                    <button id="btn-add-workspace" class="btn-add-workspace" title="Add workspace">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                         </svg>
-                        <span>New session</span>
                     </button>
                 </div>
 
-                <div class="sidebar-divider"></div>
+                <!-- Divider between panels -->
+                <div class="sidebar-panel-divider"></div>
 
-                <div class="sidebar-section session-list-section">
-                    <div class="section-header"><span>Sessions</span></div>
-                    <div id="session-list"></div>
-                </div>
+                <!-- Sessions panel (right) -->
+                <div id="sessions-panel" class="sessions-panel">
+                    <div class="sessions-panel-header">
+                        <span class="sessions-panel-title">Sessions</span>
+                        <button id="btn-new-session" class="btn-new-session-sm" title="New session">
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                                <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    </div>
 
-                <!-- Compact music player (hidden by default) -->
+                    <div class="sidebar-section session-list-section">
+                        <div id="session-list"></div>
+                    </div>
+
+                    <!-- Compact music player (hidden by default) -->
                 <div id="compact-player" class="compact-player hidden">
                     <div class="cp-track-bar"></div>
                     <div class="cp-controls">
@@ -396,6 +359,21 @@
                                 />
                             </svg>
                         </button>
+                    </div>
+                </div>
+                </div>
+
+                <!-- Hidden elements for directory picker (kept for compatibility) -->
+                <div style="display:none">
+                    <span id="current-dir-label">Select directory...</span>
+                    <button id="btn-pick-dir"></button>
+                    <button id="btn-open-finder"></button>
+                    <div id="recent-dirs-dropdown" class="dropdown hidden">
+                        <div id="dropdown-tabs" class="dropdown-tabs hidden">
+                            <button class="dropdown-tab active" data-dropdown-tab="favorites">Favorites</button>
+                            <button class="dropdown-tab" data-dropdown-tab="recent">Recent</button>
+                        </div>
+                        <div id="recent-dirs-list"></div>
                     </div>
                 </div>
             </aside>
@@ -945,6 +923,23 @@
                 <div id="np-progress" class="np-progress hidden">
                     <div class="np-spinner"></div>
                     <span class="np-progress-text">Creating project...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirm Remove Workspace modal -->
+        <div id="confirm-remove-modal" class="np-overlay hidden">
+            <div class="np-backdrop"></div>
+            <div class="np-dialog" style="width: 340px">
+                <div class="np-header">
+                    <h3 class="np-title">Remove Workspace</h3>
+                </div>
+                <div style="padding: 8px 18px 18px">
+                    <p id="confirm-remove-text" style="font-size: 13px; color: var(--fg-dim); margin: 0 0 16px">Are you sure you want to remove this workspace?</p>
+                    <div class="np-actions">
+                        <button id="confirm-remove-cancel" class="np-btn-cancel">Cancel</button>
+                        <button id="confirm-remove-ok" class="np-btn-create np-btn-destructive">Remove</button>
+                    </div>
                 </div>
             </div>
         </div>

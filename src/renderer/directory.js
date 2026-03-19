@@ -1,6 +1,42 @@
+const path = require("path");
+const fs = require("fs");
 const app = require("./app");
 const { state } = require("./state");
-const { shortDir, escapeHtml } = require("./helpers");
+const { shortDir, escapeHtml, dirName } = require("./helpers");
+
+// ── Framework icons from devicon/simple-icons ───────────
+const ICONS_DIR = path.join(__dirname, "..", "assets", "framework-icons");
+const FOLDER_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4.5C2 3.67 2.67 3 3.5 3H6l1.5 1.5H12.5c.83 0 1.5.67 1.5 1.5v6c0 .83-.67 1.5-1.5 1.5h-9C2.67 13.5 2 12.83 2 12V4.5z" stroke="currentColor" stroke-width="1.2"/></svg>`;
+
+const ICON_FILES = [
+  "nextjs", "nuxtjs", "react", "vue", "vuejs", "angular", "svelte", "sveltekit",
+  "php", "symfony", "laravel", "typescript", "javascript", "python",
+  "rust", "go", "ruby", "astro", "gatsby", "remix", "tanstack",
+];
+
+// Load and cache all icon SVGs at startup
+const iconCache = {};
+for (const name of ICON_FILES) {
+  try {
+    const svgPath = path.join(ICONS_DIR, `${name}.svg`);
+    let svg = fs.readFileSync(svgPath, "utf8");
+    svg = svg.replace(/<svg([^>]*)>/, (match, attrs) => {
+      attrs = attrs.replace(/\s(width|height)="[^"]*"/g, "");
+      return `<svg width="14" height="14"${attrs}>`;
+    });
+    iconCache[name] = svg;
+  } catch {
+    // Icon file not found, skip
+  }
+}
+if (iconCache.vuejs && !iconCache.vue) iconCache.vue = iconCache.vuejs;
+if (iconCache.vue && !iconCache.vuejs) iconCache.vuejs = iconCache.vue;
+
+function getProjectIcon(framework) {
+  return iconCache[framework] || FOLDER_ICON;
+}
+
+const frameworkCache = new Map();
 
 const currentDirLabel = document.querySelector("#current-dir-label");
 const recentDirsDropdown = document.querySelector("#recent-dirs-dropdown");
@@ -8,7 +44,15 @@ const recentDirsList = document.querySelector("#recent-dirs-list");
 const dropdownTabs = document.querySelector("#dropdown-tabs");
 const btnPickDir = document.querySelector("#btn-pick-dir");
 const btnOpenFinder = document.querySelector("#btn-open-finder");
+const projectsListEl = document.querySelector("#projects-list");
 
+const confirmModal = document.querySelector("#confirm-remove-modal");
+const confirmText = document.querySelector("#confirm-remove-text");
+const confirmCancel = document.querySelector("#confirm-remove-cancel");
+const confirmOk = document.querySelector("#confirm-remove-ok");
+const confirmBackdrop = confirmModal ? confirmModal.querySelector(".np-backdrop") : null;
+
+let pendingRemoveDir = null;
 let activeDropdownTab = "favorites";
 
 async function pickDirectory() {
@@ -18,6 +62,7 @@ async function pickDirectory() {
   state.recentDirs = result.recents;
   state.starredDirs = result.starred || [];
   renderRecentDirs();
+  renderProjectsList();
 }
 
 function setDirectory(dir) {
@@ -27,6 +72,106 @@ function setDirectory(dir) {
   app.ipcRenderer.send("directory:add-recent", dir);
   if (app.refreshGit) app.refreshGit();
   if (app.checkDevServerAvailable) app.checkDevServerAvailable();
+  if (app.updateSearchBarWorkspace) app.updateSearchBarWorkspace();
+  // Re-render projects to highlight active + re-render sessions for this workspace
+  renderProjectsList();
+  if (app.renderSessionList) app.renderSessionList();
+}
+
+async function renderProjectsList() {
+  if (!projectsListEl) return;
+
+  // Show starred dirs first, then recent dirs (deduped)
+  const seen = new Set();
+  const allDirs = [];
+
+  // Also collect dirs from sessions
+  const sessionDirs = new Set(
+    state.sessions.map((s) => s.directory).filter(Boolean),
+  );
+
+  // Starred first
+  for (const d of state.starredDirs) {
+    if (!seen.has(d)) {
+      seen.add(d);
+      allDirs.push(d);
+    }
+  }
+  // Recent dirs
+  for (const d of state.recentDirs) {
+    if (!seen.has(d)) {
+      seen.add(d);
+      allDirs.push(d);
+    }
+  }
+  // Session dirs that aren't in recent/starred
+  for (const d of sessionDirs) {
+    if (!seen.has(d)) {
+      seen.add(d);
+      allDirs.push(d);
+    }
+  }
+
+  // Detect frameworks for uncached dirs
+  const uncached = allDirs.filter((d) => !frameworkCache.has(d));
+  if (uncached.length > 0) {
+    await Promise.all(
+      uncached.map(async (d) => {
+        const fw = await app.ipcRenderer.invoke("project:detect-framework", d);
+        frameworkCache.set(d, fw);
+      }),
+    );
+  }
+
+  let html = "";
+  for (const dir of allDirs) {
+    const isActive = dir === state.currentDir;
+    const activeClass = isActive ? "active" : "";
+    const sessionCount = state.sessions.filter(
+      (s) => s.directory === dir,
+    ).length;
+    const icon = getProjectIcon(frameworkCache.get(dir));
+    html += `<div class="project-item ${activeClass}" data-project-dir="${escapeHtml(dir)}" title="${escapeHtml(shortDir(dir))}">
+      <span class="project-item-icon">
+        ${icon}
+      </span>
+      <span class="project-item-name">${escapeHtml(dirName(dir))}</span>
+      ${sessionCount > 0 ? `<span class="project-item-count">${sessionCount}</span>` : ""}
+      <span class="project-item-actions">
+        <button class="project-item-btn" data-remove-dir="${escapeHtml(dir)}" title="Remove workspace">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+            <path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M5 4v8.5a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </span>
+    </div>`;
+  }
+
+  if (allDirs.length === 0) {
+    html = `<div class="session-empty" style="padding:20px 8px;font-size:11px">No workspaces yet</div>`;
+  }
+
+  projectsListEl.innerHTML = html;
+
+  // Click to switch workspace
+  projectsListEl
+    .querySelectorAll(".project-item[data-project-dir]")
+    .forEach((el) => {
+      el.addEventListener("click", (e) => {
+        if (e.target.closest("[data-remove-dir]")) return;
+        setDirectory(el.dataset.projectDir);
+      });
+    });
+
+  // Click trash icon → show confirmation modal
+  projectsListEl
+    .querySelectorAll("[data-remove-dir]")
+    .forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showRemoveConfirm(btn.dataset.removeDir);
+      });
+    });
 }
 
 function renderRecentDirs() {
@@ -43,9 +188,10 @@ function renderRecentDirs() {
     t.classList.toggle("active", t.dataset.dropdownTab === activeDropdownTab);
   });
 
-  const dirs = activeDropdownTab === "favorites"
-    ? state.recentDirs.filter((d) => state.starredDirs.includes(d))
-    : state.recentDirs.filter((d) => !state.starredDirs.includes(d));
+  const dirs =
+    activeDropdownTab === "favorites"
+      ? state.recentDirs.filter((d) => state.starredDirs.includes(d))
+      : state.recentDirs.filter((d) => !state.starredDirs.includes(d));
 
   let html = "";
   for (const dir of dirs) {
@@ -61,7 +207,10 @@ function renderRecentDirs() {
     </div>`;
   }
   if (dirs.length === 0) {
-    const msg = activeDropdownTab === "favorites" ? "No favorites yet" : "No recent directories";
+    const msg =
+      activeDropdownTab === "favorites"
+        ? "No favorites yet"
+        : "No recent directories";
     html = `<div class="dropdown-empty">${msg}</div>`;
   }
   recentDirsList.innerHTML = html;
@@ -84,6 +233,7 @@ function renderRecentDirs() {
       }
       app.ipcRenderer.send("directory:toggle-star", dir);
       renderRecentDirs();
+      renderProjectsList();
     });
   });
 }
@@ -120,4 +270,46 @@ document.addEventListener("click", () => {
   app.animateClose(recentDirsDropdown, "dropOut", 150);
 });
 
-module.exports = { pickDirectory, setDirectory, renderRecentDirs };
+// ── Confirm-remove modal ────────────────────────────
+
+function showRemoveConfirm(dir) {
+  pendingRemoveDir = dir;
+  if (confirmText) confirmText.textContent = `Remove "${dirName(dir)}" from your workspaces?`;
+  if (confirmModal) confirmModal.classList.remove("hidden");
+}
+
+function hideRemoveConfirm() {
+  if (confirmModal) confirmModal.classList.add("hidden");
+  pendingRemoveDir = null;
+}
+
+function removeWorkspace(dir) {
+  state.recentDirs = state.recentDirs.filter((d) => d !== dir);
+  state.starredDirs = state.starredDirs.filter((d) => d !== dir);
+  frameworkCache.delete(dir);
+  app.ipcRenderer.send("directory:remove", dir);
+  if (state.currentDir === dir) {
+    state.currentDir = null;
+    currentDirLabel.textContent = "";
+    localStorage.removeItem("currentDir");
+  }
+  renderProjectsList();
+  renderRecentDirs();
+  if (app.renderSessionList) app.renderSessionList();
+}
+
+if (confirmCancel) confirmCancel.addEventListener("click", hideRemoveConfirm);
+if (confirmBackdrop) confirmBackdrop.addEventListener("click", hideRemoveConfirm);
+if (confirmOk) {
+  confirmOk.addEventListener("click", () => {
+    if (pendingRemoveDir) removeWorkspace(pendingRemoveDir);
+    hideRemoveConfirm();
+  });
+}
+
+module.exports = {
+  pickDirectory,
+  setDirectory,
+  renderRecentDirs,
+  renderProjectsList,
+};
