@@ -417,7 +417,7 @@ let _sbKeyboardNav = false;
 
 function updateSearchBarWorkspace() {
   const dir = state.currentDir;
-  searchBarWorkspace.textContent = dir ? shortDir(dir) : "Lithium";
+  searchBarWorkspace.textContent = dir ? dir.split("/").pop() : "Lithium";
 }
 
 function openSearchBar() {
