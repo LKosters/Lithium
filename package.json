@@ -15,15 +15,15 @@
     "build:all": "npx electron-builder --mac --win --linux"
   },
   "dependencies": {
-    "node-pty": "^1.0.0",
-    "@xterm/xterm": "^5.5.0",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/xterm": "^5.5.0",
+    "node-pty": "^1.0.0",
     "uuid": "^11.0.0"
   },
   "devDependencies": {
-    "electron": "33.4.11",
     "@electron/rebuild": "^3.6.0",
+    "electron": "33.4.11",
     "electron-builder": "^25.1.8"
   },
   "build": {
@@ -35,11 +35,25 @@
       "category": "public.app-category.developer-tools"
     },
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "public/icon.png"
     },
     "linux": {
-      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "public/icon.png",
       "category": "Development"
     },

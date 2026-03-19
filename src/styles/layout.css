@@ -56,7 +56,11 @@
 .project-item.active { background: var(--primary-soft); }
 .project-item-icon {
   flex-shrink: 0; color: var(--muted);
-  display: flex; align-items: center;
+  display: flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px;
+}
+.project-item-icon svg {
+  width: 14px; height: 14px; flex-shrink: 0;
 }
 .project-item.active .project-item-icon { color: var(--primary); }
 .project-item-name {

@@ -29,7 +29,14 @@
       "Bash(file \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/icon.png\" && sips -g all \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/icon.png\" 2>/dev/null | head -20)",
       "Bash(sips -g hasAlpha \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/icon.png\" 2>/dev/null)",
       "Bash(sips -g all \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/logo.png\" 2>/dev/null)",
-      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && grep -n \"np-overlay\\\\|np-dialog\\\\|np-backdrop\\\\|\\\\..*modal\\\\|\\\\..*dialog\" src/styles/*.css)"
+      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && grep -n \"np-overlay\\\\|np-dialog\\\\|np-backdrop\\\\|\\\\..*modal\\\\|\\\\..*dialog\" src/styles/*.css)",
+      "Bash(find /Users/laurenskosters/Downloads/Project\\\\ SynthCode/SyntCode\\\\ Design/src -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" -o -name \"*.jsx\" -o -name \"*.js\" \\\\\\) 2>/dev/null | sort)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(cd /tmp && mkdir -p icon-research && cd icon-research && npm init -y --silent 2>&1 | tail -1 && npm install --save devicon@2.17.0 simple-icons@16.12.0 2>&1 | tail -5)",
+      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && npm install devicon simple-icons 2>&1 | tail -5)",
+      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && mkdir -p src/assets/framework-icons && ls node_modules/devicon/icons/ | head -20)",
+      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && npm uninstall devicon simple-icons 2>&1 | tail -3)"
     ]
   }
 }

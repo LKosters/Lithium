@@ -1,6 +1,42 @@
+const path = require("path");
+const fs = require("fs");
 const app = require("./app");
 const { state } = require("./state");
 const { shortDir, escapeHtml, dirName } = require("./helpers");
+
+// ── Framework icons from devicon/simple-icons ───────────
+const ICONS_DIR = path.join(__dirname, "..", "assets", "framework-icons");
+const FOLDER_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4.5C2 3.67 2.67 3 3.5 3H6l1.5 1.5H12.5c.83 0 1.5.67 1.5 1.5v6c0 .83-.67 1.5-1.5 1.5h-9C2.67 13.5 2 12.83 2 12V4.5z" stroke="currentColor" stroke-width="1.2"/></svg>`;
+
+const ICON_FILES = [
+  "nextjs", "nuxtjs", "react", "vue", "vuejs", "angular", "svelte", "sveltekit",
+  "php", "symfony", "laravel", "typescript", "javascript", "python",
+  "rust", "go", "ruby", "astro", "gatsby", "remix", "tanstack",
+];
+
+// Load and cache all icon SVGs at startup
+const iconCache = {};
+for (const name of ICON_FILES) {
+  try {
+    const svgPath = path.join(ICONS_DIR, `${name}.svg`);
+    let svg = fs.readFileSync(svgPath, "utf8");
+    svg = svg.replace(/<svg([^>]*)>/, (match, attrs) => {
+      attrs = attrs.replace(/\s(width|height)="[^"]*"/g, "");
+      return `<svg width="14" height="14"${attrs}>`;
+    });
+    iconCache[name] = svg;
+  } catch {
+    // Icon file not found, skip
+  }
+}
+if (iconCache.vuejs && !iconCache.vue) iconCache.vue = iconCache.vuejs;
+if (iconCache.vue && !iconCache.vuejs) iconCache.vuejs = iconCache.vue;
+
+function getProjectIcon(framework) {
+  return iconCache[framework] || FOLDER_ICON;
+}
+
+const frameworkCache = new Map();
 
 const currentDirLabel = document.querySelector("#current-dir-label");
 const recentDirsDropdown = document.querySelector("#recent-dirs-dropdown");
@@ -42,7 +78,7 @@ function setDirectory(dir) {
   if (app.renderSessionList) app.renderSessionList();
 }
 
-function renderProjectsList() {
+async function renderProjectsList() {
   if (!projectsListEl) return;
 
   // Show starred dirs first, then recent dirs (deduped)
@@ -76,6 +112,17 @@ function renderProjectsList() {
     }
   }
 
+  // Detect frameworks for uncached dirs
+  const uncached = allDirs.filter((d) => !frameworkCache.has(d));
+  if (uncached.length > 0) {
+    await Promise.all(
+      uncached.map(async (d) => {
+        const fw = await app.ipcRenderer.invoke("project:detect-framework", d);
+        frameworkCache.set(d, fw);
+      }),
+    );
+  }
+
   let html = "";
   for (const dir of allDirs) {
     const isActive = dir === state.currentDir;
@@ -83,11 +130,10 @@ function renderProjectsList() {
     const sessionCount = state.sessions.filter(
       (s) => s.directory === dir,
     ).length;
+    const icon = getProjectIcon(frameworkCache.get(dir));
     html += `<div class="project-item ${activeClass}" data-project-dir="${escapeHtml(dir)}" title="${escapeHtml(shortDir(dir))}">
       <span class="project-item-icon">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <path d="M2 4.5C2 3.67 2.67 3 3.5 3H6l1.5 1.5H12.5c.83 0 1.5.67 1.5 1.5v6c0 .83-.67 1.5-1.5 1.5h-9C2.67 13.5 2 12.83 2 12V4.5z" stroke="currentColor" stroke-width="1.2"/>
-        </svg>
+        ${icon}
       </span>
       <span class="project-item-name">${escapeHtml(dirName(dir))}</span>
       ${sessionCount > 0 ? `<span class="project-item-count">${sessionCount}</span>` : ""}
@@ -240,6 +286,7 @@ function hideRemoveConfirm() {
 function removeWorkspace(dir) {
   state.recentDirs = state.recentDirs.filter((d) => d !== dir);
   state.starredDirs = state.starredDirs.filter((d) => d !== dir);
+  frameworkCache.delete(dir);
   app.ipcRenderer.send("directory:remove", dir);
   if (state.currentDir === dir) {
     state.currentDir = null;

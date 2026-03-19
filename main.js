@@ -107,6 +107,54 @@ ipcMain.handle("directory:recents", () => {
 
 ipcMain.on("directory:add-recent", (_e, dir) => addRecentDir(dir));
 
+// ── Framework detection ──────────────────────────────────
+function detectFramework(dir) {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf-8"));
+    const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+
+    if (allDeps["next"]) return "nextjs";
+    if (allDeps["nuxt"] || allDeps["nuxt3"]) return "nuxtjs";
+    if (allDeps["@tanstack/start"]) return "tanstack";
+    if (allDeps["@sveltejs/kit"]) return "sveltekit";
+    if (allDeps["@remix-run/react"] || allDeps["remix"]) return "remix";
+    if (allDeps["gatsby"]) return "gatsby";
+    if (allDeps["astro"]) return "astro";
+    if (allDeps["svelte"]) return "svelte";
+    if (allDeps["@angular/core"]) return "angular";
+    if (allDeps["vue"]) return "vue";
+    if (allDeps["react"]) return "react";
+    if (allDeps["typescript"]) return "typescript";
+    return "javascript";
+  } catch {}
+
+  try {
+    const composer = JSON.parse(fs.readFileSync(path.join(dir, "composer.json"), "utf-8"));
+    const req = { ...composer.require, ...composer["require-dev"] };
+    if (Object.keys(req).some((k) => k.startsWith("symfony/"))) return "symfony";
+    if (Object.keys(req).some((k) => k.startsWith("laravel/"))) return "laravel";
+    return "php";
+  } catch {}
+
+  if (fs.existsSync(path.join(dir, "tsconfig.json"))) return "typescript";
+  if (fs.existsSync(path.join(dir, "Cargo.toml"))) return "rust";
+  if (fs.existsSync(path.join(dir, "go.mod"))) return "go";
+  if (fs.existsSync(path.join(dir, "pyproject.toml")) ||
+      fs.existsSync(path.join(dir, "requirements.txt")) ||
+      fs.existsSync(path.join(dir, "setup.py"))) return "python";
+  if (fs.existsSync(path.join(dir, "Gemfile"))) return "ruby";
+
+  return null;
+}
+
+ipcMain.handle("project:detect-framework", (_e, dir) => {
+  try {
+    return detectFramework(dir);
+  } catch {
+    return null;
+  }
+});
+
 ipcMain.on("directory:toggle-star", (_e, dir) => {
   const config = loadConfig();
   if (!config.starredDirs) config.starredDirs = [];
