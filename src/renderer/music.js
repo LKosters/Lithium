@@ -9,6 +9,8 @@ const musicPlayer = {
   source: "lofi",       // "lofi" | "device"
   lofiTracks: [],
   devicePollTimer: null,
+  _devicePollInFlight: false,
+  _loadId: 0,           // monotonic counter to detect stale loads
 };
 
 // ── Player mode (full / compact / none) ──────────────
@@ -57,7 +59,7 @@ async function initMusicPlayer() {
   musicPlayer.tracks = shuffleArray(musicPlayer.lofiTracks);
   musicPlayer.audio.volume = parseInt(mpVolume.value, 10) / 100;
 
-  musicPlayer.audio.addEventListener("ended", () => playNextTrack());
+  musicPlayer.audio.addEventListener("ended", () => { playNextTrack(); });
 
   mpPlay.addEventListener("click", togglePlay);
   mpPrev.addEventListener("click", playPrevTrack);
@@ -121,7 +123,7 @@ async function initMusicPlayer() {
     switchToDevice();
   } else if (musicPlayer.tracks.length > 0) {
     musicPlayer.index = 0;
-    loadCurrentTrack();
+    await loadCurrentTrack();
   }
 
   // Restore player mode
@@ -159,7 +161,7 @@ function switchToDevice() {
   musicPlayer.devicePollTimer = setInterval(pollDeviceMedia, 2000);
 }
 
-function switchToLofi() {
+async function switchToLofi() {
   // Stop device polling
   if (musicPlayer.devicePollTimer) {
     clearInterval(musicPlayer.devicePollTimer);
@@ -173,7 +175,7 @@ function switchToLofi() {
 
   if (musicPlayer.tracks.length > 0) {
     musicPlayer.index = 0;
-    loadCurrentTrack();
+    await loadCurrentTrack();
   } else {
     document.querySelector("#mp-track-name").textContent = "No music";
     syncCompactPlayer();
@@ -190,7 +192,18 @@ function switchToLofi() {
 }
 
 async function pollDeviceMedia() {
-  const info = await app.ipcRenderer.invoke("media:now-playing");
+  if (musicPlayer._devicePollInFlight) return;
+  musicPlayer._devicePollInFlight = true;
+  let info;
+  try {
+    info = await app.ipcRenderer.invoke("media:now-playing");
+  } catch {
+    musicPlayer._devicePollInFlight = false;
+    return;
+  }
+  musicPlayer._devicePollInFlight = false;
+  // Ignore stale response if source changed while polling
+  if (musicPlayer.source !== "device") return;
   const mpTrackName = document.querySelector("#mp-track-name");
 
   if (!info) {
@@ -249,17 +262,35 @@ function updateSourceButton() {
 
 function loadCurrentTrack() {
   const track = musicPlayer.tracks[musicPlayer.index];
-  if (!track) return;
+  if (!track) return Promise.resolve();
   const mpTrackName = document.querySelector("#mp-track-name");
-  musicPlayer.audio.src = "file://" + track.path;
   mpTrackName.textContent = track.name;
   mpTrackName.title = track.name;
   syncCompactPlayer();
+
+  const loadId = ++musicPlayer._loadId;
+  return new Promise((resolve) => {
+    const audio = musicPlayer.audio;
+    const onReady = () => {
+      audio.removeEventListener("canplaythrough", onReady);
+      audio.removeEventListener("error", onError);
+      resolve(loadId === musicPlayer._loadId);
+    };
+    const onError = () => {
+      audio.removeEventListener("canplaythrough", onReady);
+      audio.removeEventListener("error", onError);
+      resolve(false);
+    };
+    audio.addEventListener("canplaythrough", onReady);
+    audio.addEventListener("error", onError);
+    audio.src = "file://" + track.path;
+    audio.load();
+  });
 }
 
 function togglePlay() {
   if (musicPlayer.source === "device") {
-    app.ipcRenderer.invoke("media:control", { action: "toggle" });
+    app.ipcRenderer.invoke("media:control", { action: "toggle" }).catch(() => {});
     return;
   }
 
@@ -267,11 +298,15 @@ function togglePlay() {
   if (musicPlayer.playing) {
     musicPlayer.audio.pause();
     musicPlayer.playing = false;
+    updatePlayButton();
   } else {
-    musicPlayer.audio.play();
-    musicPlayer.playing = true;
+    musicPlayer.audio.play().then(() => {
+      musicPlayer.playing = true;
+      updatePlayButton();
+    }).catch(() => {
+      // Play failed (e.g. no audio loaded yet) — don't change state
+    });
   }
-  updatePlayButton();
 }
 
 function updatePlayButton() {
@@ -309,9 +344,9 @@ function updateTrackProgress() {
   requestAnimationFrame(updateTrackProgress);
 }
 
-function playNextTrack() {
+async function playNextTrack() {
   if (musicPlayer.source === "device") {
-    app.ipcRenderer.invoke("media:control", { action: "next" });
+    app.ipcRenderer.invoke("media:control", { action: "next" }).catch(() => {});
     return;
   }
 
@@ -326,15 +361,15 @@ function playNextTrack() {
     }
     musicPlayer.index = 0;
   }
-  loadCurrentTrack();
-  if (musicPlayer.playing) {
-    musicPlayer.audio.play();
+  const ready = await loadCurrentTrack();
+  if (ready && musicPlayer.playing) {
+    musicPlayer.audio.play().catch(() => {});
   }
 }
 
-function playPrevTrack() {
+async function playPrevTrack() {
   if (musicPlayer.source === "device") {
-    app.ipcRenderer.invoke("media:control", { action: "prev" });
+    app.ipcRenderer.invoke("media:control", { action: "prev" }).catch(() => {});
     return;
   }
 
@@ -344,9 +379,9 @@ function playPrevTrack() {
     return;
   }
   musicPlayer.index = (musicPlayer.index - 1 + musicPlayer.tracks.length) % musicPlayer.tracks.length;
-  loadCurrentTrack();
-  if (musicPlayer.playing) {
-    musicPlayer.audio.play();
+  const ready = await loadCurrentTrack();
+  if (ready && musicPlayer.playing) {
+    musicPlayer.audio.play().catch(() => {});
   }
 }
 
