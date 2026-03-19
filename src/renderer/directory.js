@@ -29,6 +29,7 @@ function setDirectory(dir) {
   app.ipcRenderer.send("directory:add-recent", dir);
   if (app.refreshGit) app.refreshGit();
   if (app.checkDevServerAvailable) app.checkDevServerAvailable();
+  if (app.updateSearchBarWorkspace) app.updateSearchBarWorkspace();
   // Re-render projects to highlight active + re-render sessions for this workspace
   renderProjectsList();
   if (app.renderSessionList) app.renderSessionList();
@@ -48,26 +49,39 @@ function renderProjectsList() {
   const allDirs = [];
 
   // Also collect dirs from sessions
-  const sessionDirs = new Set(state.sessions.map((s) => s.directory).filter(Boolean));
+  const sessionDirs = new Set(
+    state.sessions.map((s) => s.directory).filter(Boolean),
+  );
 
   // Starred first
   for (const d of state.starredDirs) {
-    if (!seen.has(d)) { seen.add(d); allDirs.push(d); }
+    if (!seen.has(d)) {
+      seen.add(d);
+      allDirs.push(d);
+    }
   }
   // Recent dirs
   for (const d of state.recentDirs) {
-    if (!seen.has(d)) { seen.add(d); allDirs.push(d); }
+    if (!seen.has(d)) {
+      seen.add(d);
+      allDirs.push(d);
+    }
   }
   // Session dirs that aren't in recent/starred
   for (const d of sessionDirs) {
-    if (!seen.has(d)) { seen.add(d); allDirs.push(d); }
+    if (!seen.has(d)) {
+      seen.add(d);
+      allDirs.push(d);
+    }
   }
 
   let html = "";
   for (const dir of allDirs) {
     const isActive = dir === state.currentDir;
     const activeClass = isActive ? "active" : "";
-    const sessionCount = state.sessions.filter((s) => s.directory === dir).length;
+    const sessionCount = state.sessions.filter(
+      (s) => s.directory === dir,
+    ).length;
     html += `<button class="project-item ${activeClass}" data-project-dir="${escapeHtml(dir)}" title="${escapeHtml(shortDir(dir))}">
       <span class="project-item-icon">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -86,11 +100,13 @@ function renderProjectsList() {
   projectsListEl.innerHTML = html;
 
   // Click to switch workspace
-  projectsListEl.querySelectorAll(".project-item[data-project-dir]").forEach((el) => {
-    el.addEventListener("click", () => {
-      setDirectory(el.dataset.projectDir);
+  projectsListEl
+    .querySelectorAll(".project-item[data-project-dir]")
+    .forEach((el) => {
+      el.addEventListener("click", () => {
+        setDirectory(el.dataset.projectDir);
+      });
     });
-  });
 }
 
 function renderRecentDirs() {
@@ -107,9 +123,10 @@ function renderRecentDirs() {
     t.classList.toggle("active", t.dataset.dropdownTab === activeDropdownTab);
   });
 
-  const dirs = activeDropdownTab === "favorites"
-    ? state.recentDirs.filter((d) => state.starredDirs.includes(d))
-    : state.recentDirs.filter((d) => !state.starredDirs.includes(d));
+  const dirs =
+    activeDropdownTab === "favorites"
+      ? state.recentDirs.filter((d) => state.starredDirs.includes(d))
+      : state.recentDirs.filter((d) => !state.starredDirs.includes(d));
 
   let html = "";
   for (const dir of dirs) {
@@ -125,7 +142,10 @@ function renderRecentDirs() {
     </div>`;
   }
   if (dirs.length === 0) {
-    const msg = activeDropdownTab === "favorites" ? "No favorites yet" : "No recent directories";
+    const msg =
+      activeDropdownTab === "favorites"
+        ? "No favorites yet"
+        : "No recent directories";
     html = `<div class="dropdown-empty">${msg}</div>`;
   }
   recentDirsList.innerHTML = html;
@@ -185,4 +205,9 @@ document.addEventListener("click", () => {
   app.animateClose(recentDirsDropdown, "dropOut", 150);
 });
 
-module.exports = { pickDirectory, setDirectory, renderRecentDirs, renderProjectsList };
+module.exports = {
+  pickDirectory,
+  setDirectory,
+  renderRecentDirs,
+  renderProjectsList,
+};

@@ -388,12 +388,352 @@ document.addEventListener("keyup", (e) => {
     const now = Date.now();
     if (now - _lastShiftUp < 350) {
       _lastShiftUp = 0;
-      openQuickOpen();
+      openSearchBar();
     } else {
       _lastShiftUp = now;
     }
   }
 });
+
+// ── Search bar (VS Code style — unified quick open) ───
+const searchBar = document.querySelector("#search-bar");
+const searchBarInput = document.querySelector("#search-bar-input");
+const searchBarWorkspace = document.querySelector("#search-bar-workspace");
+const searchBarResults = document.querySelector("#search-bar-results");
+const sbList = document.querySelector("#sb-list");
+const sbCreate = document.querySelector("#sb-create");
+const sbCreateName = document.querySelector("#sb-create-name");
+const sbDirBtn = document.querySelector("#sb-dir-btn");
+const sbDirLabel = document.querySelector("#sb-dir-label");
+const sbCreateBtn = document.querySelector("#sb-create-btn");
+const sbDirDropdown = document.querySelector("#sb-dir-dropdown");
+const sbDropdownTabs = document.querySelector("#sb-dropdown-tabs");
+const sbDirsList = document.querySelector("#sb-dirs-list");
+const sbBrowseBtn = document.querySelector("#sb-browse-btn");
+
+let _sbSelectedIdx = 0;
+let _sbCreateMode = false;
+let _sbCreateDir = null;
+let _sbActiveTab = "favorites";
+let _sbKeyboardNav = false;
+
+function updateSearchBarWorkspace() {
+  const dir = state.currentDir;
+  searchBarWorkspace.textContent = dir ? dir.split("/").pop() : "Lithium";
+}
+
+function openSearchBar() {
+  searchBar.classList.add("focused");
+  searchBarWorkspace.classList.add("hidden");
+  searchBarInput.value = "";
+  _sbSelectedIdx = 0;
+  _sbCreateMode = false;
+  _sbCreateDir = state.currentDir;
+  sbCreate.classList.add("hidden");
+  renderSbList("");
+  searchBarResults.classList.remove("hidden");
+  searchBarInput.focus();
+}
+
+function closeSearchBar() {
+  if (_sbCreateMode) {
+    sbDirDropdown.classList.add("hidden");
+  }
+  searchBar.classList.remove("focused");
+  searchBarInput.value = "";
+  searchBarResults.classList.add("hidden");
+  sbCreate.classList.add("hidden");
+  _sbSelectedIdx = 0;
+  _sbCreateMode = false;
+  searchBarWorkspace.classList.remove("hidden");
+  searchBarInput.blur();
+}
+
+function isSearchBarOpen() {
+  return searchBar.classList.contains("focused");
+}
+
+function sbShowCreateForm() {
+  _sbCreateMode = true;
+  sbCreate.classList.remove("hidden");
+  sbDirLabel.textContent = _sbCreateDir ? shortDir(_sbCreateDir) : "Select directory...";
+  sbCreateName.value = searchBarInput.value.trim();
+  sbCreateName.focus();
+  sbCreateName.select();
+}
+
+function sbDoCreate() {
+  const name = sbCreateName.value.trim();
+  if (!_sbCreateDir) {
+    sbDirBtn.style.borderColor = "var(--primary)";
+    setTimeout(() => sbDirBtn.style.borderColor = "", 1000);
+    return;
+  }
+
+  const id = uuidv4();
+  const session = {
+    id,
+    directory: _sbCreateDir,
+    title: name || shortDir(_sbCreateDir),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  state.sessions.unshift(session);
+  persistSession(session);
+  createTerminal(id);
+  ipcRenderer.send("pty:spawn", { sessionId: id, cwd: _sbCreateDir });
+  openTab(id);
+  renderSessionList();
+  closeSearchBar();
+}
+
+function renderSbList(query) {
+  const q = query.toLowerCase().trim();
+  const matches = state.sessions.filter((s) => {
+    const title = (s.title || "").toLowerCase();
+    const dir = (s.directory || "").toLowerCase();
+    return !q || title.includes(q) || dir.includes(q);
+  });
+
+  let html = `<div class="sb-new ${_sbSelectedIdx === 0 ? "selected" : ""}" data-action="new">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <span>New Session${q ? ": " + escapeHtml(q) : ""}</span>
+  </div>`;
+
+  html += matches.map((s, i) => {
+    const t = termsMap.get(s.id);
+    const alive = t?.alive ? "alive" : "";
+    const idx = i + 1;
+    const sel = idx === _sbSelectedIdx ? "selected" : "";
+    const dirName = s.directory ? s.directory.split("/").pop() : "";
+    return `<div class="sb-item ${sel}" data-sid="${s.id}">
+      <span class="sb-item-status ${alive}"></span>
+      <span class="sb-item-title">${escapeHtml(s.title || "Session")}</span>
+      ${dirName ? `<span class="sb-item-workspace">${escapeHtml(dirName)}</span>` : ""}
+    </div>`;
+  }).join("");
+
+  if (matches.length === 0 && q) {
+    html += '<div class="sb-empty">No sessions found</div>';
+  }
+
+  sbList.innerHTML = html;
+
+  const totalItems = 1 + matches.length;
+  if (_sbSelectedIdx >= totalItems) _sbSelectedIdx = totalItems - 1;
+
+  // New session click
+  const newEl = sbList.querySelector("[data-action='new']");
+  if (newEl) {
+    newEl.addEventListener("click", sbShowCreateForm);
+    newEl.addEventListener("mouseenter", () => { _sbSelectedIdx = 0; updateSbSelection(); });
+  }
+
+  // Session clicks
+  sbList.querySelectorAll(".sb-item").forEach((el, i) => {
+    el.addEventListener("click", () => {
+      openTab(el.dataset.sid);
+      closeSearchBar();
+    });
+    el.addEventListener("mouseenter", () => { _sbSelectedIdx = i + 1; updateSbSelection(); });
+  });
+}
+
+function updateSbSelection() {
+  const newEl = sbList.querySelector("[data-action='new']");
+  if (newEl) newEl.classList.toggle("selected", _sbSelectedIdx === 0);
+  sbList.querySelectorAll(".sb-item").forEach((el, i) => {
+    el.classList.toggle("selected", i + 1 === _sbSelectedIdx);
+  });
+  if (_sbKeyboardNav) {
+    const sel = sbList.querySelector(".selected");
+    if (sel) sel.scrollIntoView({ block: "nearest" });
+    _sbKeyboardNav = false;
+  }
+}
+
+// Directory dropdown for create form
+function renderSbDirList() {
+  const hasFavorites = state.starredDirs.length > 0;
+  if (hasFavorites) {
+    sbDropdownTabs.classList.remove("hidden");
+  } else {
+    sbDropdownTabs.classList.add("hidden");
+    _sbActiveTab = "recent";
+  }
+
+  sbDropdownTabs.querySelectorAll(".dropdown-tab").forEach((t) => {
+    t.classList.toggle("active", t.dataset.sbTab === _sbActiveTab);
+  });
+
+  const dirs = _sbActiveTab === "favorites"
+    ? state.recentDirs.filter((d) => state.starredDirs.includes(d))
+    : state.recentDirs.filter((d) => !state.starredDirs.includes(d));
+
+  let html = "";
+  for (const dir of dirs) {
+    const isStarred = state.starredDirs.includes(dir);
+    const starClass = isStarred ? "star-btn starred" : "star-btn";
+    html += `<div class="dropdown-item" data-dir="${escapeHtml(dir)}">
+      <button class="${starClass}" data-star-dir="${escapeHtml(dir)}" title="${isStarred ? "Unstar" : "Star"}">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="${isStarred ? "currentColor" : "none"}">
+          <path d="M8 1.5l2 4.5 5 .5-3.8 3.3L12.4 15 8 12.5 3.6 15l1.2-5.2L1 6.5l5-.5L8 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <span class="dropdown-item-text">${escapeHtml(shortDir(dir))}</span>
+    </div>`;
+  }
+  if (dirs.length === 0) {
+    const msg = _sbActiveTab === "favorites" ? "No favorites yet" : "No recent directories";
+    html = `<div class="dropdown-empty">${msg}</div>`;
+  }
+  sbDirsList.innerHTML = html;
+
+  sbDirsList.querySelectorAll(".dropdown-item[data-dir]").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      if (e.target.closest(".star-btn")) return;
+      _sbCreateDir = el.dataset.dir;
+      sbDirLabel.textContent = shortDir(el.dataset.dir);
+      app.animateClose(sbDirDropdown, "dropOut", 150);
+    });
+  });
+  sbDirsList.querySelectorAll(".star-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const dir = btn.dataset.starDir;
+      if (state.starredDirs.includes(dir)) {
+        state.starredDirs = state.starredDirs.filter((d) => d !== dir);
+      } else {
+        state.starredDirs.push(dir);
+      }
+      ipcRenderer.send("directory:toggle-star", dir);
+      renderSbDirList();
+    });
+  });
+}
+
+// Event bindings — search bar open/close
+searchBar.addEventListener("click", () => {
+  if (!searchBar.classList.contains("focused")) openSearchBar();
+});
+
+searchBarInput.addEventListener("focus", () => {
+  if (!searchBar.classList.contains("focused")) openSearchBar();
+});
+
+searchBarInput.addEventListener("input", () => {
+  _sbSelectedIdx = 0;
+  _sbCreateMode = false;
+  sbCreate.classList.add("hidden");
+  renderSbList(searchBarInput.value);
+});
+
+searchBarInput.addEventListener("keydown", (e) => {
+  if (_sbCreateMode) return;
+  const newEl = sbList.querySelector("[data-action='new']");
+  const items = sbList.querySelectorAll(".sb-item");
+  const total = (newEl ? 1 : 0) + items.length;
+
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    _sbKeyboardNav = true;
+    _sbSelectedIdx = Math.min(_sbSelectedIdx + 1, total - 1);
+    updateSbSelection();
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    _sbKeyboardNav = true;
+    _sbSelectedIdx = Math.max(_sbSelectedIdx - 1, 0);
+    updateSbSelection();
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    if (_sbSelectedIdx === 0) {
+      sbShowCreateForm();
+    } else {
+      const sel = items[_sbSelectedIdx - 1];
+      if (sel) {
+        openTab(sel.dataset.sid);
+        closeSearchBar();
+      }
+    }
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    closeSearchBar();
+  }
+});
+
+sbCreateName.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    sbDoCreate();
+  }
+  if (e.key === "Escape") {
+    _sbCreateMode = false;
+    sbCreate.classList.add("hidden");
+    searchBarInput.focus();
+  }
+});
+
+sbDirBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const isHidden = sbDirDropdown.classList.contains("hidden");
+  if (isHidden) {
+    _sbActiveTab = state.starredDirs.length > 0 ? "favorites" : "recent";
+    renderSbDirList();
+    sbDirDropdown.classList.remove("hidden");
+  } else {
+    app.animateClose(sbDirDropdown, "dropOut", 150);
+  }
+});
+
+sbDropdownTabs.querySelectorAll(".dropdown-tab").forEach((tab) => {
+  tab.addEventListener("click", (e) => {
+    e.stopPropagation();
+    _sbActiveTab = tab.dataset.sbTab;
+    renderSbDirList();
+  });
+});
+
+sbDirDropdown.addEventListener("click", (e) => { e.stopPropagation(); });
+
+sbBrowseBtn.addEventListener("click", async (e) => {
+  e.stopPropagation();
+  const result = await ipcRenderer.invoke("directory:pick");
+  if (result) {
+    _sbCreateDir = result.dir;
+    sbDirLabel.textContent = shortDir(result.dir);
+    state.recentDirs = result.recents;
+    state.starredDirs = result.starred || [];
+  }
+  app.animateClose(sbDirDropdown, "dropOut", 150);
+});
+
+sbCreateBtn.addEventListener("click", sbDoCreate);
+
+// Close search bar when clicking outside
+document.addEventListener("mousedown", (e) => {
+  if (searchBar.classList.contains("focused") && !searchBar.contains(e.target)) {
+    closeSearchBar();
+  }
+});
+
+// Also close on blur (catches titlebar drag area clicks that swallow mousedown)
+searchBarInput.addEventListener("blur", () => {
+  // Delay to allow clicks on results to register first
+  setTimeout(() => {
+    if (searchBar.classList.contains("focused") && !searchBar.contains(document.activeElement)) {
+      closeSearchBar();
+    }
+  }, 150);
+});
+
+// Update workspace display when directory changes
+app.updateSearchBarWorkspace = updateSearchBarWorkspace;
+
+// Initial workspace display
+updateSearchBarWorkspace();
 
 // ── New Project modal ─────────────────────────────
 const npModal = document.querySelector("#new-project-modal");
@@ -592,6 +932,10 @@ document.addEventListener("keydown", (e) => {
     closeNewProject();
     return;
   }
+  if (e.key === "Escape" && isSearchBarOpen()) {
+    closeSearchBar();
+    return;
+  }
   if (e.key === "Escape" && !quickOpen.classList.contains("hidden")) {
     closeQuickOpen();
     return;
@@ -606,6 +950,12 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape" && state.focusMode.active) {
     exitFocusMode();
+    return;
+  }
+  // Cmd+P — focus search bar
+  if (e.code === "KeyP" && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+    e.preventDefault();
+    openSearchBar();
     return;
   }
   // Cmd+Shift+D — split vertical (top/bottom) — check shift first

@@ -216,6 +216,7 @@ function refreshLayout() {
   });
 
   app.renderSessionList();
+  if (app.updateSearchBarWorkspace) app.updateSearchBarWorkspace();
 
   // Persist open tabs layout for restore on relaunch
   saveLayoutState();
