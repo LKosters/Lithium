@@ -713,7 +713,7 @@ async function init() {
   renderSessionList();
   refreshLayout();
 
-  initMusicPlayer();
+  initMusicPlayer().catch((err) => console.error("Music player init failed:", err));
 
   // Restore dev server if it was running before quit
   const savedDevDir = localStorage.getItem("devServerDir");

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog, nativeImage } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, dialog, nativeImage, protocol, net } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -157,6 +157,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       webviewTag: true,
+      backgroundThrottling: false,
     },
   });
 
@@ -469,25 +470,23 @@ ipcMain.handle("media:now-playing", async () => {
 });
 
 ipcMain.handle("media:control", async (_e, { action, position }) => {
-  // Build a single JXA script for the control action
+  // Use the cached app name from the last now-playing poll to avoid
+  // the expensive process enumeration via System Events
+  const appName = _nowPlayingCache.data && _nowPlayingCache.data.app;
+  if (!appName) return false;
+
+  const actionLine =
+    action === "toggle" ? "a.playpause();" :
+    action === "next"   ? "a.nextTrack();" :
+    action === "prev"   ? "a.previousTrack();" :
+    action === "seek"   ? `a.playerPosition = ${position || 0};` : "";
+
   const script = `
-    var apps = Application("System Events").processes().map(function(p){return p.name()});
-    var done = false;
-    var targets = ["Spotify", "Music"];
-    for (var i = 0; i < targets.length; i++) {
-      if (apps.indexOf(targets[i]) === -1) continue;
-      try {
-        var a = Application(targets[i]);
-        var st = a.playerState();
-        if (st !== "playing" && st !== "paused") continue;
-        ${action === "toggle" ? "a.playpause();" : ""}
-        ${action === "next" ? "a.nextTrack();" : ""}
-        ${action === "prev" ? "a.previousTrack();" : ""}
-        ${action === "seek" ? `a.playerPosition = ${position || 0};` : ""}
-        done = true; break;
-      } catch(e) {}
-    }
-    done;
+    try {
+      var a = Application("${appName}");
+      ${actionLine}
+      true;
+    } catch(e) { false; }
   `;
   const result = await runOsaAsync(script);
   return result === "true";
@@ -668,9 +667,24 @@ function buildAppMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+// ── Custom protocol for streaming local audio ─────────
+protocol.registerSchemesAsPrivileged([{
+  scheme: "media",
+  privileges: { stream: true, standard: true, supportFetchAPI: true },
+}]);
+
 // ── Lifecycle ──────────────────────────────────────────
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+
 app.whenReady().then(() => {
   app.name = "Lithium";
+
+  // Serve local audio files via media:// with proper streaming/range support
+  protocol.handle("media", (request) => {
+    const url = new URL(request.url);
+    return net.fetch("file://" + decodeURIComponent(url.pathname));
+  });
+
   ensureDirs();
   buildAppMenu();
   if (process.platform === "darwin" && app.dock) {
