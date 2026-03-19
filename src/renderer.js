@@ -416,8 +416,9 @@ let _sbActiveTab = "favorites";
 let _sbKeyboardNav = false;
 
 function updateSearchBarWorkspace() {
-  const dir = state.currentDir;
-  searchBarWorkspace.textContent = dir ? shortDir(dir) : "No workspace selected";
+  const activeId = state.activeId;
+  const session = activeId ? state.sessions.find(s => s.id === activeId) : null;
+  searchBarWorkspace.textContent = session ? (session.title || "Session") : "Lithium";
 }
 
 function openSearchBar() {
@@ -509,7 +510,6 @@ function renderSbList(query) {
     return `<div class="sb-item ${sel}" data-sid="${s.id}">
       <span class="sb-item-status ${alive}"></span>
       <span class="sb-item-title">${escapeHtml(s.title || "Session")}</span>
-      <span class="sb-item-dir">${escapeHtml(shortDir(s.directory || ""))}</span>
     </div>`;
   }).join("");
 
