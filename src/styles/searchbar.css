@@ -58,6 +58,10 @@
 }
 
 .search-bar-input::placeholder {
+  color: transparent;
+}
+
+.search-bar.focused .search-bar-input::placeholder {
   color: var(--muted);
   opacity: 0.6;
 }

@@ -413,6 +413,7 @@ let _sbSelectedIdx = 0;
 let _sbCreateMode = false;
 let _sbCreateDir = null;
 let _sbActiveTab = "favorites";
+let _sbKeyboardNav = false;
 
 function updateSearchBarWorkspace() {
   const dir = state.currentDir;
@@ -544,8 +545,11 @@ function updateSbSelection() {
   sbList.querySelectorAll(".sb-item").forEach((el, i) => {
     el.classList.toggle("selected", i + 1 === _sbSelectedIdx);
   });
-  const sel = sbList.querySelector(".selected");
-  if (sel) sel.scrollIntoView({ block: "nearest" });
+  if (_sbKeyboardNav) {
+    const sel = sbList.querySelector(".selected");
+    if (sel) sel.scrollIntoView({ block: "nearest" });
+    _sbKeyboardNav = false;
+  }
 }
 
 // Directory dropdown for create form
@@ -632,10 +636,12 @@ searchBarInput.addEventListener("keydown", (e) => {
 
   if (e.key === "ArrowDown") {
     e.preventDefault();
+    _sbKeyboardNav = true;
     _sbSelectedIdx = Math.min(_sbSelectedIdx + 1, total - 1);
     updateSbSelection();
   } else if (e.key === "ArrowUp") {
     e.preventDefault();
+    _sbKeyboardNav = true;
     _sbSelectedIdx = Math.max(_sbSelectedIdx - 1, 0);
     updateSbSelection();
   } else if (e.key === "Enter") {
