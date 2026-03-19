@@ -4,6 +4,16 @@ const fs = require("fs");
 const os = require("os");
 const pty = require("node-pty");
 
+// ── Constants ──────────────────────────────────────────
+const DEFAULT_COLS = 80;
+const DEFAULT_ROWS = 24;
+const MAX_RECENT_DIRS = 10;
+const GIT_TIMEOUT_MS = 5000;
+const NOW_PLAYING_DEBOUNCE_MS = 800;
+const GIT_POLL_INTERVAL_MS = 3000;
+const LOCALHOST_URL_RE = /https?:\/\/localhost:\d+/;
+const SESSION_ID_RE = /^[a-zA-Z0-9_-]+$/;
+
 // ── Paths ──────────────────────────────────────────────
 const DATA_DIR = path.join(os.homedir(), ".synthcode");
 const SESSIONS_DIR = path.join(DATA_DIR, "sessions");
@@ -26,22 +36,31 @@ const CLAUDE_BIN = (() => {
   return "claude";
 })();
 
-// ── Config (recent dirs) ───────────────────────────────
+// ── Config (recent dirs) — cached in memory ────────────
+let _configCache = null;
+
 function loadConfig() {
+  if (_configCache) return _configCache;
   try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
+    _configCache = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
   } catch {
-    return { recentDirs: [] };
+    _configCache = { recentDirs: [] };
   }
+  return _configCache;
 }
 
 function saveConfig(config) {
+  _configCache = config;
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+}
+
+function isValidSessionId(id) {
+  return typeof id === "string" && id.length > 0 && id.length < 256 && SESSION_ID_RE.test(id);
 }
 
 function addRecentDir(dir) {
   const config = loadConfig();
-  config.recentDirs = [dir, ...config.recentDirs.filter((d) => d !== dir)].slice(0, 10);
+  config.recentDirs = [dir, ...config.recentDirs.filter((d) => d !== dir)].slice(0, MAX_RECENT_DIRS);
   saveConfig(config);
   return config.recentDirs;
 }
@@ -52,7 +71,9 @@ const LAYOUT_PATH = path.join(DATA_DIR, "layout.json");
 function saveLayoutToDisk(layoutData) {
   try {
     fs.writeFileSync(LAYOUT_PATH, JSON.stringify(layoutData));
-  } catch {}
+  } catch (err) {
+    console.error("Failed to save layout to disk:", err.message);
+  }
 }
 
 function loadLayoutFromDisk() {
@@ -71,7 +92,8 @@ function loadAllSessions() {
     .map((f) => {
       try {
         return JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, f), "utf-8"));
-      } catch {
+      } catch (err) {
+        console.error(`Failed to load session file ${f}:`, err.message);
         return null;
       }
     })
@@ -80,6 +102,7 @@ function loadAllSessions() {
 }
 
 function saveSession(session) {
+  if (!session || !isValidSessionId(session.id)) return;
   ensureDirs();
   fs.writeFileSync(
     path.join(SESSIONS_DIR, `${session.id}.json`),
@@ -88,6 +111,7 @@ function saveSession(session) {
 }
 
 function deleteSession(sessionId) {
+  if (!isValidSessionId(sessionId)) return;
   const p = path.join(SESSIONS_DIR, `${sessionId}.json`);
   if (fs.existsSync(p)) fs.unlinkSync(p);
 }
@@ -112,8 +136,8 @@ function spawnSession(sessionId, cwd, resume, senderWebContents) {
   try {
     proc = pty.spawn(CLAUDE_BIN, args, {
       name: "xterm-256color",
-      cols: 80,
-      rows: 24,
+      cols: DEFAULT_COLS,
+      rows: DEFAULT_ROWS,
       cwd: cwd || os.homedir(),
       env,
     });
@@ -203,7 +227,9 @@ ipcMain.on("pty:input", (_e, { sessionId, data }) => {
 ipcMain.on("pty:resize", (_e, { sessionId, cols, rows }) => {
   const entry = ptyProcesses.get(sessionId);
   if (entry) {
-    try { entry.proc.resize(cols, rows); } catch {}
+    try { entry.proc.resize(cols, rows); } catch (err) {
+      console.error(`PTY resize failed for ${sessionId}:`, err.message);
+    }
   }
 });
 
@@ -223,7 +249,7 @@ ipcMain.on("layout:save", (_e, layoutData) => saveLayoutToDisk(layoutData));
 ipcMain.handle("layout:load", () => loadLayoutFromDisk());
 
 ipcMain.handle("directory:pick", async (e) => {
-  const win = BrowserWindow.fromWebContents(e.sender);
+  const win = BrowserWindow.fromWebContents(e.sender) || BrowserWindow.getFocusedWindow();
   const result = await dialog.showOpenDialog(win, {
     properties: ["openDirectory"],
   });
@@ -247,7 +273,8 @@ ipcMain.handle("music:list", () => {
     return fs.readdirSync(musicDir)
       .filter((f) => /\.(mp3|m4a|ogg|wav|flac)$/i.test(f))
       .map((f) => ({ name: f.replace(/\.[^.]+$/, ""), path: path.join(musicDir, f) }));
-  } catch {
+  } catch (err) {
+    console.error("Failed to list music directory:", err.message);
     return [];
   }
 });
@@ -288,6 +315,10 @@ ipcMain.handle("config:create-default-projects-dir", () => {
 const { spawn } = require("child_process");
 
 ipcMain.handle("project:create", async (_e, { framework, name, projectsDir }) => {
+  // Validate project name server-side to prevent command injection
+  if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) {
+    return { ok: false, error: "Invalid project name. Use only letters, numbers, dashes and underscores." };
+  }
   const targetDir = path.join(projectsDir, name);
   if (fs.existsSync(targetDir)) {
     return { ok: false, error: `Directory "${name}" already exists in projects folder.` };
@@ -342,6 +373,7 @@ ipcMain.handle("devserver:has-dev-script", (_e, { cwd }) => {
     const pkg = JSON.parse(fs.readFileSync(path.join(cwd, "package.json"), "utf-8"));
     return !!(pkg.scripts && pkg.scripts.dev);
   } catch {
+    // No package.json or invalid JSON — expected for non-Node projects
     return false;
   }
 });
@@ -361,38 +393,25 @@ ipcMain.handle("devserver:start", (_e, { cwd }) => {
 
   const sender = _e.sender;
 
-  proc.stdout.on("data", (chunk) => {
-    const text = chunk.toString();
-    // Detect localhost URL from Next.js output (e.g. "- Local: http://localhost:3000")
-    const match = text.match(/https?:\/\/localhost:\d+/);
+  function detectAndSendUrl(chunk) {
+    const match = chunk.toString().match(LOCALHOST_URL_RE);
     if (match && sender && !sender.isDestroyed()) {
       sender.send("devserver:url", match[0]);
     }
-  });
+  }
 
-  proc.stderr.on("data", (chunk) => {
-    const text = chunk.toString();
-    const match = text.match(/https?:\/\/localhost:\d+/);
-    if (match && sender && !sender.isDestroyed()) {
-      sender.send("devserver:url", match[0]);
-    }
-  });
-
-  proc.on("close", () => {
+  function handleDevServerExit() {
     _devServerProc = null;
     _devServerDir = null;
     if (sender && !sender.isDestroyed()) {
       sender.send("devserver:stopped");
     }
-  });
+  }
 
-  proc.on("error", () => {
-    _devServerProc = null;
-    _devServerDir = null;
-    if (sender && !sender.isDestroyed()) {
-      sender.send("devserver:stopped");
-    }
-  });
+  proc.stdout.on("data", detectAndSendUrl);
+  proc.stderr.on("data", detectAndSendUrl);
+  proc.on("close", handleDevServerExit);
+  proc.on("error", handleDevServerExit);
 
   return { ok: true };
 });
@@ -402,7 +421,9 @@ function killDevServer() {
   try {
     process.kill(-_devServerProc.pid, "SIGTERM");
   } catch {
-    try { _devServerProc.kill(); } catch {}
+    try { _devServerProc.kill(); } catch (err) {
+      console.error("Failed to kill dev server process:", err.message);
+    }
   }
   _devServerProc = null;
   _devServerDir = null;
@@ -471,14 +492,16 @@ result || "null";
 let _nowPlayingCache = { data: null, ts: 0 };
 
 ipcMain.handle("media:now-playing", async () => {
-  // Debounce: skip if last poll was <800ms ago
+  // Debounce: skip if last poll was too recent
   const now = Date.now();
-  if (now - _nowPlayingCache.ts < 800) return _nowPlayingCache.data;
+  if (now - _nowPlayingCache.ts < NOW_PLAYING_DEBOUNCE_MS) return _nowPlayingCache.data;
 
   const raw = await runOsaAsync(NOW_PLAYING_SCRIPT);
   let data = null;
   if (raw && raw !== "null") {
-    try { data = JSON.parse(raw); } catch {}
+    try { data = JSON.parse(raw); } catch (err) {
+      console.error("Failed to parse now-playing data:", err.message);
+    }
   }
   _nowPlayingCache = { data, ts: Date.now() };
   return data;
@@ -490,11 +513,14 @@ ipcMain.handle("media:control", async (_e, { action, position }) => {
   const appName = _nowPlayingCache.data && _nowPlayingCache.data.app;
   if (!appName) return false;
 
+  // Sanitize position to a finite number to prevent JXA injection
+  const safePosition = Number.isFinite(Number(position)) ? Number(position) : 0;
+
   const actionLine =
     action === "toggle" ? "a.playpause();" :
     action === "next"   ? "a.nextTrack();" :
     action === "prev"   ? "a.previousTrack();" :
-    action === "seek"   ? `a.playerPosition = ${position || 0};` : "";
+    action === "seek"   ? `a.playerPosition = ${safePosition};` : "";
 
   const script = `
     try {
@@ -519,7 +545,7 @@ ipcMain.on("directory:toggle-star", (_e, dir) => {
 // ── Git helpers ─────────────────────────────────────────
 function runGit(args, cwd) {
   return new Promise((resolve) => {
-    execFile("git", args, { cwd, timeout: 5000 }, (err, stdout) => {
+    execFile("git", args, { cwd, timeout: GIT_TIMEOUT_MS }, (err, stdout) => {
       if (err) resolve(null);
       else resolve(stdout.trim());
     });
@@ -568,30 +594,19 @@ ipcMain.handle("git:status", async (_e, { cwd }) => {
   return { branch, staged, changes, log, repoName, remoteUrl };
 });
 
-ipcMain.handle("git:stage-all", async (_e, { cwd }) => {
-  const res = await runGit(["add", "-A"], cwd);
-  return res !== null;
-});
+// Factory for simple git commands that return success/failure
+function registerGitCommand(channel, argsBuilder) {
+  ipcMain.handle(channel, async (_e, params) => {
+    const res = await runGit(argsBuilder(params), params.cwd);
+    return res !== null;
+  });
+}
 
-ipcMain.handle("git:stage-file", async (_e, { cwd, file }) => {
-  const res = await runGit(["add", "--", file], cwd);
-  return res !== null;
-});
-
-ipcMain.handle("git:unstage-file", async (_e, { cwd, file }) => {
-  const res = await runGit(["reset", "HEAD", "--", file], cwd);
-  return res !== null;
-});
-
-ipcMain.handle("git:commit", async (_e, { cwd, message }) => {
-  const res = await runGit(["commit", "-m", message], cwd);
-  return res !== null;
-});
-
-ipcMain.handle("git:push", async (_e, { cwd }) => {
-  const res = await runGit(["push"], cwd);
-  return res !== null;
-});
+registerGitCommand("git:stage-all", () => ["add", "-A"]);
+registerGitCommand("git:stage-file", ({ file }) => ["add", "--", file]);
+registerGitCommand("git:unstage-file", ({ file }) => ["reset", "HEAD", "--", file]);
+registerGitCommand("git:commit", ({ message }) => ["commit", "-m", message]);
+registerGitCommand("git:push", () => ["push"]);
 
 ipcMain.handle("git:branches", async (_e, { cwd }) => {
   const raw = await runGit(["branch", "-a", "--format=%(refname:short)||%(HEAD)"], cwd);

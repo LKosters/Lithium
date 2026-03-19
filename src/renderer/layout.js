@@ -253,7 +253,9 @@ function saveLayoutState() {
       localStorage.removeItem("focusedPaneId");
       app.ipcRenderer.send("layout:save", null);
     }
-  } catch {}
+  } catch (err) {
+    console.error("Failed to save layout state:", err.message);
+  }
 }
 
 function getSavedLayout() {

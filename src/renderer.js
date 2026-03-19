@@ -106,6 +106,7 @@ let _qoActiveTab = "favorites";
 const { escapeHtml, shortDir, persistSession } = require("./renderer/helpers");
 const { terminals: termsMap } = require("./renderer/state");
 const { v4: uuidv4 } = require("uuid");
+const { createSessionAndOpen, renderDirDropdown, renderSessionList: renderSharedSessionList } = require("./renderer/session-create");
 
 function openQuickOpen() {
   quickOpen.classList.remove("hidden");
@@ -150,85 +151,23 @@ function doCreateSession() {
     setTimeout(() => quickOpenDirBtn.style.borderColor = "", 1000);
     return;
   }
-
-  const id = uuidv4();
-  const session = {
-    id,
-    directory: _createDir,
-    title: name || shortDir(_createDir),
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-
-  state.sessions.unshift(session);
-  persistSession(session);
-  createTerminal(id);
-  ipcRenderer.send("pty:spawn", { sessionId: id, cwd: _createDir });
-  openTab(id);
-  renderSessionList();
-  closeQuickOpen();
+  createSessionAndOpen({ name, dir: _createDir, onDone: closeQuickOpen });
 }
 
 function renderQuickOpenList(query) {
-  const q = query.toLowerCase().trim();
-  const matches = state.sessions.filter((s) => {
-    const title = (s.title || "").toLowerCase();
-    const dir = (s.directory || "").toLowerCase();
-    return !q || title.includes(q) || dir.includes(q);
+  const { totalItems } = renderSharedSessionList({
+    query,
+    selectedIdx: _selectedIdx,
+    listEl: quickOpenList,
+    itemClass: "quick-open-item",
+    newClass: "quick-open-new",
+    emptyClass: "quick-open-empty",
+    showWorkspace: false,
+    onNew: showCreateForm,
+    onSelect: (sid) => { openTab(sid); closeQuickOpen(); },
+    onHover: (idx) => { _selectedIdx = idx; updateSelection(); },
   });
-
-  // Build: "New Session" row + matching sessions
-  let html = `<div class="quick-open-new ${_selectedIdx === 0 ? "selected" : ""}" data-action="new">
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-      <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-    </svg>
-    <span>New Session${q ? ": " + escapeHtml(q) : ""}</span>
-  </div>`;
-
-  html += matches
-    .map((s, i) => {
-      const t = termsMap.get(s.id);
-      const alive = t?.alive ? "alive" : "";
-      const idx = i + 1; // offset by 1 for "New Session"
-      const sel = idx === _selectedIdx ? "selected" : "";
-      return `<div class="quick-open-item ${sel}" data-sid="${s.id}">
-        <span class="quick-open-item-status ${alive}"></span>
-        <span class="quick-open-item-title">${escapeHtml(s.title || "Session")}</span>
-        <span class="quick-open-item-dir">${escapeHtml(shortDir(s.directory || ""))}</span>
-      </div>`;
-    })
-    .join("");
-
-  if (matches.length === 0 && q) {
-    html += '<div class="quick-open-empty">No sessions found</div>';
-  }
-
-  quickOpenList.innerHTML = html;
-
-  const totalItems = 1 + matches.length;
   if (_selectedIdx >= totalItems) _selectedIdx = totalItems - 1;
-
-  // New session click
-  const newEl = quickOpenList.querySelector("[data-action='new']");
-  if (newEl) {
-    newEl.addEventListener("click", showCreateForm);
-    newEl.addEventListener("mouseenter", () => {
-      _selectedIdx = 0;
-      updateSelection();
-    });
-  }
-
-  // Session clicks
-  quickOpenList.querySelectorAll(".quick-open-item").forEach((el, i) => {
-    el.addEventListener("click", () => {
-      openTab(el.dataset.sid);
-      closeQuickOpen();
-    });
-    el.addEventListener("mouseenter", () => {
-      _selectedIdx = i + 1;
-      updateSelection();
-    });
-  });
 }
 
 function updateSelection() {
@@ -289,61 +228,17 @@ quickOpenNameInput.addEventListener("keydown", (e) => {
 });
 
 function renderQoDirList() {
-  const hasFavorites = state.starredDirs.length > 0;
-  if (hasFavorites) {
-    qoDropdownTabs.classList.remove("hidden");
-  } else {
-    qoDropdownTabs.classList.add("hidden");
-    _qoActiveTab = "recent";
-  }
-
-  qoDropdownTabs.querySelectorAll(".dropdown-tab").forEach((t) => {
-    t.classList.toggle("active", t.dataset.qoTab === _qoActiveTab);
-  });
-
-  const dirs = _qoActiveTab === "favorites"
-    ? state.recentDirs.filter((d) => state.starredDirs.includes(d))
-    : state.recentDirs.filter((d) => !state.starredDirs.includes(d));
-
-  let html = "";
-  for (const dir of dirs) {
-    const isStarred = state.starredDirs.includes(dir);
-    const starClass = isStarred ? "star-btn starred" : "star-btn";
-    html += `<div class="dropdown-item" data-dir="${escapeHtml(dir)}">
-      <button class="${starClass}" data-star-dir="${escapeHtml(dir)}" title="${isStarred ? "Unstar" : "Star"}">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="${isStarred ? "currentColor" : "none"}">
-          <path d="M8 1.5l2 4.5 5 .5-3.8 3.3L12.4 15 8 12.5 3.6 15l1.2-5.2L1 6.5l5-.5L8 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-        </svg>
-      </button>
-      <span class="dropdown-item-text">${escapeHtml(shortDir(dir))}</span>
-    </div>`;
-  }
-  if (dirs.length === 0) {
-    const msg = _qoActiveTab === "favorites" ? "No favorites yet" : "No recent directories";
-    html = `<div class="dropdown-empty">${msg}</div>`;
-  }
-  qoDirsList.innerHTML = html;
-
-  qoDirsList.querySelectorAll(".dropdown-item[data-dir]").forEach((el) => {
-    el.addEventListener("click", (e) => {
-      if (e.target.closest(".star-btn")) return;
-      _createDir = el.dataset.dir;
-      quickOpenDirLabel.textContent = shortDir(el.dataset.dir);
-      app.animateClose(qoDirDropdown, "dropOut", 150);
-    });
-  });
-  qoDirsList.querySelectorAll(".star-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const dir = btn.dataset.starDir;
-      if (state.starredDirs.includes(dir)) {
-        state.starredDirs = state.starredDirs.filter((d) => d !== dir);
-      } else {
-        state.starredDirs.push(dir);
-      }
-      ipcRenderer.send("directory:toggle-star", dir);
-      renderQoDirList();
-    });
+  renderDirDropdown({
+    tabsEl: qoDropdownTabs,
+    listEl: qoDirsList,
+    dropdownEl: qoDirDropdown,
+    tabAttr: "qoTab",
+    activeTab: _qoActiveTab,
+    onSelectDir: (dir) => {
+      _createDir = dir;
+      quickOpenDirLabel.textContent = shortDir(dir);
+    },
+    onTabChange: (tab) => { _qoActiveTab = tab; },
   });
 }
 
@@ -477,77 +372,23 @@ function sbDoCreate() {
     setTimeout(() => sbDirBtn.style.borderColor = "", 1000);
     return;
   }
-
-  const id = uuidv4();
-  const session = {
-    id,
-    directory: _sbCreateDir,
-    title: name || shortDir(_sbCreateDir),
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-
-  state.sessions.unshift(session);
-  persistSession(session);
-  createTerminal(id);
-  ipcRenderer.send("pty:spawn", { sessionId: id, cwd: _sbCreateDir });
-  openTab(id);
-  renderSessionList();
-  closeSearchBar();
+  createSessionAndOpen({ name, dir: _sbCreateDir, onDone: closeSearchBar });
 }
 
 function renderSbList(query) {
-  const q = query.toLowerCase().trim();
-  const matches = state.sessions.filter((s) => {
-    const title = (s.title || "").toLowerCase();
-    const dir = (s.directory || "").toLowerCase();
-    return !q || title.includes(q) || dir.includes(q);
+  const { totalItems } = renderSharedSessionList({
+    query,
+    selectedIdx: _sbSelectedIdx,
+    listEl: sbList,
+    itemClass: "sb-item",
+    newClass: "sb-new",
+    emptyClass: "sb-empty",
+    showWorkspace: true,
+    onNew: sbShowCreateForm,
+    onSelect: (sid) => { openTab(sid); closeSearchBar(); },
+    onHover: (idx) => { _sbSelectedIdx = idx; updateSbSelection(); },
   });
-
-  let html = `<div class="sb-new ${_sbSelectedIdx === 0 ? "selected" : ""}" data-action="new">
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-      <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-    </svg>
-    <span>New Session${q ? ": " + escapeHtml(q) : ""}</span>
-  </div>`;
-
-  html += matches.map((s, i) => {
-    const t = termsMap.get(s.id);
-    const alive = t?.alive ? "alive" : "";
-    const idx = i + 1;
-    const sel = idx === _sbSelectedIdx ? "selected" : "";
-    const dirName = s.directory ? s.directory.split("/").pop() : "";
-    return `<div class="sb-item ${sel}" data-sid="${s.id}">
-      <span class="sb-item-status ${alive}"></span>
-      <span class="sb-item-title">${escapeHtml(s.title || "Session")}</span>
-      ${dirName ? `<span class="sb-item-workspace">${escapeHtml(dirName)}</span>` : ""}
-    </div>`;
-  }).join("");
-
-  if (matches.length === 0 && q) {
-    html += '<div class="sb-empty">No sessions found</div>';
-  }
-
-  sbList.innerHTML = html;
-
-  const totalItems = 1 + matches.length;
   if (_sbSelectedIdx >= totalItems) _sbSelectedIdx = totalItems - 1;
-
-  // New session click
-  const newEl = sbList.querySelector("[data-action='new']");
-  if (newEl) {
-    newEl.addEventListener("click", sbShowCreateForm);
-    newEl.addEventListener("mouseenter", () => { _sbSelectedIdx = 0; updateSbSelection(); });
-  }
-
-  // Session clicks
-  sbList.querySelectorAll(".sb-item").forEach((el, i) => {
-    el.addEventListener("click", () => {
-      openTab(el.dataset.sid);
-      closeSearchBar();
-    });
-    el.addEventListener("mouseenter", () => { _sbSelectedIdx = i + 1; updateSbSelection(); });
-  });
 }
 
 function updateSbSelection() {
@@ -565,61 +406,17 @@ function updateSbSelection() {
 
 // Directory dropdown for create form
 function renderSbDirList() {
-  const hasFavorites = state.starredDirs.length > 0;
-  if (hasFavorites) {
-    sbDropdownTabs.classList.remove("hidden");
-  } else {
-    sbDropdownTabs.classList.add("hidden");
-    _sbActiveTab = "recent";
-  }
-
-  sbDropdownTabs.querySelectorAll(".dropdown-tab").forEach((t) => {
-    t.classList.toggle("active", t.dataset.sbTab === _sbActiveTab);
-  });
-
-  const dirs = _sbActiveTab === "favorites"
-    ? state.recentDirs.filter((d) => state.starredDirs.includes(d))
-    : state.recentDirs.filter((d) => !state.starredDirs.includes(d));
-
-  let html = "";
-  for (const dir of dirs) {
-    const isStarred = state.starredDirs.includes(dir);
-    const starClass = isStarred ? "star-btn starred" : "star-btn";
-    html += `<div class="dropdown-item" data-dir="${escapeHtml(dir)}">
-      <button class="${starClass}" data-star-dir="${escapeHtml(dir)}" title="${isStarred ? "Unstar" : "Star"}">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="${isStarred ? "currentColor" : "none"}">
-          <path d="M8 1.5l2 4.5 5 .5-3.8 3.3L12.4 15 8 12.5 3.6 15l1.2-5.2L1 6.5l5-.5L8 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-        </svg>
-      </button>
-      <span class="dropdown-item-text">${escapeHtml(shortDir(dir))}</span>
-    </div>`;
-  }
-  if (dirs.length === 0) {
-    const msg = _sbActiveTab === "favorites" ? "No favorites yet" : "No recent directories";
-    html = `<div class="dropdown-empty">${msg}</div>`;
-  }
-  sbDirsList.innerHTML = html;
-
-  sbDirsList.querySelectorAll(".dropdown-item[data-dir]").forEach((el) => {
-    el.addEventListener("click", (e) => {
-      if (e.target.closest(".star-btn")) return;
-      _sbCreateDir = el.dataset.dir;
-      sbDirLabel.textContent = shortDir(el.dataset.dir);
-      app.animateClose(sbDirDropdown, "dropOut", 150);
-    });
-  });
-  sbDirsList.querySelectorAll(".star-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const dir = btn.dataset.starDir;
-      if (state.starredDirs.includes(dir)) {
-        state.starredDirs = state.starredDirs.filter((d) => d !== dir);
-      } else {
-        state.starredDirs.push(dir);
-      }
-      ipcRenderer.send("directory:toggle-star", dir);
-      renderSbDirList();
-    });
+  renderDirDropdown({
+    tabsEl: sbDropdownTabs,
+    listEl: sbDirsList,
+    dropdownEl: sbDirDropdown,
+    tabAttr: "sbTab",
+    activeTab: _sbActiveTab,
+    onSelectDir: (dir) => {
+      _sbCreateDir = dir;
+      sbDirLabel.textContent = shortDir(dir);
+    },
+    onTabChange: (tab) => { _sbActiveTab = tab; },
   });
 }
 

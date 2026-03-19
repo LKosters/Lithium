@@ -1,12 +1,6 @@
 const app = require("./app");
 const { state, terminals, collapsedDirs } = require("./state");
-const { escapeHtml, shortDir, timeAgo, getSession, groupSessionsByDir, persistSession } = require("./helpers");
-
-function dirName(dir) {
-  if (!dir || dir === "Unknown") return "Unknown";
-  const parts = dir.replace(/\/+$/, "").split("/");
-  return parts[parts.length - 1] || dir;
-}
+const { escapeHtml, shortDir, timeAgo, dirName, getSession, groupSessionsByDir, persistSession } = require("./helpers");
 
 function renderSessionList() {
   const sessionListEl = app.dom.sessionListEl;
