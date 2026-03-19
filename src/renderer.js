@@ -416,9 +416,8 @@ let _sbActiveTab = "favorites";
 let _sbKeyboardNav = false;
 
 function updateSearchBarWorkspace() {
-  const activeId = state.activeId;
-  const session = activeId ? state.sessions.find(s => s.id === activeId) : null;
-  searchBarWorkspace.textContent = session ? (session.title || "Session") : "Lithium";
+  const dir = state.currentDir;
+  searchBarWorkspace.textContent = dir ? shortDir(dir) : "Lithium";
 }
 
 function openSearchBar() {
