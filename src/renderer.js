@@ -16,7 +16,7 @@ const { initMusicPlayer, updateTrackProgress, setPlayerMode } = require("./rende
 const { enterFocusMode, exitFocusMode } = require("./renderer/focus");
 const { closeSettings, isSettingsOpen } = require("./renderer/settings");
 const { closeGit, isGitOpen, refreshGit } = require("./renderer/git");
-const { pickDirectory, setDirectory, renderRecentDirs } = require("./renderer/directory");
+const { pickDirectory, setDirectory, renderRecentDirs, renderProjectsList } = require("./renderer/directory");
 
 // ── Wire functions onto app for cross-module calls ────
 app.state = state;
@@ -39,6 +39,7 @@ app.deleteSession = deleteSession;
 app.enterFocusMode = enterFocusMode;
 app.exitFocusMode = exitFocusMode;
 app.pickDirectory = pickDirectory;
+app.renderProjectsList = renderProjectsList;
 app.refreshGit = refreshGit;
 app.setPlayerMode = setPlayerMode;
 
@@ -57,7 +58,7 @@ app.setPlayerMode = setPlayerMode;
   });
   document.addEventListener("mousemove", (e) => {
     if (!dragging) return;
-    const newWidth = Math.min(500, Math.max(180, e.clientX));
+    const newWidth = Math.min(600, Math.max(280, e.clientX));
     sidebar.style.width = newWidth + "px";
     fitAllVisibleTerminals();
   });
@@ -73,6 +74,7 @@ app.setPlayerMode = setPlayerMode;
 
 // ── Event bindings ────────────────────────────────────
 document.querySelector("#btn-new-session").addEventListener("click", newSession);
+document.querySelector("#btn-add-workspace").addEventListener("click", pickDirectory);
 
 // ── Quick open (double shift) ─────────────────────────
 const quickOpen = document.querySelector("#quick-open");
@@ -707,6 +709,7 @@ async function init() {
     }
   }
 
+  renderProjectsList();
   renderSessionList();
   refreshLayout();
 
@@ -721,17 +724,6 @@ async function init() {
     if (result.ok) setDevServerUI(true);
   }
 
-  const sessionListEl = app.dom.sessionListEl;
-  requestAnimationFrame(() => {
-    const listEl = sessionListEl.parentElement;
-    if (listEl.scrollHeight > listEl.clientHeight) {
-      const groups = groupSessionsByDir(state.sessions);
-      for (const [dir] of groups) {
-        collapsedDirs.add(dir);
-      }
-      renderSessionList();
-    }
-  });
 }
 
 init();
