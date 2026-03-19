@@ -46,6 +46,23 @@ function addRecentDir(dir) {
   return config.recentDirs;
 }
 
+// ── Layout state persistence (crash-safe) ─────────────
+const LAYOUT_PATH = path.join(DATA_DIR, "layout.json");
+
+function saveLayoutToDisk(layoutData) {
+  try {
+    fs.writeFileSync(LAYOUT_PATH, JSON.stringify(layoutData));
+  } catch {}
+}
+
+function loadLayoutFromDisk() {
+  try {
+    return JSON.parse(fs.readFileSync(LAYOUT_PATH, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
 // ── Session persistence ────────────────────────────────
 function loadAllSessions() {
   ensureDirs();
@@ -185,6 +202,9 @@ ipcMain.on("pty:kill", (_e, { sessionId }) => {
 ipcMain.handle("sessions:list", () => loadAllSessions());
 ipcMain.on("sessions:save", (_e, session) => saveSession(session));
 ipcMain.on("sessions:delete", (_e, sessionId) => deleteSession(sessionId));
+
+ipcMain.on("layout:save", (_e, layoutData) => saveLayoutToDisk(layoutData));
+ipcMain.handle("layout:load", () => loadLayoutFromDisk());
 
 ipcMain.handle("directory:pick", async (e) => {
   const win = BrowserWindow.fromWebContents(e.sender);
@@ -675,4 +695,17 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   killDevServer();
+});
+
+// ── Crash-safe state persistence ────────────────────────
+// Save layout when renderer process crashes or GPU process crashes
+app.on("render-process-gone", () => {
+  // Layout is already saved to disk incrementally via IPC;
+  // nothing extra needed here since disk writes are synchronous
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception:", err);
+  // Layout state is already persisted to disk on every change,
+  // so sessions and layout survive crashes
 });
