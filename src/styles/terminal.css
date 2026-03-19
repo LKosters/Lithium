@@ -22,8 +22,9 @@
 
 .terminal-pane { position: absolute; inset: 0; padding: 6px; display: none; }
 .terminal-pane.active { display: flex; flex-direction: column; }
-.terminal-pane .xterm { flex: 1; min-height: 0; position: relative; }
-.terminal-pane .xterm-viewport { background: var(--bg) !important; height: 100% !important; }
+.terminal-pane .xterm { flex: 1; min-height: 0; }
+.terminal-pane .xterm .xterm-screen { height: 100%; }
+.terminal-pane .xterm-viewport { background: var(--bg) !important; }
 .terminal-pane .xterm-viewport::-webkit-scrollbar { width: 4px; }
 .terminal-pane .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
 .terminal-pane .xterm-viewport::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
@@ -182,8 +183,10 @@
 }
 .pane-terminal .terminal-pane {
   position: absolute; inset: 4px;
-  display: flex; flex-direction: column;
   padding: 0;
+}
+.pane-terminal .terminal-pane.active {
+  display: flex; flex-direction: column;
 }
 
 /* Split handles */
