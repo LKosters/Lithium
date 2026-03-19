@@ -41,6 +41,10 @@ function renderLayout(node, parentEl) {
         if (e.target.closest('.pane-tab-close')) return;
         node.activeTab = sid;
         state.focusedPaneId = node.id;
+        // Switch workspace to match the selected tab's directory
+        if (s.directory && s.directory !== state.currentDir && app.setDirectory) {
+          app.setDirectory(s.directory);
+        }
         refreshLayout();
       });
 
@@ -110,6 +114,13 @@ function renderLayout(node, parentEl) {
         state.focusedPaneId = node.id;
         document.querySelectorAll('.pane-container.focused').forEach(el => el.classList.remove('focused'));
         container.classList.add('focused');
+        // Switch workspace to match the focused pane's active session
+        if (node.activeTab && app.setDirectory) {
+          const activeSession = getSession(node.activeTab);
+          if (activeSession?.directory && activeSession.directory !== state.currentDir) {
+            app.setDirectory(activeSession.directory);
+          }
+        }
         app.renderSessionList();
       }
     });
