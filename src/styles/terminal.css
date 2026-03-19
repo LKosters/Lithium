@@ -21,9 +21,8 @@
 }
 
 .terminal-pane { position: absolute; inset: 0; padding: 6px; display: none; }
-.terminal-pane.active { display: flex; flex-direction: column; }
-.terminal-pane .xterm { flex: 1; min-height: 0; }
-.terminal-pane .xterm .xterm-screen { height: 100%; }
+.terminal-pane.active { display: block; }
+.terminal-pane .xterm { height: 100%; }
 .terminal-pane .xterm-viewport { background: var(--bg) !important; }
 .terminal-pane .xterm-viewport::-webkit-scrollbar { width: 4px; }
 .terminal-pane .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
@@ -174,19 +173,14 @@
 .pane-tab:hover .pane-tab-close { opacity: 1; transform: scale(1); }
 .pane-tab-close:hover { background: var(--border); color: var(--fg); }
 
-/* Pane terminal — uses absolute positioning so the terminal-pane
-   always fills the exact pixel dimensions of its container,
-   regardless of flex rounding or padding. */
+/* Pane terminal */
 .pane-terminal {
   flex: 1; overflow: hidden; position: relative;
-  background: var(--bg);
+  background: var(--bg); padding: 4px;
 }
 .pane-terminal .terminal-pane {
-  position: absolute; inset: 4px;
-  padding: 0;
-}
-.pane-terminal .terminal-pane.active {
-  display: flex; flex-direction: column;
+  position: relative; inset: auto;
+  width: 100%; height: 100%; display: block; padding: 0;
 }
 
 /* Split handles */

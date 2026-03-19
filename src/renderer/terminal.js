@@ -37,9 +37,7 @@ function createTerminal(sessionId) {
   return terminals.get(sessionId);
 }
 
-let _fitRetryTimer = null;
-
-function _doFit() {
+function fitAllVisibleTerminals() {
   if (!state.layout) return;
   const leaves = getAllLeaves(state.layout);
   for (const leaf of leaves) {
@@ -50,20 +48,6 @@ function _doFit() {
       }
     }
   }
-}
-
-function fitAllVisibleTerminals() {
-  _doFit();
-
-  // Schedule retries. The browser may not have finished layout computation
-  // on the first call, so we retry at increasing intervals to catch cases
-  // where the container dimensions settle after the initial render.
-  clearTimeout(_fitRetryTimer);
-  _fitRetryTimer = setTimeout(() => {
-    _doFit();
-    // One more retry at a longer interval for complex layout changes
-    _fitRetryTimer = setTimeout(_doFit, 150);
-  }, 50);
 }
 
 module.exports = { createTerminal, fitAllVisibleTerminals };

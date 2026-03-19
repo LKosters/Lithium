@@ -648,14 +648,8 @@ ipcRenderer.on("pty:exit", (_e, { sessionId }) => {
 });
 
 // ── Resize observer ───────────────────────────────────
-let _resizeDebounce = null;
 const ro = new ResizeObserver(() => {
-  // Debounce rapid resize events (e.g. during window drag) to avoid
-  // excessive fitAddon.fit() calls that can cause visual glitches.
-  clearTimeout(_resizeDebounce);
-  _resizeDebounce = setTimeout(() => {
-    requestAnimationFrame(() => fitAllVisibleTerminals());
-  }, 50);
+  requestAnimationFrame(() => fitAllVisibleTerminals());
 });
 ro.observe(app.dom.terminalArea);
 
