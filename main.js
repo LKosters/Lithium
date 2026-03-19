@@ -108,13 +108,28 @@ function spawnSession(sessionId, cwd, resume, senderWebContents) {
     args.push("--session-id", sessionId);
   }
 
-  const proc = pty.spawn(CLAUDE_BIN, args, {
-    name: "xterm-256color",
-    cols: 80,
-    rows: 24,
-    cwd: cwd || os.homedir(),
-    env,
-  });
+  let proc;
+  try {
+    proc = pty.spawn(CLAUDE_BIN, args, {
+      name: "xterm-256color",
+      cols: 80,
+      rows: 24,
+      cwd: cwd || os.homedir(),
+      env,
+    });
+  } catch (err) {
+    // Binary not found or spawn failed — notify the renderer immediately
+    console.error("Failed to spawn PTY:", err.message);
+    if (senderWebContents && !senderWebContents.isDestroyed()) {
+      senderWebContents.send("pty:data", {
+        sessionId,
+        data: `\r\n\x1b[31mFailed to start claude: ${err.message}\x1b[0m\r\n` +
+              `\x1b[90mLooked for: ${CLAUDE_BIN}\x1b[0m\r\n`,
+      });
+      senderWebContents.send("pty:exit", { sessionId, exitCode: 1, resume, lifetime: 0 });
+    }
+    return;
+  }
 
   ptyProcesses.set(sessionId, { proc, webContents: senderWebContents });
   const spawnTime = Date.now();

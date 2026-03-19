@@ -15,6 +15,7 @@
 /* ── Terminal area ──────────────────────────────────── */
 #terminal-area {
   flex: 1; overflow: hidden; position: relative;
+  display: flex; flex-direction: column;
   background: var(--bg);
   margin: 0 1px;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);

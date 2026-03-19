@@ -204,15 +204,19 @@ function refreshLayout() {
     welcomeEl.classList.remove('hidden');
   }
 
+  // Double-rAF: wait two frames so the browser finishes flex layout
+  // before fitAddon measures the container dimensions.
   requestAnimationFrame(() => {
-    app.fitAllVisibleTerminals();
-    if (state.focusedPaneId && state.layout) {
-      const leaf = findLeafById(state.layout, state.focusedPaneId);
-      if (leaf?.activeTab) {
-        const t = terminals.get(leaf.activeTab);
-        if (t) t.term.focus();
+    requestAnimationFrame(() => {
+      app.fitAllVisibleTerminals();
+      if (state.focusedPaneId && state.layout) {
+        const leaf = findLeafById(state.layout, state.focusedPaneId);
+        if (leaf?.activeTab) {
+          const t = terminals.get(leaf.activeTab);
+          if (t) t.term.focus();
+        }
       }
-    }
+    });
   });
 
   app.renderSessionList();
