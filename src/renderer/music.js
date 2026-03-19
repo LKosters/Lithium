@@ -282,7 +282,12 @@ function loadCurrentTrack() {
 
 function togglePlay() {
   if (musicPlayer.source === "device") {
-    app.ipcRenderer.invoke("media:control", { action: "toggle" }).catch(() => {});
+    // Update UI immediately so the button feels instant
+    musicPlayer.playing = !musicPlayer.playing;
+    updatePlayButton();
+    app.ipcRenderer.invoke("media:control", { action: "toggle" })
+      .then(() => pollDeviceMedia())
+      .catch(() => {});
     return;
   }
 
@@ -339,7 +344,9 @@ function updateTrackProgress() {
 
 function playNextTrack() {
   if (musicPlayer.source === "device") {
-    app.ipcRenderer.invoke("media:control", { action: "next" }).catch(() => {});
+    app.ipcRenderer.invoke("media:control", { action: "next" })
+      .then(() => pollDeviceMedia())
+      .catch(() => {});
     return;
   }
 
@@ -362,7 +369,9 @@ function playNextTrack() {
 
 function playPrevTrack() {
   if (musicPlayer.source === "device") {
-    app.ipcRenderer.invoke("media:control", { action: "prev" }).catch(() => {});
+    app.ipcRenderer.invoke("media:control", { action: "prev" })
+      .then(() => pollDeviceMedia())
+      .catch(() => {});
     return;
   }
 
