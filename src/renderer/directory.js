@@ -8,6 +8,7 @@ const recentDirsList = document.querySelector("#recent-dirs-list");
 const dropdownTabs = document.querySelector("#dropdown-tabs");
 const btnPickDir = document.querySelector("#btn-pick-dir");
 const btnOpenFinder = document.querySelector("#btn-open-finder");
+const projectsListEl = document.querySelector("#projects-list");
 
 let activeDropdownTab = "favorites";
 
@@ -18,6 +19,7 @@ async function pickDirectory() {
   state.recentDirs = result.recents;
   state.starredDirs = result.starred || [];
   renderRecentDirs();
+  renderProjectsList();
 }
 
 function setDirectory(dir) {
@@ -27,6 +29,68 @@ function setDirectory(dir) {
   app.ipcRenderer.send("directory:add-recent", dir);
   if (app.refreshGit) app.refreshGit();
   if (app.checkDevServerAvailable) app.checkDevServerAvailable();
+  // Re-render projects to highlight active + re-render sessions for this workspace
+  renderProjectsList();
+  if (app.renderSessionList) app.renderSessionList();
+}
+
+function dirName(dir) {
+  if (!dir || dir === "Unknown") return "Unknown";
+  const parts = dir.replace(/\/+$/, "").split("/");
+  return parts[parts.length - 1] || dir;
+}
+
+function renderProjectsList() {
+  if (!projectsListEl) return;
+
+  // Show starred dirs first, then recent dirs (deduped)
+  const seen = new Set();
+  const allDirs = [];
+
+  // Also collect dirs from sessions
+  const sessionDirs = new Set(state.sessions.map((s) => s.directory).filter(Boolean));
+
+  // Starred first
+  for (const d of state.starredDirs) {
+    if (!seen.has(d)) { seen.add(d); allDirs.push(d); }
+  }
+  // Recent dirs
+  for (const d of state.recentDirs) {
+    if (!seen.has(d)) { seen.add(d); allDirs.push(d); }
+  }
+  // Session dirs that aren't in recent/starred
+  for (const d of sessionDirs) {
+    if (!seen.has(d)) { seen.add(d); allDirs.push(d); }
+  }
+
+  let html = "";
+  for (const dir of allDirs) {
+    const isActive = dir === state.currentDir;
+    const activeClass = isActive ? "active" : "";
+    const sessionCount = state.sessions.filter((s) => s.directory === dir).length;
+    html += `<button class="project-item ${activeClass}" data-project-dir="${escapeHtml(dir)}" title="${escapeHtml(shortDir(dir))}">
+      <span class="project-item-icon">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path d="M2 4.5C2 3.67 2.67 3 3.5 3H6l1.5 1.5H12.5c.83 0 1.5.67 1.5 1.5v6c0 .83-.67 1.5-1.5 1.5h-9C2.67 13.5 2 12.83 2 12V4.5z" stroke="currentColor" stroke-width="1.2"/>
+        </svg>
+      </span>
+      <span class="project-item-name">${escapeHtml(dirName(dir))}</span>
+      ${sessionCount > 0 ? `<span class="project-item-count">${sessionCount}</span>` : ""}
+    </button>`;
+  }
+
+  if (allDirs.length === 0) {
+    html = `<div class="session-empty" style="padding:20px 8px;font-size:11px">No workspaces yet</div>`;
+  }
+
+  projectsListEl.innerHTML = html;
+
+  // Click to switch workspace
+  projectsListEl.querySelectorAll(".project-item[data-project-dir]").forEach((el) => {
+    el.addEventListener("click", () => {
+      setDirectory(el.dataset.projectDir);
+    });
+  });
 }
 
 function renderRecentDirs() {
@@ -84,6 +148,7 @@ function renderRecentDirs() {
       }
       app.ipcRenderer.send("directory:toggle-star", dir);
       renderRecentDirs();
+      renderProjectsList();
     });
   });
 }
@@ -120,4 +185,4 @@ document.addEventListener("click", () => {
   app.animateClose(recentDirsDropdown, "dropOut", 150);
 });
 
-module.exports = { pickDirectory, setDirectory, renderRecentDirs };
+module.exports = { pickDirectory, setDirectory, renderRecentDirs, renderProjectsList };
