@@ -97,7 +97,7 @@
   right: 0;
   background: var(--surface);
   border: 1px solid var(--border-hover);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   max-height: 360px;
   overflow: visible;
   box-shadow: 0 16px 48px rgba(0,0,0,0.5);
