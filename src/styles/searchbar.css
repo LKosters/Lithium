@@ -153,6 +153,18 @@
   flex: 1;
 }
 
+.sb-item-workspace {
+  flex-shrink: 0;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--primary);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
 .sb-item-dir {
   font-family: var(--font-mono); font-size: 10.5px; color: var(--muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

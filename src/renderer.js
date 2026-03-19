@@ -506,9 +506,11 @@ function renderSbList(query) {
     const alive = t?.alive ? "alive" : "";
     const idx = i + 1;
     const sel = idx === _sbSelectedIdx ? "selected" : "";
+    const dirName = s.directory ? s.directory.split("/").pop() : "";
     return `<div class="sb-item ${sel}" data-sid="${s.id}">
       <span class="sb-item-status ${alive}"></span>
       <span class="sb-item-title">${escapeHtml(s.title || "Session")}</span>
+      ${dirName ? `<span class="sb-item-workspace">${escapeHtml(dirName)}</span>` : ""}
     </div>`;
   }).join("");
 
