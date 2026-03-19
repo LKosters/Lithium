@@ -37,6 +37,8 @@ function createTerminal(sessionId) {
   return terminals.get(sessionId);
 }
 
+let _fitRetryTimer = null;
+
 function fitAllVisibleTerminals() {
   if (!state.layout) return;
   const leaves = getAllLeaves(state.layout);
@@ -48,6 +50,21 @@ function fitAllVisibleTerminals() {
       }
     }
   }
+
+  // Retry after layout settles — the first fit can measure before
+  // the browser has finished computing final container dimensions.
+  clearTimeout(_fitRetryTimer);
+  _fitRetryTimer = setTimeout(() => {
+    if (!state.layout) return;
+    for (const leaf of getAllLeaves(state.layout)) {
+      if (leaf.activeTab) {
+        const t = terminals.get(leaf.activeTab);
+        if (t && t.paneEl.offsetParent !== null) {
+          try { t.fitAddon.fit(); } catch (_) {}
+        }
+      }
+    }
+  }, 100);
 }
 
 module.exports = { createTerminal, fitAllVisibleTerminals };
