@@ -204,15 +204,19 @@ function refreshLayout() {
     welcomeEl.classList.remove('hidden');
   }
 
+  // Double-rAF: wait two frames so the browser finishes flex layout
+  // before fitAddon measures the container dimensions.
   requestAnimationFrame(() => {
-    app.fitAllVisibleTerminals();
-    if (state.focusedPaneId && state.layout) {
-      const leaf = findLeafById(state.layout, state.focusedPaneId);
-      if (leaf?.activeTab) {
-        const t = terminals.get(leaf.activeTab);
-        if (t) t.term.focus();
+    requestAnimationFrame(() => {
+      app.fitAllVisibleTerminals();
+      if (state.focusedPaneId && state.layout) {
+        const leaf = findLeafById(state.layout, state.focusedPaneId);
+        if (leaf?.activeTab) {
+          const t = terminals.get(leaf.activeTab);
+          if (t) t.term.focus();
+        }
       }
-    }
+    });
   });
 
   app.renderSessionList();
@@ -225,11 +229,18 @@ function refreshLayout() {
 function saveLayoutState() {
   try {
     if (state.layout) {
-      localStorage.setItem("layoutState", JSON.stringify(state.layout));
+      const layoutJson = JSON.stringify(state.layout);
+      localStorage.setItem("layoutState", layoutJson);
       localStorage.setItem("focusedPaneId", state.focusedPaneId || "");
+      // Also persist to disk via main process so state survives crashes
+      app.ipcRenderer.send("layout:save", {
+        layout: state.layout,
+        focusedPaneId: state.focusedPaneId || "",
+      });
     } else {
       localStorage.removeItem("layoutState");
       localStorage.removeItem("focusedPaneId");
+      app.ipcRenderer.send("layout:save", null);
     }
   } catch {}
 }

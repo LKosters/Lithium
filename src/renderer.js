@@ -1024,8 +1024,11 @@ async function init() {
 
   state.sessions = await ipcRenderer.invoke("sessions:list");
 
-  // Restore previously open tabs/layout
-  const saved = getSavedLayout();
+  // Restore previously open tabs/layout (try localStorage first, then disk backup)
+  let saved = getSavedLayout();
+  if (!saved || !saved.layout) {
+    saved = await ipcRenderer.invoke("layout:load");
+  }
   if (saved && saved.layout) {
     const { getAllLeaves, cleanupEmptyLeaves, findLeafById } = require("./renderer/state");
     const sessionIds = new Set(state.sessions.map((s) => s.id));
@@ -1063,7 +1066,7 @@ async function init() {
   renderSessionList();
   refreshLayout();
 
-  initMusicPlayer();
+  initMusicPlayer().catch((err) => console.error("Music player init failed:", err));
 
   // Restore dev server if it was running before quit
   const savedDevDir = localStorage.getItem("devServerDir");

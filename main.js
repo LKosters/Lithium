@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog, nativeImage } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, dialog, nativeImage, protocol, net } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -46,6 +46,23 @@ function addRecentDir(dir) {
   return config.recentDirs;
 }
 
+// ── Layout state persistence (crash-safe) ─────────────
+const LAYOUT_PATH = path.join(DATA_DIR, "layout.json");
+
+function saveLayoutToDisk(layoutData) {
+  try {
+    fs.writeFileSync(LAYOUT_PATH, JSON.stringify(layoutData));
+  } catch {}
+}
+
+function loadLayoutFromDisk() {
+  try {
+    return JSON.parse(fs.readFileSync(LAYOUT_PATH, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
 // ── Session persistence ────────────────────────────────
 function loadAllSessions() {
   ensureDirs();
@@ -91,13 +108,28 @@ function spawnSession(sessionId, cwd, resume, senderWebContents) {
     args.push("--session-id", sessionId);
   }
 
-  const proc = pty.spawn(CLAUDE_BIN, args, {
-    name: "xterm-256color",
-    cols: 80,
-    rows: 24,
-    cwd: cwd || os.homedir(),
-    env,
-  });
+  let proc;
+  try {
+    proc = pty.spawn(CLAUDE_BIN, args, {
+      name: "xterm-256color",
+      cols: 80,
+      rows: 24,
+      cwd: cwd || os.homedir(),
+      env,
+    });
+  } catch (err) {
+    // Binary not found or spawn failed — notify the renderer immediately
+    console.error("Failed to spawn PTY:", err.message);
+    if (senderWebContents && !senderWebContents.isDestroyed()) {
+      senderWebContents.send("pty:data", {
+        sessionId,
+        data: `\r\n\x1b[31mFailed to start claude: ${err.message}\x1b[0m\r\n` +
+              `\x1b[90mLooked for: ${CLAUDE_BIN}\x1b[0m\r\n`,
+      });
+      senderWebContents.send("pty:exit", { sessionId, exitCode: 1, resume, lifetime: 0 });
+    }
+    return;
+  }
 
   ptyProcesses.set(sessionId, { proc, webContents: senderWebContents });
   const spawnTime = Date.now();
@@ -140,6 +172,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       webviewTag: true,
+      backgroundThrottling: false,
     },
   });
 
@@ -185,6 +218,9 @@ ipcMain.on("pty:kill", (_e, { sessionId }) => {
 ipcMain.handle("sessions:list", () => loadAllSessions());
 ipcMain.on("sessions:save", (_e, session) => saveSession(session));
 ipcMain.on("sessions:delete", (_e, sessionId) => deleteSession(sessionId));
+
+ipcMain.on("layout:save", (_e, layoutData) => saveLayoutToDisk(layoutData));
+ipcMain.handle("layout:load", () => loadLayoutFromDisk());
 
 ipcMain.handle("directory:pick", async (e) => {
   const win = BrowserWindow.fromWebContents(e.sender);
@@ -449,25 +485,23 @@ ipcMain.handle("media:now-playing", async () => {
 });
 
 ipcMain.handle("media:control", async (_e, { action, position }) => {
-  // Build a single JXA script for the control action
+  // Use the cached app name from the last now-playing poll to avoid
+  // the expensive process enumeration via System Events
+  const appName = _nowPlayingCache.data && _nowPlayingCache.data.app;
+  if (!appName) return false;
+
+  const actionLine =
+    action === "toggle" ? "a.playpause();" :
+    action === "next"   ? "a.nextTrack();" :
+    action === "prev"   ? "a.previousTrack();" :
+    action === "seek"   ? `a.playerPosition = ${position || 0};` : "";
+
   const script = `
-    var apps = Application("System Events").processes().map(function(p){return p.name()});
-    var done = false;
-    var targets = ["Spotify", "Music"];
-    for (var i = 0; i < targets.length; i++) {
-      if (apps.indexOf(targets[i]) === -1) continue;
-      try {
-        var a = Application(targets[i]);
-        var st = a.playerState();
-        if (st !== "playing" && st !== "paused") continue;
-        ${action === "toggle" ? "a.playpause();" : ""}
-        ${action === "next" ? "a.nextTrack();" : ""}
-        ${action === "prev" ? "a.previousTrack();" : ""}
-        ${action === "seek" ? `a.playerPosition = ${position || 0};` : ""}
-        done = true; break;
-      } catch(e) {}
-    }
-    done;
+    try {
+      var a = Application("${appName}");
+      ${actionLine}
+      true;
+    } catch(e) { false; }
   `;
   const result = await runOsaAsync(script);
   return result === "true";
@@ -648,9 +682,24 @@ function buildAppMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+// ── Custom protocol for streaming local audio ─────────
+protocol.registerSchemesAsPrivileged([{
+  scheme: "media",
+  privileges: { stream: true, standard: true, supportFetchAPI: true },
+}]);
+
 // ── Lifecycle ──────────────────────────────────────────
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+
 app.whenReady().then(() => {
   app.name = "Lithium";
+
+  // Serve local audio files via media:// with proper streaming/range support
+  protocol.handle("media", (request) => {
+    const url = new URL(request.url);
+    return net.fetch("file://" + decodeURIComponent(url.pathname));
+  });
+
   ensureDirs();
   buildAppMenu();
   if (process.platform === "darwin" && app.dock) {
@@ -675,4 +724,17 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   killDevServer();
+});
+
+// ── Crash-safe state persistence ────────────────────────
+// Save layout when renderer process crashes or GPU process crashes
+app.on("render-process-gone", () => {
+  // Layout is already saved to disk incrementally via IPC;
+  // nothing extra needed here since disk writes are synchronous
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception:", err);
+  // Layout state is already persisted to disk on every change,
+  // so sessions and layout survive crashes
 });

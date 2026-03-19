@@ -1,14 +1,18 @@
 const app = require("./app");
 const { shuffleArray } = require("./helpers");
 
+const _audio = new Audio();
+_audio.preload = "auto";
+
 const musicPlayer = {
-  audio: new Audio(),
+  audio: _audio,
   tracks: [],
   index: -1,
   playing: false,
   source: "lofi",       // "lofi" | "device"
   lofiTracks: [],
   devicePollTimer: null,
+  _devicePollInFlight: false,
 };
 
 // ── Player mode (full / compact / none) ──────────────
@@ -57,7 +61,14 @@ async function initMusicPlayer() {
   musicPlayer.tracks = shuffleArray(musicPlayer.lofiTracks);
   musicPlayer.audio.volume = parseInt(mpVolume.value, 10) / 100;
 
-  musicPlayer.audio.addEventListener("ended", () => playNextTrack());
+  musicPlayer.audio.addEventListener("ended", () => { playNextTrack(); });
+
+  // If a track fails to load/decode, skip to the next one
+  musicPlayer.audio.addEventListener("error", () => {
+    if (musicPlayer.playing && musicPlayer.source === "lofi") {
+      playNextTrack();
+    }
+  });
 
   mpPlay.addEventListener("click", togglePlay);
   mpPrev.addEventListener("click", playPrevTrack);
@@ -190,7 +201,18 @@ function switchToLofi() {
 }
 
 async function pollDeviceMedia() {
-  const info = await app.ipcRenderer.invoke("media:now-playing");
+  if (musicPlayer._devicePollInFlight) return;
+  musicPlayer._devicePollInFlight = true;
+  let info;
+  try {
+    info = await app.ipcRenderer.invoke("media:now-playing");
+  } catch {
+    musicPlayer._devicePollInFlight = false;
+    return;
+  }
+  musicPlayer._devicePollInFlight = false;
+  // Ignore stale response if source changed while polling
+  if (musicPlayer.source !== "device") return;
   const mpTrackName = document.querySelector("#mp-track-name");
 
   if (!info) {
@@ -251,7 +273,8 @@ function loadCurrentTrack() {
   const track = musicPlayer.tracks[musicPlayer.index];
   if (!track) return;
   const mpTrackName = document.querySelector("#mp-track-name");
-  musicPlayer.audio.src = "file://" + track.path;
+  musicPlayer.audio.src = "media://" + track.path;
+  musicPlayer.audio.load();
   mpTrackName.textContent = track.name;
   mpTrackName.title = track.name;
   syncCompactPlayer();
@@ -259,7 +282,12 @@ function loadCurrentTrack() {
 
 function togglePlay() {
   if (musicPlayer.source === "device") {
-    app.ipcRenderer.invoke("media:control", { action: "toggle" });
+    // Update UI immediately so the button feels instant
+    musicPlayer.playing = !musicPlayer.playing;
+    updatePlayButton();
+    app.ipcRenderer.invoke("media:control", { action: "toggle" })
+      .then(() => pollDeviceMedia())
+      .catch(() => {});
     return;
   }
 
@@ -267,11 +295,16 @@ function togglePlay() {
   if (musicPlayer.playing) {
     musicPlayer.audio.pause();
     musicPlayer.playing = false;
+    updatePlayButton();
   } else {
-    musicPlayer.audio.play();
+    // Update UI immediately for responsiveness, revert if play fails
     musicPlayer.playing = true;
+    updatePlayButton();
+    musicPlayer.audio.play().catch(() => {
+      musicPlayer.playing = false;
+      updatePlayButton();
+    });
   }
-  updatePlayButton();
 }
 
 function updatePlayButton() {
@@ -311,7 +344,9 @@ function updateTrackProgress() {
 
 function playNextTrack() {
   if (musicPlayer.source === "device") {
-    app.ipcRenderer.invoke("media:control", { action: "next" });
+    app.ipcRenderer.invoke("media:control", { action: "next" })
+      .then(() => pollDeviceMedia())
+      .catch(() => {});
     return;
   }
 
@@ -328,13 +363,15 @@ function playNextTrack() {
   }
   loadCurrentTrack();
   if (musicPlayer.playing) {
-    musicPlayer.audio.play();
+    musicPlayer.audio.play().catch(() => {});
   }
 }
 
 function playPrevTrack() {
   if (musicPlayer.source === "device") {
-    app.ipcRenderer.invoke("media:control", { action: "prev" });
+    app.ipcRenderer.invoke("media:control", { action: "prev" })
+      .then(() => pollDeviceMedia())
+      .catch(() => {});
     return;
   }
 
@@ -346,7 +383,7 @@ function playPrevTrack() {
   musicPlayer.index = (musicPlayer.index - 1 + musicPlayer.tracks.length) % musicPlayer.tracks.length;
   loadCurrentTrack();
   if (musicPlayer.playing) {
-    musicPlayer.audio.play();
+    musicPlayer.audio.play().catch(() => {});
   }
 }
 
