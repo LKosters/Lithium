@@ -39,6 +39,7 @@ app.deleteSession = deleteSession;
 app.enterFocusMode = enterFocusMode;
 app.exitFocusMode = exitFocusMode;
 app.pickDirectory = pickDirectory;
+app.setDirectory = setDirectory;
 app.renderProjectsList = renderProjectsList;
 app.refreshGit = refreshGit;
 app.setPlayerMode = setPlayerMode;
