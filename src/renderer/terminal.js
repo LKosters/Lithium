@@ -39,7 +39,7 @@ function createTerminal(sessionId) {
 
 let _fitRetryTimer = null;
 
-function fitAllVisibleTerminals() {
+function _doFit() {
   if (!state.layout) return;
   const leaves = getAllLeaves(state.layout);
   for (const leaf of leaves) {
@@ -50,23 +50,20 @@ function fitAllVisibleTerminals() {
       }
     }
   }
+}
 
-  // Schedule a second fit after a short delay. The first fit may run before
-  // the browser has fully resolved flex/grid layout, producing wrong
-  // dimensions. This retry catches those cases without a visible flicker.
+function fitAllVisibleTerminals() {
+  _doFit();
+
+  // Schedule retries. The browser may not have finished layout computation
+  // on the first call, so we retry at increasing intervals to catch cases
+  // where the container dimensions settle after the initial render.
   clearTimeout(_fitRetryTimer);
   _fitRetryTimer = setTimeout(() => {
-    if (!state.layout) return;
-    const leaves2 = getAllLeaves(state.layout);
-    for (const leaf of leaves2) {
-      if (leaf.activeTab) {
-        const t = terminals.get(leaf.activeTab);
-        if (t && t.paneEl.offsetParent !== null) {
-          try { t.fitAddon.fit(); } catch (_) {}
-        }
-      }
-    }
-  }, 80);
+    _doFit();
+    // One more retry at a longer interval for complex layout changes
+    _fitRetryTimer = setTimeout(_doFit, 150);
+  }, 50);
 }
 
 module.exports = { createTerminal, fitAllVisibleTerminals };
