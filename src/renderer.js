@@ -47,7 +47,7 @@ app.setPlayerMode = setPlayerMode;
 {
   const pkg = require("../package.json");
   const versionTag = document.getElementById("version-tag");
-  if (versionTag) versionTag.textContent = `v${pkg.version}`;
+  if (versionTag) versionTag.textContent = `Alpha v${pkg.version}`;
 }
 
 // ── Sidebar resize ────────────────────────────────────
