@@ -63,6 +63,20 @@ async function initMusicPlayer() {
 
   musicPlayer.audio.addEventListener("ended", () => { playNextTrack(); });
 
+  // Recover from mid-playback stalls (e.g. buffer underrun on large files)
+  musicPlayer.audio.addEventListener("stalled", () => {
+    if (musicPlayer.playing && musicPlayer.source === "lofi") {
+      musicPlayer.audio.load();
+      musicPlayer.audio.play().catch(() => {});
+    }
+  });
+  musicPlayer.audio.addEventListener("error", () => {
+    if (musicPlayer.playing && musicPlayer.source === "lofi") {
+      // Try to resume; if the file is broken, skip to next
+      musicPlayer.audio.play().catch(() => { playNextTrack(); });
+    }
+  });
+
   mpPlay.addEventListener("click", togglePlay);
   mpPrev.addEventListener("click", playPrevTrack);
   mpNext.addEventListener("click", playNextTrack);
@@ -266,7 +280,7 @@ function loadCurrentTrack() {
   const track = musicPlayer.tracks[musicPlayer.index];
   if (!track) return;
   const mpTrackName = document.querySelector("#mp-track-name");
-  musicPlayer.audio.src = "file://" + track.path;
+  musicPlayer.audio.src = "media:///" + encodeURIComponent(track.path);
   musicPlayer.audio.load();
   mpTrackName.textContent = track.name;
   mpTrackName.title = track.name;

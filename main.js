@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog, nativeImage } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, dialog, nativeImage, protocol, net } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -649,11 +649,24 @@ function buildAppMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+// ── Custom protocol for streaming local audio ─────────
+protocol.registerSchemesAsPrivileged([{
+  scheme: "media",
+  privileges: { stream: true, standard: true, supportFetchAPI: true },
+}]);
+
 // ── Lifecycle ──────────────────────────────────────────
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
 app.whenReady().then(() => {
   app.name = "Lithium";
+
+  // Serve local audio files via media:// with proper streaming/range support
+  protocol.handle("media", (request) => {
+    const filePath = decodeURIComponent(request.url.slice("media:///".length));
+    return net.fetch("file:///" + filePath);
+  });
+
   ensureDirs();
   buildAppMenu();
   if (process.platform === "darwin" && app.dock) {
