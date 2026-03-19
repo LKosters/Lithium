@@ -37,6 +37,8 @@ function createTerminal(sessionId) {
   return terminals.get(sessionId);
 }
 
+let _fitRetryTimer = null;
+
 function fitAllVisibleTerminals() {
   if (!state.layout) return;
   const leaves = getAllLeaves(state.layout);
@@ -48,6 +50,23 @@ function fitAllVisibleTerminals() {
       }
     }
   }
+
+  // Schedule a second fit after a short delay. The first fit may run before
+  // the browser has fully resolved flex/grid layout, producing wrong
+  // dimensions. This retry catches those cases without a visible flicker.
+  clearTimeout(_fitRetryTimer);
+  _fitRetryTimer = setTimeout(() => {
+    if (!state.layout) return;
+    const leaves2 = getAllLeaves(state.layout);
+    for (const leaf of leaves2) {
+      if (leaf.activeTab) {
+        const t = terminals.get(leaf.activeTab);
+        if (t && t.paneEl.offsetParent !== null) {
+          try { t.fitAddon.fit(); } catch (_) {}
+        }
+      }
+    }
+  }, 80);
 }
 
 module.exports = { createTerminal, fitAllVisibleTerminals };

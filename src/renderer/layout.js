@@ -185,6 +185,15 @@ function refreshLayout() {
   const welcomeEl = app.dom.welcomeEl;
   const tabBar = app.dom.tabBar;
 
+  // Save scroll positions before detaching terminals from the DOM
+  const scrollPositions = new Map();
+  for (const [id, t] of terminals) {
+    const viewport = t.paneEl.querySelector('.xterm-viewport');
+    if (viewport) {
+      scrollPositions.set(id, viewport.scrollTop);
+    }
+  }
+
   for (const [, t] of terminals) {
     if (t.paneEl.parentNode) t.paneEl.parentNode.removeChild(t.paneEl);
     t.paneEl.classList.remove('active');
@@ -204,15 +213,29 @@ function refreshLayout() {
     welcomeEl.classList.remove('hidden');
   }
 
+  // Use a short delay so the browser can finish layout computation
+  // before we measure and fit terminals. A single rAF is often too early.
   requestAnimationFrame(() => {
-    app.fitAllVisibleTerminals();
-    if (state.focusedPaneId && state.layout) {
-      const leaf = findLeafById(state.layout, state.focusedPaneId);
-      if (leaf?.activeTab) {
-        const t = terminals.get(leaf.activeTab);
-        if (t) t.term.focus();
+    requestAnimationFrame(() => {
+      app.fitAllVisibleTerminals();
+
+      // Restore scroll positions after fit
+      for (const [id, scrollTop] of scrollPositions) {
+        const t = terminals.get(id);
+        if (t) {
+          const viewport = t.paneEl.querySelector('.xterm-viewport');
+          if (viewport) viewport.scrollTop = scrollTop;
+        }
       }
-    }
+
+      if (state.focusedPaneId && state.layout) {
+        const leaf = findLeafById(state.layout, state.focusedPaneId);
+        if (leaf?.activeTab) {
+          const t = terminals.get(leaf.activeTab);
+          if (t) t.term.focus();
+        }
+      }
+    });
   });
 
   app.renderSessionList();
