@@ -28,7 +28,8 @@
       "Bash(plutil -p \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/dist/mac-arm64/Lithium.app/Contents/Info.plist\" 2>/dev/null | grep -i icon)",
       "Bash(file \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/icon.png\" && sips -g all \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/icon.png\" 2>/dev/null | head -20)",
       "Bash(sips -g hasAlpha \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/icon.png\" 2>/dev/null)",
-      "Bash(sips -g all \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/logo.png\" 2>/dev/null)"
+      "Bash(sips -g all \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design/public/logo.png\" 2>/dev/null)",
+      "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && grep -n \"np-overlay\\\\|np-dialog\\\\|np-backdrop\\\\|\\\\..*modal\\\\|\\\\..*dialog\" src/styles/*.css)"
     ]
   }
 }

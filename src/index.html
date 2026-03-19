@@ -203,23 +203,8 @@
                     <div class="sidebar-section session-list-section">
                         <div id="session-list"></div>
                     </div>
-                </div>
 
-                <!-- Hidden elements for directory picker (kept for compatibility) -->
-                <div style="display:none">
-                    <span id="current-dir-label">Select directory...</span>
-                    <button id="btn-pick-dir"></button>
-                    <button id="btn-open-finder"></button>
-                    <div id="recent-dirs-dropdown" class="dropdown hidden">
-                        <div id="dropdown-tabs" class="dropdown-tabs hidden">
-                            <button class="dropdown-tab active" data-dropdown-tab="favorites">Favorites</button>
-                            <button class="dropdown-tab" data-dropdown-tab="recent">Recent</button>
-                        </div>
-                        <div id="recent-dirs-list"></div>
-                    </div>
-                </div>
-
-                <!-- Compact music player (hidden by default) -->
+                    <!-- Compact music player (hidden by default) -->
                 <div id="compact-player" class="compact-player hidden">
                     <div class="cp-track-bar"></div>
                     <div class="cp-controls">
@@ -374,6 +359,21 @@
                                 />
                             </svg>
                         </button>
+                    </div>
+                </div>
+                </div>
+
+                <!-- Hidden elements for directory picker (kept for compatibility) -->
+                <div style="display:none">
+                    <span id="current-dir-label">Select directory...</span>
+                    <button id="btn-pick-dir"></button>
+                    <button id="btn-open-finder"></button>
+                    <div id="recent-dirs-dropdown" class="dropdown hidden">
+                        <div id="dropdown-tabs" class="dropdown-tabs hidden">
+                            <button class="dropdown-tab active" data-dropdown-tab="favorites">Favorites</button>
+                            <button class="dropdown-tab" data-dropdown-tab="recent">Recent</button>
+                        </div>
+                        <div id="recent-dirs-list"></div>
                     </div>
                 </div>
             </aside>
@@ -923,6 +923,23 @@
                 <div id="np-progress" class="np-progress hidden">
                     <div class="np-spinner"></div>
                     <span class="np-progress-text">Creating project...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirm Remove Workspace modal -->
+        <div id="confirm-remove-modal" class="np-overlay hidden">
+            <div class="np-backdrop"></div>
+            <div class="np-dialog" style="width: 340px">
+                <div class="np-header">
+                    <h3 class="np-title">Remove Workspace</h3>
+                </div>
+                <div style="padding: 8px 18px 18px">
+                    <p id="confirm-remove-text" style="font-size: 13px; color: var(--fg-dim); margin: 0 0 16px">Are you sure you want to remove this workspace?</p>
+                    <div class="np-actions">
+                        <button id="confirm-remove-cancel" class="np-btn-cancel">Cancel</button>
+                        <button id="confirm-remove-ok" class="np-btn-create np-btn-destructive">Remove</button>
+                    </div>
                 </div>
             </div>
         </div>

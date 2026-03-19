@@ -260,6 +260,11 @@
 .np-btn-create:hover { opacity: 0.85; }
 .np-btn-create:active { transform: scale(0.97); }
 
+.np-btn-destructive {
+  background: var(--destructive); color: #fff;
+}
+.np-btn-destructive:hover { opacity: 0.85; }
+
 /* Progress state */
 .np-progress {
   padding: 40px 18px;

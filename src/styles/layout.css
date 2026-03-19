@@ -11,7 +11,6 @@
   display: flex; flex-direction: row;
   background: var(--surface);
   overflow: hidden;
-  padding-bottom: var(--gap);
   border-radius: 0 var(--radius) 0 0;
 }
 
@@ -33,6 +32,7 @@
   width: 180px; min-width: 140px; flex-shrink: 0;
   display: flex; flex-direction: column;
   overflow: hidden;
+  padding-bottom: var(--gap);
 }
 .projects-header {
   padding: 14px 14px 10px;
@@ -64,22 +64,45 @@
   font-size: 12px; font-family: var(--font-sans); color: var(--fg-dim); font-weight: 400;
 }
 .project-item.active .project-item-name { color: var(--primary); font-weight: 500; }
+.project-item {
+  position: relative;
+}
 .project-item-count {
   flex-shrink: 0; font-size: 10px; color: var(--muted); opacity: 0.5;
   font-family: var(--font-mono);
+  transition: opacity 0.15s var(--ease-out);
 }
+.project-item:hover .project-item-count { opacity: 0; }
+
+.project-item-actions {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; gap: 1px; opacity: 0;
+  transition: opacity 0.15s var(--ease-out);
+}
+.project-item:hover .project-item-actions { opacity: 1; }
+
+.project-item-btn {
+  border: none; background: none; color: var(--muted);
+  cursor: pointer; padding: 4px; border-radius: var(--radius-xs);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s var(--ease-out);
+}
+.project-item-btn:hover { color: var(--destructive); background: rgba(201,66,52,0.1); }
+.project-item-btn:active { transform: scale(0.88); }
 .btn-add-workspace {
   display: flex; align-items: center; justify-content: center;
   margin: 6px 8px 8px; padding: 7px;
-  border: 1px dashed var(--border); border-radius: var(--radius-xs);
-  background: none; color: var(--muted);
+  border: 1px dashed var(--primary-border); border-radius: var(--radius-xs);
+  background: var(--primary-soft); color: var(--primary);
   cursor: pointer; transition: all 0.2s var(--ease-out);
 }
 .btn-add-workspace:hover {
-  border-color: var(--primary-border); color: var(--primary);
-  background: var(--primary-soft);
+  background: rgba(232,168,56,0.18);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(232,168,56,0.08);
 }
-.btn-add-workspace:active { transform: scale(0.96); }
+.btn-add-workspace:active { transform: translateY(0) scale(0.95); }
 
 /* ── Panel divider ────────────────────────────────── */
 .sidebar-panel-divider {
@@ -92,6 +115,7 @@
   flex: 1; min-width: 0;
   display: flex; flex-direction: column;
   overflow: hidden;
+  padding-bottom: var(--gap);
 }
 .sessions-panel-header {
   padding: 10px 12px;

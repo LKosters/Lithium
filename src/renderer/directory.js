@@ -10,6 +10,13 @@ const btnPickDir = document.querySelector("#btn-pick-dir");
 const btnOpenFinder = document.querySelector("#btn-open-finder");
 const projectsListEl = document.querySelector("#projects-list");
 
+const confirmModal = document.querySelector("#confirm-remove-modal");
+const confirmText = document.querySelector("#confirm-remove-text");
+const confirmCancel = document.querySelector("#confirm-remove-cancel");
+const confirmOk = document.querySelector("#confirm-remove-ok");
+const confirmBackdrop = confirmModal ? confirmModal.querySelector(".np-backdrop") : null;
+
+let pendingRemoveDir = null;
 let activeDropdownTab = "favorites";
 
 async function pickDirectory() {
@@ -82,7 +89,7 @@ function renderProjectsList() {
     const sessionCount = state.sessions.filter(
       (s) => s.directory === dir,
     ).length;
-    html += `<button class="project-item ${activeClass}" data-project-dir="${escapeHtml(dir)}" title="${escapeHtml(shortDir(dir))}">
+    html += `<div class="project-item ${activeClass}" data-project-dir="${escapeHtml(dir)}" title="${escapeHtml(shortDir(dir))}">
       <span class="project-item-icon">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
           <path d="M2 4.5C2 3.67 2.67 3 3.5 3H6l1.5 1.5H12.5c.83 0 1.5.67 1.5 1.5v6c0 .83-.67 1.5-1.5 1.5h-9C2.67 13.5 2 12.83 2 12V4.5z" stroke="currentColor" stroke-width="1.2"/>
@@ -90,7 +97,14 @@ function renderProjectsList() {
       </span>
       <span class="project-item-name">${escapeHtml(dirName(dir))}</span>
       ${sessionCount > 0 ? `<span class="project-item-count">${sessionCount}</span>` : ""}
-    </button>`;
+      <span class="project-item-actions">
+        <button class="project-item-btn" data-remove-dir="${escapeHtml(dir)}" title="Remove workspace">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+            <path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M5 4v8.5a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </span>
+    </div>`;
   }
 
   if (allDirs.length === 0) {
@@ -103,8 +117,19 @@ function renderProjectsList() {
   projectsListEl
     .querySelectorAll(".project-item[data-project-dir]")
     .forEach((el) => {
-      el.addEventListener("click", () => {
+      el.addEventListener("click", (e) => {
+        if (e.target.closest("[data-remove-dir]")) return;
         setDirectory(el.dataset.projectDir);
+      });
+    });
+
+  // Click trash icon → show confirmation modal
+  projectsListEl
+    .querySelectorAll("[data-remove-dir]")
+    .forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showRemoveConfirm(btn.dataset.removeDir);
       });
     });
 }
@@ -204,6 +229,42 @@ btnOpenFinder.addEventListener("click", (e) => {
 document.addEventListener("click", () => {
   app.animateClose(recentDirsDropdown, "dropOut", 150);
 });
+
+// ── Confirm-remove modal ────────────────────────────
+
+function showRemoveConfirm(dir) {
+  pendingRemoveDir = dir;
+  if (confirmText) confirmText.textContent = `Remove "${dirName(dir)}" from your workspaces?`;
+  if (confirmModal) confirmModal.classList.remove("hidden");
+}
+
+function hideRemoveConfirm() {
+  if (confirmModal) confirmModal.classList.add("hidden");
+  pendingRemoveDir = null;
+}
+
+function removeWorkspace(dir) {
+  state.recentDirs = state.recentDirs.filter((d) => d !== dir);
+  state.starredDirs = state.starredDirs.filter((d) => d !== dir);
+  app.ipcRenderer.send("directory:remove", dir);
+  if (state.currentDir === dir) {
+    state.currentDir = null;
+    currentDirLabel.textContent = "";
+    localStorage.removeItem("currentDir");
+  }
+  renderProjectsList();
+  renderRecentDirs();
+  if (app.renderSessionList) app.renderSessionList();
+}
+
+if (confirmCancel) confirmCancel.addEventListener("click", hideRemoveConfirm);
+if (confirmBackdrop) confirmBackdrop.addEventListener("click", hideRemoveConfirm);
+if (confirmOk) {
+  confirmOk.addEventListener("click", () => {
+    if (pendingRemoveDir) removeWorkspace(pendingRemoveDir);
+    hideRemoveConfirm();
+  });
+}
 
 module.exports = {
   pickDirectory,
