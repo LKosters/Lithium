@@ -48,7 +48,40 @@
                     </svg>
                     <input id="search-bar-input" class="search-bar-input" type="text" placeholder="Search sessions..." spellcheck="false" autocomplete="off" />
                     <span id="search-bar-workspace" class="search-bar-workspace"></span>
-                    <div id="search-bar-results" class="search-bar-results hidden"></div>
+                    <div id="search-bar-results" class="search-bar-results hidden">
+                        <div id="sb-create" class="sb-create hidden">
+                            <div class="sb-create-row">
+                                <label class="sb-create-label">Name</label>
+                                <input id="sb-create-name" class="sb-create-input" type="text" placeholder="Session name..." spellcheck="false" />
+                            </div>
+                            <div class="sb-create-row" style="position:relative">
+                                <label class="sb-create-label">Directory</label>
+                                <button id="sb-dir-btn" class="sb-dir-btn">
+                                    <span id="sb-dir-label">Select directory...</span>
+                                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                                        <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </button>
+                                <div id="sb-dir-dropdown" class="dropdown hidden" style="position:absolute;top:100%;left:0;right:0;margin-top:4px;z-index:210">
+                                    <div id="sb-dropdown-tabs" class="dropdown-tabs hidden">
+                                        <button class="dropdown-tab active" data-sb-tab="favorites">Favorites</button>
+                                        <button class="dropdown-tab" data-sb-tab="recent">Recent</button>
+                                    </div>
+                                    <div id="sb-dirs-list"></div>
+                                    <div class="qo-browse-row">
+                                        <button id="sb-browse-btn" class="qo-browse-btn">
+                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                                                <path d="M2 13V3a1 1 0 011-1h4l2 2h4a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                                            </svg>
+                                            Browse...
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <button id="sb-create-btn" class="sb-create-btn">Create</button>
+                        </div>
+                        <div id="sb-list" class="sb-list"></div>
+                    </div>
                 </div>
             </div>
             <div class="titlebar-right">
