@@ -717,6 +717,16 @@ document.addEventListener("mousedown", (e) => {
   }
 });
 
+// Also close on blur (catches titlebar drag area clicks that swallow mousedown)
+searchBarInput.addEventListener("blur", () => {
+  // Delay to allow clicks on results to register first
+  setTimeout(() => {
+    if (searchBar.classList.contains("focused") && !searchBar.contains(document.activeElement)) {
+      closeSearchBar();
+    }
+  }, 150);
+});
+
 // Update workspace display when directory changes
 app.updateSearchBarWorkspace = updateSearchBarWorkspace;
 
