@@ -663,8 +663,8 @@ app.whenReady().then(() => {
 
   // Serve local audio files via media:// with proper streaming/range support
   protocol.handle("media", (request) => {
-    const filePath = decodeURIComponent(request.url.slice("media:///".length));
-    return net.fetch("file:///" + filePath);
+    const url = new URL(request.url);
+    return net.fetch("file://" + decodeURIComponent(url.pathname));
   });
 
   ensureDirs();
