@@ -4,28 +4,20 @@ const { startDragOverlay, stopDragOverlay } = require("./layout");
 function initBrowser() {
   const browserPanel = document.querySelector("#browser-panel");
   const browserResizeHandle = document.querySelector("#browser-resize-handle");
-  const btnToggleBrowser = document.querySelector("#btn-toggle-browser");
   const browserWebview = document.querySelector("#browser-webview");
   const browserUrl = document.querySelector("#browser-url");
   const browserBack = document.querySelector("#browser-back");
   const browserForward = document.querySelector("#browser-forward");
   const browserReload = document.querySelector("#browser-reload");
-  const browserTiktok = document.querySelector("#browser-tiktok");
-
   let browserOpen = false;
 
   function setBrowserOpen(open) {
     browserOpen = open;
     browserPanel.classList.toggle("hidden", !open);
     browserResizeHandle.classList.toggle("hidden", !open);
-    btnToggleBrowser.classList.toggle("active", open);
     localStorage.setItem("browserOpen", open ? "1" : "");
     requestAnimationFrame(() => app.fitAllVisibleTerminals());
   }
-
-  btnToggleBrowser.addEventListener("click", () => {
-    setBrowserOpen(!browserOpen);
-  });
 
   browserUrl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -56,11 +48,6 @@ function initBrowser() {
     if (browserWebview.canGoForward()) browserWebview.goForward();
   });
   browserReload.addEventListener("click", () => browserWebview.reload());
-
-  browserTiktok.addEventListener("click", () => {
-    browserWebview.src = "https://www.tiktok.com";
-    browserUrl.value = "https://www.tiktok.com";
-  });
 
   // Viewport size presets
   const viewportBtns = document.querySelectorAll(".browser-viewport-btn");

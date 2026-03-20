@@ -4,7 +4,6 @@ body.focus-mode #sidebar-resize-handle,
 body.focus-mode #browser-panel,
 body.focus-mode #browser-resize-handle,
 body.focus-mode .pane-tab-bar,
-body.focus-mode #btn-toggle-browser,
 body.focus-mode #music-dock,
 body.focus-mode .git-sidebar { display: none !important; }
 
