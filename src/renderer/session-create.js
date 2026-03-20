@@ -30,6 +30,9 @@ function createSessionAndOpen({ name, dir, onDone }) {
   persistSession(session);
   app.createTerminal(id);
   app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: dir });
+  if (dir !== state.currentDir && app.setDirectory) {
+    app.setDirectory(dir);
+  }
   app.openTab(id);
   app.renderSessionList();
   if (onDone) onDone();
