@@ -983,6 +983,7 @@
                     />
                 </svg>
                 <span id="git-branch-name" class="git-branch-name">—</span>
+                <span id="git-sync-status" class="git-sync-status" style="display:none"></span>
                 <button
                     id="btn-git-branches"
                     class="git-icon-btn"
@@ -1019,6 +1020,35 @@
                     <span id="git-branch-create-name"></span>
                 </div>
             </div>
+            <div
+                id="git-commit-input-wrap"
+                class="git-commit-input-wrap"
+            >
+                <div class="git-commit-row">
+                    <input
+                        id="git-commit-input"
+                        class="git-commit-input"
+                        type="text"
+                        placeholder="Commit message..."
+                        spellcheck="false"
+                    />
+                    <button
+                        id="btn-git-commit"
+                        class="git-commit-btn"
+                        title="Commit staged changes"
+                    >
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                            <path
+                                d="M3 8.5l3 3 7-7"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            />
+                        </svg>
+                    </button>
+                </div>
+            </div>
             <div class="git-actions">
                 <button
                     id="btn-git-stage"
@@ -1034,22 +1064,6 @@
                         />
                     </svg>
                     Stage All
-                </button>
-                <button
-                    id="btn-git-commit"
-                    class="git-action-btn"
-                    title="Commit staged changes"
-                >
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                        <path
-                            d="M3 8.5l3 3 7-7"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        />
-                    </svg>
-                    Commit
                 </button>
                 <button
                     id="btn-git-push"
@@ -1068,17 +1082,39 @@
                     Push
                 </button>
             </div>
-            <div
-                id="git-commit-input-wrap"
-                class="git-commit-input-wrap hidden"
-            >
-                <input
-                    id="git-commit-input"
-                    class="git-commit-input"
-                    type="text"
-                    placeholder="Commit message..."
-                    spellcheck="false"
-                />
+            <div class="git-sync-actions">
+                <button
+                    id="btn-git-pull"
+                    class="git-action-btn"
+                    title="Pull from remote"
+                >
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                        <path
+                            d="M8 4v8M5 9l3 3 3-3"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        />
+                    </svg>
+                    Pull
+                </button>
+                <button
+                    id="btn-git-fetch"
+                    class="git-action-btn"
+                    title="Fetch from remote"
+                >
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                        <path
+                            d="M4 8h8M9 5l3 3-3 3"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        />
+                    </svg>
+                    Fetch
+                </button>
             </div>
             <div class="git-scrollable">
                 <div class="git-section">
