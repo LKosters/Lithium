@@ -199,6 +199,18 @@
 .np-fw-name {
   font-size: 12px; font-weight: 500;
 }
+.np-fw-tags {
+  display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 2px;
+}
+.np-fw-tag {
+  font-size: 9.5px; font-weight: 500;
+  padding: 1px 6px; border-radius: 8px;
+  background: rgba(255,255,255,0.08); color: var(--muted);
+  line-height: 1.5;
+}
+.np-fw-card.selected .np-fw-tag {
+  background: rgba(255,255,255,0.12); color: var(--fg-dim);
+}
 
 /* Input */
 .np-input {
