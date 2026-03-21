@@ -50,6 +50,7 @@ function openSettings() {
 
   // Load settings data
   loadProjectsDirSetting();
+  loadAgentSettings();
 }
 
 function closeSettings() {
@@ -115,6 +116,70 @@ btnCreateProjectsDir.addEventListener("click", async () => {
     if (dir) showProjectsDir(dir);
   } catch (err) {
     console.error("Failed to create projects directory:", err.message);
+  }
+});
+
+// ── Agent API key settings ────────────────────────────
+const claudeKeyInput = document.querySelector("#settings-claude-key");
+const codexKeyInput = document.querySelector("#settings-codex-key");
+const acpEndpointInput = document.querySelector("#settings-acp-endpoint");
+const acpKeyInput = document.querySelector("#settings-acp-key");
+
+async function loadAgentSettings() {
+  try {
+    const claudeCfg = await ipcRenderer.invoke("agent:get-config", "claude");
+    if (claudeCfg?.apiKey) claudeKeyInput.value = claudeCfg.apiKey;
+
+    const codexCfg = await ipcRenderer.invoke("agent:get-config", "codex");
+    if (codexCfg?.apiKey) codexKeyInput.value = codexCfg.apiKey;
+
+    const acpCfg = await ipcRenderer.invoke("agent:get-config", "acp");
+    if (acpCfg?.endpoint) acpEndpointInput.value = acpCfg.endpoint;
+    if (acpCfg?.apiKey) acpKeyInput.value = acpCfg.apiKey;
+  } catch (err) {
+    console.warn("Failed to load agent settings:", err.message);
+  }
+}
+
+function flashSaved(btn) {
+  const orig = btn.textContent;
+  btn.textContent = "Saved";
+  btn.disabled = true;
+  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1200);
+}
+
+document.querySelector("#btn-save-claude-key").addEventListener("click", async (e) => {
+  const val = claudeKeyInput.value.trim();
+  if (val && !val.startsWith("***")) {
+    await ipcRenderer.invoke("agent:configure", { provider: "claude", config: { apiKey: val } });
+    claudeKeyInput.value = "***" + val.slice(-4);
+    flashSaved(e.target);
+  }
+});
+
+document.querySelector("#btn-save-codex-key").addEventListener("click", async (e) => {
+  const val = codexKeyInput.value.trim();
+  if (val && !val.startsWith("***")) {
+    await ipcRenderer.invoke("agent:configure", { provider: "codex", config: { apiKey: val } });
+    codexKeyInput.value = "***" + val.slice(-4);
+    flashSaved(e.target);
+  }
+});
+
+document.querySelector("#btn-save-acp-endpoint").addEventListener("click", async (e) => {
+  const val = acpEndpointInput.value.trim();
+  if (val) {
+    await ipcRenderer.invoke("agent:configure", { provider: "acp", config: { endpoint: val } });
+    flashSaved(e.target);
+  }
+});
+
+document.querySelector("#btn-save-acp-key").addEventListener("click", async (e) => {
+  const val = acpKeyInput.value.trim();
+  if (val && !val.startsWith("***")) {
+    await ipcRenderer.invoke("agent:configure", { provider: "acp", config: { apiKey: val } });
+    acpKeyInput.value = "***" + val.slice(-4);
+    flashSaved(e.target);
   }
 });
 

@@ -17,8 +17,12 @@ function openTab(sessionId) {
   if (!terminals.has(sessionId)) {
     const s = getSession(sessionId);
     if (s) {
-      app.createTerminal(sessionId);
-      app.ipcRenderer.send("pty:spawn", { sessionId, cwd: s.directory, resume: true });
+      if (s.mode === "chat" && app.createChatPane) {
+        app.createChatPane(sessionId, s.provider, s.model);
+      } else {
+        app.createTerminal(sessionId);
+        app.ipcRenderer.send("pty:spawn", { sessionId, cwd: s.directory, resume: true });
+      }
     }
   }
 
@@ -45,13 +49,22 @@ function openTab(sessionId) {
 }
 
 function closeTab(sessionId) {
-  app.ipcRenderer.send("pty:kill", { sessionId });
-
   const t = terminals.get(sessionId);
-  if (t) {
-    t.term.dispose();
+
+  if (t && t.isChat) {
+    // Chat mode — clean up chat state
     t.paneEl.remove();
     terminals.delete(sessionId);
+    if (app.deleteChatState) app.deleteChatState(sessionId);
+    app.ipcRenderer.send("agent:clear-history", sessionId);
+  } else {
+    // Terminal mode — kill PTY
+    app.ipcRenderer.send("pty:kill", { sessionId });
+    if (t) {
+      t.term.dispose();
+      t.paneEl.remove();
+      terminals.delete(sessionId);
+    }
   }
 
   if (state.layout) {

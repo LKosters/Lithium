@@ -24,6 +24,10 @@ const { killDevServer } = require("./src/main/dev-server");
 require("./src/main/git");
 require("./src/main/project");
 
+// Register agent provider handlers
+const { registerAgentHandlers } = require("./src/main/agents");
+registerAgentHandlers();
+
 // ── Window ─────────────────────────────────────────────
 function createWindow() {
   const win = new BrowserWindow({

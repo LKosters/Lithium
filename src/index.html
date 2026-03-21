@@ -64,6 +64,36 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="sb-create-row">
+                                <label class="sb-create-label">Agent</label>
+                                <div id="sb-provider-selector" class="provider-selector">
+                                    <button class="provider-option active" data-provider="terminal">
+                                        <span class="provider-opt-icon"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 4l4 4-4 4M9 12h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                                        Terminal
+                                    </button>
+                                    <button class="provider-option" data-provider="claude">
+                                        <span class="provider-opt-icon"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="7" r="0.7" fill="currentColor"/><circle cx="9.5" cy="7" r="0.7" fill="currentColor"/></svg></span>
+                                        Claude
+                                        <span class="provider-opt-dot"></span>
+                                    </button>
+                                    <button class="provider-option" data-provider="codex">
+                                        <span class="provider-opt-icon"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="3" stroke="currentColor" stroke-width="1.2"/></svg></span>
+                                        Codex
+                                        <span class="provider-opt-dot"></span>
+                                    </button>
+                                    <button class="provider-option" data-provider="acp">
+                                        <span class="provider-opt-icon"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="4" r="2" stroke="currentColor" stroke-width="1"/><circle cx="4" cy="12" r="2" stroke="currentColor" stroke-width="1"/><circle cx="12" cy="12" r="2" stroke="currentColor" stroke-width="1"/><path d="M8 6v2M6.3 10.3L7 8.5M9.7 10.3L9 8.5" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/></svg></span>
+                                        ACP
+                                        <span class="provider-opt-dot"></span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="sb-model-row" class="sb-create-row hidden">
+                                <label class="sb-create-label">Model</label>
+                                <div class="model-selector">
+                                    <select id="sb-model-select" class="model-select"></select>
+                                </div>
+                            </div>
                             <button id="sb-create-btn" class="sb-create-btn">Create</button>
                         </div>
                         <div id="sb-list" class="sb-list"></div>
@@ -1238,6 +1268,15 @@
                         </svg>
                         <span>Shortcuts</span>
                     </button>
+                    <button class="settings-nav-item" data-settings-tab="agents">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="6" r="4" stroke="currentColor" stroke-width="1.5"/>
+                            <circle cx="5" cy="18" r="3" stroke="currentColor" stroke-width="1.5"/>
+                            <circle cx="19" cy="18" r="3" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M12 10v3M9 16l-2-1M15 16l2-1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                        </svg>
+                        <span>Agents</span>
+                    </button>
                     <button class="settings-nav-item" data-settings-tab="about">
                         <svg
                             width="14"
@@ -1640,6 +1679,62 @@
                                 >
                             </div>
                             <kbd class="settings-kbd">Shift Shift</kbd>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-panel" data-settings-panel="agents">
+                    <h2 class="settings-panel-title">AI Agents</h2>
+                    <p class="settings-panel-desc">Configure API keys and endpoints for AI agent providers.</p>
+
+                    <div class="settings-group">
+                        <h3 class="settings-group-title">Claude (Anthropic)</h3>
+                        <div class="settings-row">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name">API Key</span>
+                                <span class="settings-row-desc">Your Anthropic API key for Claude Agent SDK</span>
+                            </div>
+                            <div class="settings-row-action">
+                                <input id="settings-claude-key" type="password" class="settings-input" placeholder="sk-ant-..." spellcheck="false" autocomplete="off" />
+                                <button id="btn-save-claude-key" class="settings-btn-sm settings-btn-primary">Save</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3 class="settings-group-title">ChatGPT Codex (OpenAI)</h3>
+                        <div class="settings-row">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name">API Key</span>
+                                <span class="settings-row-desc">Your OpenAI API key for ChatGPT / Codex</span>
+                            </div>
+                            <div class="settings-row-action">
+                                <input id="settings-codex-key" type="password" class="settings-input" placeholder="sk-..." spellcheck="false" autocomplete="off" />
+                                <button id="btn-save-codex-key" class="settings-btn-sm settings-btn-primary">Save</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3 class="settings-group-title">ACP (Agent Communication Protocol)</h3>
+                        <div class="settings-row">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name">Endpoint</span>
+                                <span class="settings-row-desc">URL of your ACP-compatible agent server</span>
+                            </div>
+                            <div class="settings-row-action">
+                                <input id="settings-acp-endpoint" type="text" class="settings-input" placeholder="http://localhost:3001" spellcheck="false" autocomplete="off" />
+                                <button id="btn-save-acp-endpoint" class="settings-btn-sm settings-btn-primary">Save</button>
+                            </div>
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name">API Key (optional)</span>
+                                <span class="settings-row-desc">Authentication key for the ACP server</span>
+                            </div>
+                            <div class="settings-row-action">
+                                <input id="settings-acp-key" type="password" class="settings-input" placeholder="Optional..." spellcheck="false" autocomplete="off" />
+                                <button id="btn-save-acp-key" class="settings-btn-sm settings-btn-primary">Save</button>
+                            </div>
                         </div>
                     </div>
                 </div>
