@@ -12,7 +12,6 @@ const { openTab, closeTab, newSession, splitNewSession } = require("./renderer/t
 const { renderSessionList, deleteSession } = require("./renderer/sessions");
 const { initBrowser } = require("./renderer/browser");
 const { initMusicPlayer, updateTrackProgress, setPlayerMode } = require("./renderer/music");
-const { enterFocusMode, exitFocusMode } = require("./renderer/focus");
 const { closeSettings, isSettingsOpen } = require("./renderer/settings");
 const { closeGit, isGitOpen, refreshGit } = require("./renderer/git");
 const { pickDirectory, setDirectory, renderRecentDirs, renderProjectsList } = require("./renderer/directory");
@@ -35,8 +34,6 @@ app.closeTab = closeTab;
 app.newSession = newSession;
 app.renderSessionList = renderSessionList;
 app.deleteSession = deleteSession;
-app.enterFocusMode = enterFocusMode;
-app.exitFocusMode = exitFocusMode;
 app.pickDirectory = pickDirectory;
 app.setDirectory = setDirectory;
 app.renderProjectsList = renderProjectsList;
@@ -113,7 +110,6 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && isQuickOpenVisible()) { closeQuickOpen(); return; }
   if (e.key === "Escape" && isSettingsOpen()) { closeSettings(); return; }
   if (e.key === "Escape" && isGitOpen()) { closeGit(); return; }
-  if (e.key === "Escape" && state.focusMode.active) { exitFocusMode(); return; }
 
   if (e.code === "KeyP" && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
     e.preventDefault();
@@ -154,12 +150,6 @@ ipcRenderer.on("pty:exit", (_e, { sessionId, exitCode, resume, lifetime }) => {
   refreshLayout();
 });
 
-// Focus mode auto-exit on pty:exit
-ipcRenderer.on("pty:exit", (_e, { sessionId }) => {
-  if (state.focusMode.active && state.focusMode.sessionId === sessionId) {
-    exitFocusMode();
-  }
-});
 
 // ── Resize observer ───────────────────────────────────
 const ro = new ResizeObserver(() => {

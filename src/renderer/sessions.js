@@ -25,12 +25,7 @@ function renderSessionList() {
         <span class="session-item-title">${escapeHtml(s.title || "Session")}</span>
         <span class="session-item-meta">${timeAgo(s.updatedAt)}</span>
         <div class="session-item-actions">
-          <button class="session-item-btn" data-focus-id="${s.id}" title="Focus Mode">
-            <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-              <path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <button class="session-item-btn" data-rename-id="${s.id}" title="Rename">
+<button class="session-item-btn" data-rename-id="${s.id}" title="Rename">
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
               <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -58,13 +53,7 @@ function renderSessionList() {
       app.openTab(el.dataset.sessionId);
     });
   });
-  sessionListEl.querySelectorAll("[data-focus-id]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      app.enterFocusMode(btn.dataset.focusId);
-    });
-  });
-  sessionListEl.querySelectorAll("[data-rename-id]").forEach((btn) => {
+sessionListEl.querySelectorAll("[data-rename-id]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       startRename(btn.dataset.renameId);
