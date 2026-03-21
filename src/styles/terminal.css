@@ -231,3 +231,35 @@
 #drag-overlay { position: fixed; inset: 0; z-index: 9999; cursor: col-resize; display: none; }
 #drag-overlay.active { display: block; }
 #drag-overlay.row-resize { cursor: row-resize; }
+
+/* ── Tab context menu ─────────────────────────────── */
+.tab-context-menu {
+  position: fixed; z-index: 10000;
+  min-width: 160px; padding: 4px 0;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 12px; font-family: var(--font-mono);
+  animation: ctxFadeIn 0.12s var(--ease-out) both;
+}
+@keyframes ctxFadeIn {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.tab-context-menu-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px; cursor: pointer;
+  color: var(--fg-dim); white-space: nowrap;
+  transition: all 0.15s var(--ease-out);
+}
+.tab-context-menu-item:hover {
+  background: var(--primary-soft); color: var(--primary);
+}
+.tab-context-menu-item.destructive:hover {
+  background: rgba(220, 70, 70, 0.12); color: #dc4646;
+}
+.tab-context-menu-sep {
+  height: 1px; margin: 4px 8px;
+  background: var(--border);
+}
