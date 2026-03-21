@@ -26,6 +26,9 @@ registerGitCommand("git:stage-file", ({ file }) => ["add", "--", file]);
 registerGitCommand("git:unstage-file", ({ file }) => ["reset", "HEAD", "--", file]);
 registerGitCommand("git:commit", ({ message }) => ["commit", "-m", message]);
 registerGitCommand("git:push", () => ["push"]);
+registerGitCommand("git:pull", () => ["pull"]);
+registerGitCommand("git:fetch", () => ["fetch"]);
+registerGitCommand("git:discard-file", ({ file }) => ["checkout", "--", file]);
 
 ipcMain.handle("git:status", async (_e, { cwd }) => {
   const branch = await runGit(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
@@ -66,7 +69,19 @@ ipcMain.handle("git:status", async (_e, { cwd }) => {
   const repoName = topLevel ? path.basename(topLevel) : null;
   const remoteUrl = await runGit(["remote", "get-url", "origin"], cwd);
 
-  return { branch, staged, changes, log, repoName, remoteUrl };
+  // Ahead/behind remote tracking branch
+  let ahead = 0, behind = 0;
+  const tracking = await runGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], cwd);
+  if (tracking) {
+    const abRaw = await runGit(["rev-list", "--left-right", "--count", `${tracking}...HEAD`], cwd);
+    if (abRaw) {
+      const parts = abRaw.split(/\s+/);
+      behind = parseInt(parts[0], 10) || 0;
+      ahead = parseInt(parts[1], 10) || 0;
+    }
+  }
+
+  return { branch, staged, changes, log, repoName, remoteUrl, ahead, behind };
 });
 
 ipcMain.handle("git:branches", async (_e, { cwd }) => {

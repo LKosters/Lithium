@@ -30,7 +30,6 @@ function getCwd() {
 }
 
 function gitUrlToWeb(url) {
-  // Convert git@github.com:user/repo.git or https://github.com/user/repo.git to https URL
   let web = url.replace(/\.git$/, "");
   const sshMatch = web.match(/^git@([^:]+):(.+)$/);
   if (sshMatch) web = `https://${sshMatch[1]}/${sshMatch[2]}`;
@@ -39,6 +38,20 @@ function gitUrlToWeb(url) {
 
 function cleanUrl(url) {
   return url.replace(/\.git$/, "").replace(/^https?:\/\//, "").replace(/^git@([^:]+):/, "$1/");
+}
+
+// ── Debounced refresh to prevent race conditions ─────
+let refreshPending = false;
+let refreshTimer = null;
+
+function scheduleRefresh() {
+  if (refreshPending) return;
+  refreshPending = true;
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async () => {
+    refreshPending = false;
+    await doRefreshGit();
+  }, 100);
 }
 
 // ── Render ────────────────────────────────────────────
@@ -53,9 +66,12 @@ function renderGitData(data) {
   const logList = document.querySelector("#git-log-list");
   const scrollable = document.querySelector(".git-scrollable");
   const actionsBar = document.querySelector(".git-actions");
+  const syncBar = document.querySelector(".git-sync-actions");
   const repoInfo = document.querySelector("#git-repo-info");
   const repoNameEl = document.querySelector("#git-repo-name");
   const repoUrlEl = document.querySelector("#git-repo-url");
+  const commitWrap = document.querySelector("#git-commit-input-wrap");
+  const syncStatus = document.querySelector("#git-sync-status");
 
   if (!data) {
     noRepo.classList.remove("hidden");
@@ -68,12 +84,17 @@ function renderGitData(data) {
     changesCount.textContent = "0";
     if (scrollable) scrollable.style.display = "none";
     if (actionsBar) actionsBar.style.display = "none";
+    if (syncBar) syncBar.style.display = "none";
+    if (commitWrap) commitWrap.style.display = "none";
+    if (syncStatus) syncStatus.style.display = "none";
     return;
   }
 
   noRepo.classList.add("hidden");
   if (scrollable) scrollable.style.display = "";
   if (actionsBar) actionsBar.style.display = "";
+  if (syncBar) syncBar.style.display = "";
+  if (commitWrap) commitWrap.style.display = "";
 
   // Repo name & URL
   if (data.repoName) {
@@ -95,6 +116,20 @@ function renderGitData(data) {
   }
 
   branchName.textContent = data.branch;
+
+  // Sync status (ahead/behind)
+  if (syncStatus) {
+    const parts = [];
+    if (data.ahead > 0) parts.push(`${data.ahead}↑`);
+    if (data.behind > 0) parts.push(`${data.behind}↓`);
+    if (parts.length > 0) {
+      syncStatus.textContent = parts.join(" ");
+      syncStatus.style.display = "";
+    } else {
+      syncStatus.style.display = "none";
+    }
+  }
+
   stagedCount.textContent = data.staged.length;
   changesCount.textContent = data.changes.length;
 
@@ -112,10 +147,14 @@ function renderGitData(data) {
   changesList.innerHTML = data.changes
     .map((f) => {
       const s = statusInfo(f.status);
-      return `<div class="git-file-item clickable" data-stage="${escapeHtml(f.file)}" title="Click to stage">
+      const isUntracked = f.status === "?";
+      return `<div class="git-file-item clickable" title="Click to stage">
         <span class="git-file-status ${s.cls}">${s.label}</span>
-        <span class="git-file-name" title="${escapeHtml(f.file)}">${escapeHtml(shortPath(f.file))}</span>
-        <span class="git-file-action">+</span>
+        <span class="git-file-name" data-stage="${escapeHtml(f.file)}" title="${escapeHtml(f.file)}">${escapeHtml(shortPath(f.file))}</span>
+        <span class="git-file-actions">
+          ${!isUntracked ? `<span class="git-file-action-icon discard" data-discard="${escapeHtml(f.file)}" title="Discard changes">✕</span>` : ""}
+          <span class="git-file-action-icon stage" data-stage="${escapeHtml(f.file)}" title="Stage file">+</span>
+        </span>
       </div>`;
     })
     .join("");
@@ -143,16 +182,7 @@ async function stageAll() {
 }
 
 async function commitChanges() {
-  const wrap = document.querySelector("#git-commit-input-wrap");
   const input = document.querySelector("#git-commit-input");
-
-  if (wrap.classList.contains("hidden")) {
-    wrap.classList.remove("hidden");
-    input.value = "";
-    input.focus();
-    return;
-  }
-
   const msg = input.value.trim();
   if (!msg) {
     input.focus();
@@ -162,7 +192,6 @@ async function commitChanges() {
   const cwd = getCwd();
   if (!cwd) return;
   await app.ipcRenderer.invoke("git:commit", { cwd, message: msg });
-  wrap.classList.add("hidden");
   input.value = "";
   refreshGit();
 }
@@ -171,6 +200,20 @@ async function pushChanges() {
   const cwd = getCwd();
   if (!cwd) return;
   await app.ipcRenderer.invoke("git:push", { cwd });
+  refreshGit();
+}
+
+async function pullChanges() {
+  const cwd = getCwd();
+  if (!cwd) return;
+  await app.ipcRenderer.invoke("git:pull", { cwd });
+  refreshGit();
+}
+
+async function fetchChanges() {
+  const cwd = getCwd();
+  if (!cwd) return;
+  await app.ipcRenderer.invoke("git:fetch", { cwd });
   refreshGit();
 }
 
@@ -267,7 +310,7 @@ branchSearchInput.addEventListener("keydown", async (e) => {
 
 // ── Refresh ───────────────────────────────────────────
 
-async function refreshGit() {
+async function doRefreshGit() {
   const cwd = getCwd();
   if (!cwd) {
     renderGitData(null);
@@ -277,14 +320,23 @@ async function refreshGit() {
   renderGitData(data);
 }
 
+function refreshGit() {
+  // Reset the poll timer on manual refresh to avoid races
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(scheduleRefresh, 3000);
+  }
+  scheduleRefresh();
+}
+
 // ── Open / Close ──────────────────────────────────────
 
 function openGit() {
   gitOpen = true;
   gitSidebar.classList.remove("hidden");
   btnGit.classList.add("active");
-  refreshGit();
-  pollTimer = setInterval(refreshGit, 3000);
+  scheduleRefresh();
+  pollTimer = setInterval(scheduleRefresh, 3000);
 }
 
 function closeGit() {
@@ -292,16 +344,15 @@ function closeGit() {
   gitOpen = false;
   btnGit.classList.remove("active");
   document.querySelector("#git-branches-dropdown").classList.add("hidden");
-  document.querySelector("#git-commit-input-wrap").classList.add("hidden");
   app.animateClose(gitSidebar, "gitSlideOut", 180);
   if (pollTimer) {
     clearInterval(pollTimer);
     pollTimer = null;
   }
+  clearTimeout(refreshTimer);
 }
 
 // ── Event delegation for staged/changes lists ─────────
-// Using delegation avoids memory leaks from re-attaching listeners on every render
 const stagedListEl = document.querySelector("#git-staged-list");
 const changesListEl = document.querySelector("#git-changes-list");
 
@@ -315,11 +366,22 @@ stagedListEl.addEventListener("click", async (e) => {
 });
 
 changesListEl.addEventListener("click", async (e) => {
-  const el = e.target.closest("[data-stage]");
-  if (!el) return;
+  // Handle discard
+  const discardEl = e.target.closest("[data-discard]");
+  if (discardEl) {
+    const file = discardEl.dataset.discard;
+    const cwd = getCwd();
+    if (!cwd) return;
+    await app.ipcRenderer.invoke("git:discard-file", { cwd, file });
+    refreshGit();
+    return;
+  }
+  // Handle stage (click on file name or + button)
+  const stageEl = e.target.closest("[data-stage]");
+  if (!stageEl) return;
   const cwd = getCwd();
   if (!cwd) return;
-  await app.ipcRenderer.invoke("git:stage-file", { cwd, file: el.dataset.stage });
+  await app.ipcRenderer.invoke("git:stage-file", { cwd, file: stageEl.dataset.stage });
   refreshGit();
 });
 
@@ -335,15 +397,14 @@ btnGitClose.addEventListener("click", closeGit);
 document.querySelector("#btn-git-stage").addEventListener("click", stageAll);
 document.querySelector("#btn-git-commit").addEventListener("click", commitChanges);
 document.querySelector("#btn-git-push").addEventListener("click", pushChanges);
+document.querySelector("#btn-git-pull").addEventListener("click", pullChanges);
+document.querySelector("#btn-git-fetch").addEventListener("click", fetchChanges);
 document.querySelector(".git-branch-bar").addEventListener("click", toggleBranches);
 
 document.querySelector("#git-commit-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
     commitChanges();
-  }
-  if (e.key === "Escape") {
-    document.querySelector("#git-commit-input-wrap").classList.add("hidden");
   }
 });
 
