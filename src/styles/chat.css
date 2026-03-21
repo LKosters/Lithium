@@ -199,16 +199,111 @@
 
 .chat-input-wrapper {
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
+  flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 8px 8px 8px 14px;
   transition: border-color 0.2s var(--ease-out);
+  overflow: hidden;
 }
 
 .chat-input-wrapper:focus-within {
+  border-color: var(--primary-border);
+}
+
+.chat-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 8px 8px 8px;
+}
+
+.chat-attach-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s var(--ease-out);
+}
+.chat-attach-btn:hover {
+  color: var(--fg);
+  background: var(--raised);
+}
+
+/* ── Image preview row (above input) ─────────────── */
+.chat-image-preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-image-thumb-wrap {
+  position: relative;
+}
+
+.chat-image-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.chat-image-thumb-remove {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s var(--ease-out);
+}
+.chat-image-thumb-wrap:hover .chat-image-thumb-remove {
+  opacity: 1;
+}
+.chat-image-thumb-remove:hover {
+  color: var(--fg);
+  background: var(--raised-hover);
+}
+
+/* ── Images in sent messages ─────────────────────── */
+.chat-msg-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.chat-msg-image {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  object-fit: contain;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease-out);
+}
+.chat-msg-image:hover {
   border-color: var(--primary-border);
 }
 

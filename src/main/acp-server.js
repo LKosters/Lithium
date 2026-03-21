@@ -200,10 +200,13 @@ async function createSession(cwd) {
   return result.sessionId;
 }
 
-async function sendPrompt(sessionId, text) {
+async function sendPrompt(sessionId, promptOrText) {
+  const prompt = typeof promptOrText === "string"
+    ? [{ type: "text", text: promptOrText }]
+    : promptOrText;
   return sendRequest("session/prompt", {
     sessionId,
-    prompt: [{ type: "text", text }],
+    prompt,
   });
 }
 

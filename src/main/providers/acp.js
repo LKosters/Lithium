@@ -9,6 +9,11 @@ const {
 // Map chat sessionIds to ACP sessionIds
 const acpSessions = new Map();
 
+// Track context usage per chat session
+const sessionUsage = new Map(); // sessionId -> { used, size }
+
+const CONTEXT_THRESHOLD = 0.80; // 80% — trigger summarization
+
 class ACPProvider {
   constructor() {
     this.name = "acp";
@@ -45,6 +50,7 @@ class ACPProvider {
         if (resolver) resolver.fullText += text;
       }
     } else if (update.sessionUpdate === "usage_update") {
+      sessionUsage.set(sessionId, { used: update.used || 0, size: update.size || 0 });
       cb({
         type: "usage",
         used: update.used || 0,
@@ -61,6 +67,78 @@ class ACPProvider {
     }
   }
 
+  _needsSummarization(sessionId) {
+    const usage = sessionUsage.get(sessionId);
+    if (!usage || !usage.size) return false;
+    return (usage.used / usage.size) >= CONTEXT_THRESHOLD;
+  }
+
+  async _summarizeAndRotate(sessionId, messages, opts, onChunk) {
+    console.log("[acp] Context at threshold — summarizing and rotating session");
+
+    const acpSessionId = acpSessions.get(sessionId);
+
+    // Ask the current session for a summary
+    // Use a no-op callback; the resolver in _handleUpdate accumulates fullText
+    const summaryHolder = { fullText: "" };
+    this._activeCallbacks.set(sessionId, () => {});
+    this._resolvers.set(sessionId, summaryHolder);
+
+    try {
+      await sendPrompt(acpSessionId,
+        "Summarize our entire conversation so far in a concise but detailed way. " +
+        "Include: what the user asked for, key decisions made, what files were changed, " +
+        "current state of the project, and any unfinished work. " +
+        "This summary will be used to continue the conversation in a fresh context window."
+      );
+    } catch (err) {
+      console.error("[acp] Summary request failed:", err.message);
+      // Continue without rotation
+      return false;
+    }
+
+    this._activeCallbacks.delete(sessionId);
+    this._resolvers.delete(sessionId);
+
+    const summary = summaryHolder.fullText;
+    if (!summary) {
+      console.warn("[acp] Empty summary, skipping rotation");
+      return false;
+    }
+
+    // Create a new ACP session
+    const cwd = opts.cwd || undefined;
+    const newAcpSid = await createSession(cwd);
+    acpSessions.set(sessionId, newAcpSid);
+    sessionUsage.delete(sessionId);
+
+    // Prime the new session with the summary
+    const primeHolder = { fullText: "" };
+    this._activeCallbacks.set(sessionId, () => {}); // swallow prime response
+    this._resolvers.set(sessionId, primeHolder);
+
+    try {
+      await sendPrompt(newAcpSid,
+        "Here is a summary of our previous conversation that ran out of context space. " +
+        "Continue from where we left off. Do not repeat the summary back to me.\n\n" +
+        "--- CONVERSATION SUMMARY ---\n" + summary + "\n--- END SUMMARY ---"
+      );
+    } catch (err) {
+      console.error("[acp] Prime failed:", err.message);
+    }
+
+    this._activeCallbacks.delete(sessionId);
+    this._resolvers.delete(sessionId);
+
+    // Notify the user
+    if (onChunk) {
+      onChunk({ type: "text_delta", text: "\n\n---\n*Context was getting full — conversation was summarized and continued in a fresh session.*\n---\n\n" });
+    }
+
+    console.log("[acp] Session rotated successfully");
+    return true;
+  }
+
   async sendMessage(sessionId, messages, opts, onChunk) {
     if (!isACPServerRunning()) {
       throw new Error("codex-acp is not running. Start it in Settings > Agents.");
@@ -72,9 +150,25 @@ class ACPProvider {
       acpSessions.set(sessionId, acpSid);
     }
 
+    // Check if we need to summarize before sending
+    if (this._needsSummarization(sessionId)) {
+      await this._summarizeAndRotate(sessionId, messages, opts, onChunk);
+    }
+
     const acpSessionId = acpSessions.get(sessionId);
     const lastMessage = messages[messages.length - 1];
     const text = lastMessage?.content || "";
+    const images = lastMessage?.images || [];
+
+    // Build prompt parts: text + images
+    const promptParts = [];
+    if (text) promptParts.push({ type: "text", text });
+    for (const img of images) {
+      // Extract base64 data from data URL
+      const base64 = img.dataUrl.replace(/^data:[^;]+;base64,/, "");
+      promptParts.push({ type: "image", image: base64, mimeType: img.mimeType });
+    }
+    if (promptParts.length === 0) promptParts.push({ type: "text", text: "" });
 
     // Set up streaming callback
     this._activeCallbacks.set(sessionId, onChunk);
@@ -84,7 +178,7 @@ class ACPProvider {
 
     try {
       // sendPrompt resolves when the agent's turn is complete
-      await sendPrompt(acpSessionId, text);
+      await sendPrompt(acpSessionId, promptParts);
 
       this._activeCallbacks.delete(sessionId);
       this._resolvers.delete(sessionId);
@@ -104,6 +198,7 @@ class ACPProvider {
 
   clearSession(sessionId) {
     acpSessions.delete(sessionId);
+    sessionUsage.delete(sessionId);
     this._activeCallbacks.delete(sessionId);
     this._resolvers.delete(sessionId);
   }

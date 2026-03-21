@@ -18,6 +18,7 @@ function getChatState(sessionId) {
       streamStartTime: 0,
       provider: null,
       model: null,
+      attachedImages: [],
     });
   }
   return chatStates.get(sessionId);
@@ -89,17 +90,25 @@ function createChatPane(sessionId, provider, model) {
     </div>
     <div class="chat-input-area">
       <div class="chat-input-wrapper">
-        <textarea class="chat-input" placeholder="Ask anything..." rows="1" spellcheck="false"></textarea>
-        <button class="chat-send-btn" title="Send">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M8 14V3M8 3L3 8M8 3l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <button class="chat-stop-btn hidden" title="Stop">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor"/>
-          </svg>
-        </button>
+        <div class="chat-image-preview-row hidden"></div>
+        <div class="chat-input-row">
+          <button class="chat-attach-btn" title="Attach image">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M14 8l-5.3 5.3a3.5 3.5 0 01-5-5L9.5 2.5a2.1 2.1 0 013 3L6.7 11.3a.7.7 0 01-1-1L11 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <textarea class="chat-input" placeholder="Ask anything..." rows="1" spellcheck="false"></textarea>
+          <button class="chat-send-btn" title="Send">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M8 14V3M8 3L3 8M8 3l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="chat-stop-btn hidden" title="Stop">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
       </div>
       <span class="chat-context-label hidden"></span>
     </div>
@@ -108,6 +117,7 @@ function createChatPane(sessionId, provider, model) {
   const inputEl = paneEl.querySelector(".chat-input");
   const sendBtn = paneEl.querySelector(".chat-send-btn");
   const stopBtn = paneEl.querySelector(".chat-stop-btn");
+  const attachBtn = paneEl.querySelector(".chat-attach-btn");
 
   inputEl.addEventListener("input", () => {
     inputEl.style.height = "auto";
@@ -118,6 +128,34 @@ function createChatPane(sessionId, provider, model) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage(sessionId, paneEl);
+    }
+  });
+
+  // Paste images from clipboard
+  inputEl.addEventListener("paste", (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+        const reader = new FileReader();
+        reader.onload = () => {
+          cs.attachedImages.push({ dataUrl: reader.result, mimeType: file.type, name: file.name || "pasted-image" });
+          renderImagePreviews(sessionId, paneEl);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  });
+
+  // Attach button — open file picker
+  attachBtn.addEventListener("click", async () => {
+    const images = await app.ipcRenderer.invoke("dialog:pick-images");
+    if (images && images.length > 0) {
+      cs.attachedImages.push(...images);
+      renderImagePreviews(sessionId, paneEl);
     }
   });
 
@@ -144,6 +182,31 @@ function createChatPane(sessionId, provider, model) {
   return paneEl;
 }
 
+// ── Image previews ──────────────────────────────────
+function renderImagePreviews(sessionId, paneEl) {
+  const cs = getChatState(sessionId);
+  const row = paneEl.querySelector(".chat-image-preview-row");
+  if (!row) return;
+
+  row.innerHTML = "";
+  if (cs.attachedImages.length === 0) {
+    row.classList.add("hidden");
+    return;
+  }
+  row.classList.remove("hidden");
+
+  cs.attachedImages.forEach((img, idx) => {
+    const wrap = document.createElement("div");
+    wrap.className = "chat-image-thumb-wrap";
+    wrap.innerHTML = `<img class="chat-image-thumb" src="${img.dataUrl}" alt="${escapeHtml(img.name)}" title="${escapeHtml(img.name)}"><button class="chat-image-thumb-remove" title="Remove">&times;</button>`;
+    wrap.querySelector(".chat-image-thumb-remove").addEventListener("click", () => {
+      cs.attachedImages.splice(idx, 1);
+      renderImagePreviews(sessionId, paneEl);
+    });
+    row.appendChild(wrap);
+  });
+}
+
 // ── Send ────────────────────────────────────────────
 function sendMessage(sessionId, paneEl) {
   const cs = getChatState(sessionId);
@@ -151,11 +214,17 @@ function sendMessage(sessionId, paneEl) {
 
   const inputEl = paneEl.querySelector(".chat-input");
   const text = inputEl.value.trim();
-  if (!text) return;
+  const images = cs.attachedImages.slice();
+  if (!text && images.length === 0) return;
 
-  cs.messages.push({ role: "user", content: text, timestamp: Date.now() });
+  const msg = { role: "user", content: text, timestamp: Date.now() };
+  if (images.length > 0) msg.images = images;
+  cs.messages.push(msg);
+
   inputEl.value = "";
   inputEl.style.height = "auto";
+  cs.attachedImages = [];
+  renderImagePreviews(sessionId, paneEl);
 
   renderMessages(sessionId, paneEl);
 
@@ -166,6 +235,7 @@ function sendMessage(sessionId, paneEl) {
     sessionId,
     provider: cs.provider,
     message: text,
+    images,
     model: cs.model,
     cwd,
   });
@@ -189,7 +259,12 @@ function renderMessages(sessionId, paneEl) {
     msgEl.className = `chat-msg chat-msg-${msg.role}`;
 
     if (msg.role === "user") {
-      msgEl.innerHTML = `<div class="chat-msg-content chat-msg-content-user">${escapeHtml(msg.content)}</div>`;
+      let imagesHtml = "";
+      if (msg.images && msg.images.length > 0) {
+        imagesHtml = `<div class="chat-msg-images">${msg.images.map(img => `<img class="chat-msg-image" src="${img.dataUrl}" alt="${escapeHtml(img.name || "image")}">`).join("")}</div>`;
+      }
+      const textHtml = msg.content ? escapeHtml(msg.content) : "";
+      msgEl.innerHTML = `<div class="chat-msg-content chat-msg-content-user">${imagesHtml}${textHtml}</div>`;
     } else {
       let statsHtml = "";
       if (msg.duration || msg.contextUsed) {

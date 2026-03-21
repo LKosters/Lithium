@@ -137,7 +137,7 @@ function registerAgentHandlers() {
   });
 
   // Send a chat message
-  ipcMain.on("agent:send", async (e, { sessionId, provider: providerName, message, model, cwd }) => {
+  ipcMain.on("agent:send", async (e, { sessionId, provider: providerName, message, images, model, cwd }) => {
     const sender = e.sender;
     const p = getProvider(providerName);
 
@@ -161,7 +161,9 @@ function registerAgentHandlers() {
       contextUsage.set(sessionId, { used: data.contextUsed, size: data.contextSize });
     }
     const history = chatHistories.get(sessionId);
-    history.push({ role: "user", content: message, timestamp: Date.now() });
+    const userMsg = { role: "user", content: message, timestamp: Date.now() };
+    if (images && images.length > 0) userMsg.images = images;
+    history.push(userMsg);
     const usage = contextUsage.get(sessionId) || { used: 0, size: 0 };
     saveChatData(sessionId, { messages: history, contextUsed: usage.used, contextSize: usage.size });
 

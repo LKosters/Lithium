@@ -105,6 +105,22 @@ ipcMain.handle("directory:pick", async (e) => {
   return { dir, recents, starred: config.starredDirs || [] };
 });
 
+ipcMain.handle("dialog:pick-images", async (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender) || BrowserWindow.getFocusedWindow();
+  const result = await dialog.showOpenDialog(win, {
+    properties: ["openFile", "multiSelections"],
+    filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] }],
+  });
+  if (result.canceled || result.filePaths.length === 0) return [];
+  return result.filePaths.map((fp) => {
+    const ext = path.extname(fp).toLowerCase().replace(".", "");
+    const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", bmp: "image/bmp" };
+    const mimeType = mimeMap[ext] || "image/png";
+    const base64 = fs.readFileSync(fp).toString("base64");
+    return { dataUrl: `data:${mimeType};base64,${base64}`, mimeType, name: path.basename(fp) };
+  });
+});
+
 ipcMain.handle("directory:recents", () => {
   const config = loadConfig();
   return { recents: config.recentDirs || [], starred: config.starredDirs || [] };
