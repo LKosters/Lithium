@@ -91,7 +91,14 @@ function renderSbList(query) {
     emptyClass: "sb-empty",
     showWorkspace: true,
     onNew: sbShowCreateForm,
-    onSelect: (sid) => { app.openTab(sid); closeSearchBar(); },
+    onSelect: (sid) => {
+      const s = state.sessions.find((se) => se.id === sid);
+      if (s && s.directory && s.directory !== state.currentDir && app.setDirectory) {
+        app.setDirectory(s.directory);
+      }
+      app.openTab(sid);
+      closeSearchBar();
+    },
     onHover: (idx) => { _sbSelectedIdx = idx; updateSbSelection(); },
   });
   if (_sbSelectedIdx >= totalItems) _sbSelectedIdx = totalItems - 1;
@@ -164,6 +171,10 @@ searchBarInput.addEventListener("keydown", (e) => {
     } else {
       const sel = items[_sbSelectedIdx - 1];
       if (sel) {
+        const s = state.sessions.find((se) => se.id === sel.dataset.sid);
+        if (s && s.directory && s.directory !== state.currentDir && app.setDirectory) {
+          app.setDirectory(s.directory);
+        }
         app.openTab(sel.dataset.sid);
         closeSearchBar();
       }
