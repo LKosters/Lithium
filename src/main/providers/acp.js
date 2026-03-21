@@ -1,152 +1,105 @@
-// ACP (Agent Communication Protocol) provider
-// Connects to any ACP-compatible agent server
+// ACP provider — communicates with codex-acp over stdio JSON-RPC
+const {
+  isACPServerRunning,
+  createSession,
+  sendPrompt,
+  setUpdateCallback,
+} = require("../acp-server");
 
-const https = require("https");
-const http = require("http");
+// Map chat sessionIds to ACP sessionIds
+const acpSessions = new Map();
 
 class ACPProvider {
-  constructor(config) {
-    this.endpoint = config?.endpoint || "http://localhost:3001";
-    this.apiKey = config?.apiKey || null;
+  constructor() {
     this.name = "acp";
-    this.label = "ACP Agent";
+    this.label = "Codex";
     this.abortControllers = new Map();
+    this._activeCallbacks = new Map(); // sessionId -> onChunk
+    this._resolvers = new Map(); // sessionId -> { resolve, fullText }
+
+    // Listen for session/update notifications
+    setUpdateCallback((acpSessionId, update) => {
+      // Find which chat session this belongs to
+      for (const [chatSid, acpSid] of acpSessions) {
+        if (acpSid === acpSessionId) {
+          this._handleUpdate(chatSid, update);
+          break;
+        }
+      }
+    });
   }
 
   isAvailable() {
-    return !!this.endpoint;
+    return isACPServerRunning();
   }
 
-  init() {
-    if (!this.endpoint) throw new Error("ACP endpoint not configured");
+  _handleUpdate(sessionId, update) {
+    const cb = this._activeCallbacks.get(sessionId);
+    if (!cb) return;
+
+    if (update.sessionUpdate === "agent_message_chunk") {
+      const text = update.content?.text || "";
+      if (text) {
+        cb({ type: "text_delta", text });
+        const resolver = this._resolvers.get(sessionId);
+        if (resolver) resolver.fullText += text;
+      }
+    } else if (update.sessionUpdate === "tool_call") {
+      cb({
+        type: "tool_call",
+        title: update.title || "Running tool...",
+        status: update.status || "pending",
+        kind: update.kind || "",
+        toolCallId: update.toolCallId || "",
+      });
+    }
   }
 
   async sendMessage(sessionId, messages, opts, onChunk) {
-    this.init();
+    if (!isACPServerRunning()) {
+      throw new Error("codex-acp is not running. Start it in Settings > Agents.");
+    }
 
-    const controller = new AbortController();
-    this.abortControllers.set(sessionId, controller);
+    // Create an ACP session if we don't have one
+    if (!acpSessions.has(sessionId)) {
+      const acpSid = await createSession(opts.cwd);
+      acpSessions.set(sessionId, acpSid);
+    }
 
-    const url = new URL(this.endpoint);
-    const isHttps = url.protocol === "https:";
-    const transport = isHttps ? https : http;
+    const acpSessionId = acpSessions.get(sessionId);
+    const lastMessage = messages[messages.length - 1];
+    const text = lastMessage?.content || "";
 
-    const body = JSON.stringify({
-      jsonrpc: "2.0",
-      method: "agent/chat",
-      id: sessionId,
-      params: {
-        messages: messages.map(m => ({
-          role: m.role,
-          content: { type: "text", text: m.content },
-        })),
-        sessionId,
-        stream: true,
-        ...(opts.model ? { model: opts.model } : {}),
-      },
-    });
+    // Set up streaming callback
+    this._activeCallbacks.set(sessionId, onChunk);
 
-    return new Promise((resolve, reject) => {
-      const req = transport.request(
-        {
-          hostname: url.hostname,
-          port: url.port || (isHttps ? 443 : 80),
-          path: url.pathname === "/" ? "/acp/v1" : url.pathname,
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-          },
-        },
-        (res) => {
-          let fullText = "";
-          let buffer = "";
+    const fullTextHolder = { fullText: "" };
+    this._resolvers.set(sessionId, fullTextHolder);
 
-          // Handle SSE streaming
-          if (res.headers["content-type"]?.includes("text/event-stream")) {
-            res.on("data", (chunk) => {
-              if (controller.signal.aborted) return;
+    try {
+      // sendPrompt resolves when the agent's turn is complete
+      await sendPrompt(acpSessionId, text);
 
-              buffer += chunk.toString();
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
+      this._activeCallbacks.delete(sessionId);
+      this._resolvers.delete(sessionId);
 
-              for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed || !trimmed.startsWith("data: ")) continue;
-                const data = trimmed.slice(6);
-                if (data === "[DONE]") continue;
-
-                try {
-                  const parsed = JSON.parse(data);
-                  const text = parsed.content?.text || parsed.delta?.text || parsed.text || "";
-                  if (text) {
-                    fullText += text;
-                    onChunk({ type: "text_delta", text });
-                  }
-                } catch {}
-              }
-            });
-          } else {
-            // JSON-RPC response (non-streaming)
-            res.on("data", (chunk) => {
-              buffer += chunk.toString();
-            });
-          }
-
-          res.on("end", () => {
-            this.abortControllers.delete(sessionId);
-
-            // If non-streaming, parse the full response
-            if (!res.headers["content-type"]?.includes("text/event-stream") && buffer) {
-              try {
-                const parsed = JSON.parse(buffer);
-                const result = parsed.result || parsed;
-                const text = result.content?.text || result.message?.content?.text || result.text || buffer;
-                fullText = typeof text === "string" ? text : JSON.stringify(text);
-                onChunk({ type: "text_delta", text: fullText });
-              } catch {
-                fullText = buffer;
-                onChunk({ type: "text_delta", text: fullText });
-              }
-            }
-
-            resolve({ content: fullText, role: "assistant" });
-          });
-
-          res.on("error", (err) => {
-            this.abortControllers.delete(sessionId);
-            reject(err);
-          });
-        }
-      );
-
-      controller.signal.addEventListener("abort", () => {
-        req.destroy();
-        this.abortControllers.delete(sessionId);
-        resolve({ content: "", role: "assistant", aborted: true });
-      });
-
-      req.on("error", (err) => {
-        this.abortControllers.delete(sessionId);
-        if (controller.signal.aborted) {
-          resolve({ content: "", role: "assistant", aborted: true });
-        } else {
-          reject(err);
-        }
-      });
-
-      req.write(body);
-      req.end();
-    });
+      return { content: fullTextHolder.fullText, role: "assistant" };
+    } catch (err) {
+      this._activeCallbacks.delete(sessionId);
+      this._resolvers.delete(sessionId);
+      throw err;
+    }
   }
 
   abort(sessionId) {
-    const controller = this.abortControllers.get(sessionId);
-    if (controller) {
-      controller.abort();
-      this.abortControllers.delete(sessionId);
-    }
+    this._activeCallbacks.delete(sessionId);
+    this._resolvers.delete(sessionId);
+  }
+
+  clearSession(sessionId) {
+    acpSessions.delete(sessionId);
+    this._activeCallbacks.delete(sessionId);
+    this._resolvers.delete(sessionId);
   }
 }
 

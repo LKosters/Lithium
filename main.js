@@ -26,6 +26,7 @@ require("./src/main/project");
 
 // Register agent provider handlers
 const { registerAgentHandlers } = require("./src/main/agents");
+const { stopACPServer } = require("./src/main/acp-server");
 registerAgentHandlers();
 
 // ── Window ─────────────────────────────────────────────
@@ -307,11 +308,17 @@ app.on("window-all-closed", () => {
   for (const [, entry] of ptyProcesses) entry.proc.kill();
   ptyProcesses.clear();
   killDevServer();
+  stopACPServer();
   if (process.platform !== "darwin") app.quit();
 });
 
 app.on("before-quit", () => {
   killDevServer();
+  stopACPServer();
+});
+
+app.on("will-quit", () => {
+  stopACPServer();
 });
 
 app.on("render-process-gone", () => {});

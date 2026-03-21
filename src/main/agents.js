@@ -1,9 +1,44 @@
 // Agent manager — coordinates provider instances and IPC for chat mode
 const { ipcMain } = require("electron");
+const path = require("path");
+const fs = require("fs");
+const os = require("os");
 const { loadConfig, saveConfig } = require("./config");
-const { ClaudeAgentProvider } = require("./providers/claude-agent");
-const { OpenAICodexProvider } = require("./providers/openai-codex");
 const { ACPProvider } = require("./providers/acp");
+const { startACPServer, stopACPServer, isACPServerRunning, getACPServerStatus } = require("./acp-server");
+
+// Chat history persistence
+const CHAT_DIR = path.join(os.homedir(), ".synthcode", "chat");
+
+function ensureChatDir() {
+  fs.mkdirSync(CHAT_DIR, { recursive: true });
+}
+
+function loadChatHistory(sessionId) {
+  try {
+    const p = path.join(CHAT_DIR, `${sessionId}.json`);
+    return JSON.parse(fs.readFileSync(p, "utf-8"));
+  } catch {
+    return [];
+  }
+}
+
+function saveChatHistory(sessionId, messages) {
+  try {
+    ensureChatDir();
+    const p = path.join(CHAT_DIR, `${sessionId}.json`);
+    fs.writeFileSync(p, JSON.stringify(messages));
+  } catch (err) {
+    console.error("[agents] Failed to save chat history:", err.message);
+  }
+}
+
+function deleteChatHistory(sessionId) {
+  try {
+    const p = path.join(CHAT_DIR, `${sessionId}.json`);
+    if (fs.existsSync(p)) fs.unlinkSync(p);
+  } catch {}
+}
 
 // In-memory chat histories keyed by sessionId
 const chatHistories = new Map();
@@ -23,14 +58,7 @@ function saveProviderConfig(providerConfig) {
 }
 
 function initProviders() {
-  const cfg = getProviderConfig();
-
-  providers.claude = new ClaudeAgentProvider(cfg.claude?.apiKey);
-  providers.codex = new OpenAICodexProvider(cfg.codex?.apiKey);
-  providers.acp = new ACPProvider({
-    endpoint: cfg.acp?.endpoint || "http://localhost:3001",
-    apiKey: cfg.acp?.apiKey,
-  });
+  providers.acp = new ACPProvider();
 }
 
 function getProvider(name) {
@@ -41,34 +69,26 @@ function getProvider(name) {
 function registerAgentHandlers() {
   initProviders();
 
+  // Auto-start ACP server if it's the default agent
+  const config = loadConfig();
+  if ((config.defaultAgent || "terminal") === "acp") {
+    console.log("[agents] Default agent is ACP — auto-starting codex-acp server");
+    startACPServer();
+  }
+
   // List available providers and their status
   ipcMain.handle("agent:providers", () => {
-    const cfg = getProviderConfig();
     return [
       {
-        name: "claude",
-        label: "Claude",
-        configured: !!cfg.claude?.apiKey,
-        models: ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-haiku-4-20250506"],
-        defaultModel: "claude-sonnet-4-20250514",
-      },
-      {
-        name: "codex",
-        label: "ChatGPT Codex",
-        configured: !!cfg.codex?.apiKey,
-        models: ["gpt-4o", "gpt-4o-mini", "o3", "o4-mini", "codex-mini"],
-        defaultModel: "gpt-4o",
-      },
-      {
         name: "acp",
-        label: "ACP Agent",
-        configured: !!cfg.acp?.endpoint,
+        label: "Codex",
+        configured: isACPServerRunning(),
         models: [],
         defaultModel: "",
       },
       {
         name: "terminal",
-        label: "Claude Code (Terminal)",
+        label: "Terminal",
         configured: true,
         models: [],
         defaultModel: "",
@@ -76,29 +96,42 @@ function registerAgentHandlers() {
     ];
   });
 
-  // Configure a provider
+  // Configure a provider (kept for future use)
   ipcMain.handle("agent:configure", (_e, { provider, config }) => {
     const cfg = getProviderConfig();
     cfg[provider] = { ...cfg[provider], ...config };
     saveProviderConfig(cfg);
-
-    // Re-init providers
     initProviders();
     return true;
   });
 
-  // Get provider config (masking API keys)
+  // Get provider config
   ipcMain.handle("agent:get-config", (_e, providerName) => {
     const cfg = getProviderConfig();
-    const pc = cfg[providerName] || {};
+    return cfg[providerName] || {};
+  });
+
+  // ACP server status
+  ipcMain.handle("agent:acp-server-status", () => {
     return {
-      ...pc,
-      apiKey: pc.apiKey ? "***" + pc.apiKey.slice(-4) : "",
+      running: isACPServerRunning(),
+      status: getACPServerStatus(),
     };
   });
 
+  // ACP server start/stop
+  ipcMain.handle("agent:acp-server-start", () => {
+    startACPServer();
+    return true;
+  });
+
+  ipcMain.handle("agent:acp-server-stop", () => {
+    stopACPServer();
+    return true;
+  });
+
   // Send a chat message
-  ipcMain.on("agent:send", async (e, { sessionId, provider: providerName, message, model }) => {
+  ipcMain.on("agent:send", async (e, { sessionId, provider: providerName, message, model, cwd }) => {
     const sender = e.sender;
     const p = getProvider(providerName);
 
@@ -110,15 +143,18 @@ function registerAgentHandlers() {
     if (!p.isAvailable()) {
       sender.send("agent:error", {
         sessionId,
-        error: `${p.label} is not configured. Add your API key in Settings.`,
+        error: `Codex is not running. Start the server in Settings > Agents.`,
       });
       return;
     }
 
-    // Add user message to history
-    if (!chatHistories.has(sessionId)) chatHistories.set(sessionId, []);
+    // Add user message to history (load from disk if needed)
+    if (!chatHistories.has(sessionId)) {
+      chatHistories.set(sessionId, loadChatHistory(sessionId));
+    }
     const history = chatHistories.get(sessionId);
     history.push({ role: "user", content: message, timestamp: Date.now() });
+    saveChatHistory(sessionId, history);
 
     // Notify start
     sender.send("agent:stream-start", { sessionId });
@@ -127,7 +163,7 @@ function registerAgentHandlers() {
       const result = await p.sendMessage(
         sessionId,
         history,
-        { model: model || undefined },
+        { model: model || undefined, cwd: cwd || undefined },
         (chunk) => {
           if (!sender.isDestroyed()) {
             sender.send("agent:chunk", { sessionId, chunk });
@@ -137,6 +173,7 @@ function registerAgentHandlers() {
 
       if (!result.aborted) {
         history.push({ role: "assistant", content: result.content, timestamp: Date.now() });
+        saveChatHistory(sessionId, history);
       }
 
       if (!sender.isDestroyed()) {
@@ -155,14 +192,23 @@ function registerAgentHandlers() {
     if (p) p.abort(sessionId);
   });
 
-  // Get chat history for a session
+  // Get chat history for a session (memory first, then disk)
   ipcMain.handle("agent:history", (_e, sessionId) => {
-    return chatHistories.get(sessionId) || [];
+    if (chatHistories.has(sessionId)) return chatHistories.get(sessionId);
+    const saved = loadChatHistory(sessionId);
+    if (saved.length > 0) chatHistories.set(sessionId, saved);
+    return saved;
   });
 
   // Clear chat history
   ipcMain.on("agent:clear-history", (_e, sessionId) => {
     chatHistories.delete(sessionId);
+    deleteChatHistory(sessionId);
+    for (const p of Object.values(providers)) {
+      if (typeof p.clearSession === "function") {
+        p.clearSession(sessionId);
+      }
+    }
   });
 
   // Get/set default agent

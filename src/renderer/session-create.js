@@ -11,7 +11,7 @@ const { escapeHtml, shortDir, persistSession } = require("./helpers");
  * @param {Object} opts
  * @param {string|null} opts.name - Session name (optional)
  * @param {string|null} opts.dir - Working directory
- * @param {string} opts.provider - Provider name ("terminal", "claude", "codex", "acp")
+ * @param {string} opts.provider - Provider name ("terminal", "acp")
  * @param {string|null} opts.model - Model to use (optional)
  * @param {Function} opts.onDone - Called after creation
  * @returns {boolean} true if created, false if dir is missing

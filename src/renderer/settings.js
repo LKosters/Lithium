@@ -51,6 +51,7 @@ function openSettings() {
   // Load settings data
   loadProjectsDirSetting();
   loadAgentSettings();
+  pollACPServerStatus();
 }
 
 function closeSettings() {
@@ -58,6 +59,7 @@ function closeSettings() {
   settingsOpen = false;
   btnSettings.classList.remove("active");
   app.animateClose(settingsOverlay, "fadeDown", 180);
+  stopACPStatusPolling();
 }
 
 btnSettings.addEventListener("click", () => {
@@ -120,10 +122,6 @@ btnCreateProjectsDir.addEventListener("click", async () => {
 });
 
 // ── Agent settings ───────────────────────────────────
-const claudeKeyInput = document.querySelector("#settings-claude-key");
-const codexKeyInput = document.querySelector("#settings-codex-key");
-const acpEndpointInput = document.querySelector("#settings-acp-endpoint");
-const acpKeyInput = document.querySelector("#settings-acp-key");
 const defaultAgentGrid = document.querySelector("#settings-default-agent");
 const defaultModelGroup = document.querySelector("#settings-default-model-group");
 const defaultModelSelect = document.querySelector("#settings-default-model");
@@ -131,33 +129,18 @@ const defaultModelLabel = document.querySelector("#settings-default-model-label"
 
 let _providerData = [];
 let _selectedDefaultAgent = "terminal";
+let _acpStatusInterval = null;
 
 async function loadAgentSettings() {
   try {
-    // Load API keys
-    const claudeCfg = await ipcRenderer.invoke("agent:get-config", "claude");
-    if (claudeCfg?.apiKey) claudeKeyInput.value = claudeCfg.apiKey;
-
-    const codexCfg = await ipcRenderer.invoke("agent:get-config", "codex");
-    if (codexCfg?.apiKey) codexKeyInput.value = codexCfg.apiKey;
-
-    const acpCfg = await ipcRenderer.invoke("agent:get-config", "acp");
-    if (acpCfg?.endpoint) acpEndpointInput.value = acpCfg.endpoint;
-    if (acpCfg?.apiKey) acpKeyInput.value = acpCfg.apiKey;
-
-    // Load providers list
     _providerData = await ipcRenderer.invoke("agent:providers");
-
-    // Load default agent
     _selectedDefaultAgent = await ipcRenderer.invoke("agent:get-default");
 
-    // Update status dots
     for (const p of _providerData) {
       const statusEl = document.querySelector(`#agent-status-${p.name}`);
       if (statusEl) statusEl.classList.toggle("configured", p.configured);
     }
 
-    // Update active card
     updateDefaultAgentUI();
   } catch (err) {
     console.warn("Failed to load agent settings:", err.message);
@@ -169,7 +152,6 @@ function updateDefaultAgentUI() {
     card.classList.toggle("active", card.dataset.agent === _selectedDefaultAgent);
   });
 
-  // Show/hide model selector
   const provData = _providerData.find((p) => p.name === _selectedDefaultAgent);
   if (provData && provData.models && provData.models.length > 0) {
     defaultModelGroup.classList.remove("hidden");
@@ -178,7 +160,6 @@ function updateDefaultAgentUI() {
       .map((m) => `<option value="${m}">${m}</option>`)
       .join("");
 
-    // Load saved default model for this provider
     ipcRenderer.invoke("agent:get-default-model", _selectedDefaultAgent).then((savedModel) => {
       if (savedModel) defaultModelSelect.value = savedModel;
       else defaultModelSelect.value = provData.defaultModel;
@@ -205,47 +186,55 @@ defaultModelSelect.addEventListener("change", async () => {
   });
 });
 
-function flashSaved(btn) {
-  const orig = btn.textContent;
-  btn.textContent = "Saved";
-  btn.disabled = true;
-  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1200);
+// ── ACP server start/stop toggle ─────────────────────
+const btnACPToggle = document.querySelector("#btn-acp-server-toggle");
+
+btnACPToggle.addEventListener("click", async () => {
+  const status = await ipcRenderer.invoke("agent:acp-server-status");
+  if (status.running) {
+    await ipcRenderer.invoke("agent:acp-server-stop");
+  } else {
+    await ipcRenderer.invoke("agent:acp-server-start");
+  }
+  setTimeout(updateACPServerStatus, 1500);
+});
+
+// ── ACP server status polling ────────────────────────
+async function updateACPServerStatus() {
+  try {
+    const result = await ipcRenderer.invoke("agent:acp-server-status");
+    const dot = document.querySelector("#acp-server-dot");
+    const label = document.querySelector("#acp-server-label");
+    const btn = document.querySelector("#btn-acp-server-toggle");
+    if (!dot || !label || !btn) return;
+
+    if (result.status === "running") {
+      dot.style.background = "var(--secondary)";
+      label.textContent = "Running";
+      btn.textContent = "Stop";
+    } else if (result.status === "starting") {
+      dot.style.background = "#E8A838";
+      label.textContent = "Starting...";
+      btn.textContent = "Stop";
+    } else {
+      dot.style.background = "var(--muted)";
+      label.textContent = "Stopped";
+      btn.textContent = "Start";
+    }
+  } catch {}
 }
 
-document.querySelector("#btn-save-claude-key").addEventListener("click", async (e) => {
-  const val = claudeKeyInput.value.trim();
-  if (val && !val.startsWith("***")) {
-    await ipcRenderer.invoke("agent:configure", { provider: "claude", config: { apiKey: val } });
-    claudeKeyInput.value = "***" + val.slice(-4);
-    flashSaved(e.target);
-  }
-});
+function pollACPServerStatus() {
+  updateACPServerStatus();
+  _acpStatusInterval = setInterval(updateACPServerStatus, 3000);
+}
 
-document.querySelector("#btn-save-codex-key").addEventListener("click", async (e) => {
-  const val = codexKeyInput.value.trim();
-  if (val && !val.startsWith("***")) {
-    await ipcRenderer.invoke("agent:configure", { provider: "codex", config: { apiKey: val } });
-    codexKeyInput.value = "***" + val.slice(-4);
-    flashSaved(e.target);
+function stopACPStatusPolling() {
+  if (_acpStatusInterval) {
+    clearInterval(_acpStatusInterval);
+    _acpStatusInterval = null;
   }
-});
-
-document.querySelector("#btn-save-acp-endpoint").addEventListener("click", async (e) => {
-  const val = acpEndpointInput.value.trim();
-  if (val) {
-    await ipcRenderer.invoke("agent:configure", { provider: "acp", config: { endpoint: val } });
-    flashSaved(e.target);
-  }
-});
-
-document.querySelector("#btn-save-acp-key").addEventListener("click", async (e) => {
-  const val = acpKeyInput.value.trim();
-  if (val && !val.startsWith("***")) {
-    await ipcRenderer.invoke("agent:configure", { provider: "acp", config: { apiKey: val } });
-    acpKeyInput.value = "***" + val.slice(-4);
-    flashSaved(e.target);
-  }
-});
+}
 
 // ── IPC: open settings from app menu (Cmd+,) ─────────
 ipcRenderer.on("menu:open-settings", () => {
