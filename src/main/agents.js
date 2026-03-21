@@ -14,24 +14,30 @@ function ensureChatDir() {
   fs.mkdirSync(CHAT_DIR, { recursive: true });
 }
 
-function loadChatHistory(sessionId) {
+function loadChatData(sessionId) {
   try {
     const p = path.join(CHAT_DIR, `${sessionId}.json`);
-    return JSON.parse(fs.readFileSync(p, "utf-8"));
+    const raw = JSON.parse(fs.readFileSync(p, "utf-8"));
+    // Backward compat: old format was plain array
+    if (Array.isArray(raw)) return { messages: raw, contextUsed: 0, contextSize: 0 };
+    return raw;
   } catch {
-    return [];
+    return { messages: [], contextUsed: 0, contextSize: 0 };
   }
 }
 
-function saveChatHistory(sessionId, messages) {
+function saveChatData(sessionId, data) {
   try {
     ensureChatDir();
     const p = path.join(CHAT_DIR, `${sessionId}.json`);
-    fs.writeFileSync(p, JSON.stringify(messages));
+    fs.writeFileSync(p, JSON.stringify(data));
   } catch (err) {
     console.error("[agents] Failed to save chat history:", err.message);
   }
 }
+
+// In-memory context usage per session
+const contextUsage = new Map();
 
 function deleteChatHistory(sessionId) {
   try {
@@ -150,11 +156,14 @@ function registerAgentHandlers() {
 
     // Add user message to history (load from disk if needed)
     if (!chatHistories.has(sessionId)) {
-      chatHistories.set(sessionId, loadChatHistory(sessionId));
+      const data = loadChatData(sessionId);
+      chatHistories.set(sessionId, data.messages);
+      contextUsage.set(sessionId, { used: data.contextUsed, size: data.contextSize });
     }
     const history = chatHistories.get(sessionId);
     history.push({ role: "user", content: message, timestamp: Date.now() });
-    saveChatHistory(sessionId, history);
+    const usage = contextUsage.get(sessionId) || { used: 0, size: 0 };
+    saveChatData(sessionId, { messages: history, contextUsed: usage.used, contextSize: usage.size });
 
     // Notify start
     sender.send("agent:stream-start", { sessionId });
@@ -165,6 +174,10 @@ function registerAgentHandlers() {
         history,
         { model: model || undefined, cwd: cwd || undefined },
         (chunk) => {
+          // Track context usage from usage chunks
+          if (chunk.type === "usage") {
+            contextUsage.set(sessionId, { used: chunk.used, size: chunk.size });
+          }
           if (!sender.isDestroyed()) {
             sender.send("agent:chunk", { sessionId, chunk });
           }
@@ -173,7 +186,8 @@ function registerAgentHandlers() {
 
       if (!result.aborted) {
         history.push({ role: "assistant", content: result.content, timestamp: Date.now() });
-        saveChatHistory(sessionId, history);
+        const u = contextUsage.get(sessionId) || { used: 0, size: 0 };
+        saveChatData(sessionId, { messages: history, contextUsed: u.used, contextSize: u.size });
       }
 
       if (!sender.isDestroyed()) {
@@ -192,17 +206,24 @@ function registerAgentHandlers() {
     if (p) p.abort(sessionId);
   });
 
-  // Get chat history for a session (memory first, then disk)
+  // Get chat history + context usage for a session
   ipcMain.handle("agent:history", (_e, sessionId) => {
-    if (chatHistories.has(sessionId)) return chatHistories.get(sessionId);
-    const saved = loadChatHistory(sessionId);
-    if (saved.length > 0) chatHistories.set(sessionId, saved);
-    return saved;
+    if (chatHistories.has(sessionId)) {
+      const u = contextUsage.get(sessionId) || { used: 0, size: 0 };
+      return { messages: chatHistories.get(sessionId), contextUsed: u.used, contextSize: u.size };
+    }
+    const data = loadChatData(sessionId);
+    if (data.messages.length > 0) {
+      chatHistories.set(sessionId, data.messages);
+      contextUsage.set(sessionId, { used: data.contextUsed, size: data.contextSize });
+    }
+    return data;
   });
 
   // Clear chat history
   ipcMain.on("agent:clear-history", (_e, sessionId) => {
     chatHistories.delete(sessionId);
+    contextUsage.delete(sessionId);
     deleteChatHistory(sessionId);
     for (const p of Object.values(providers)) {
       if (typeof p.clearSession === "function") {

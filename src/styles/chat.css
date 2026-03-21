@@ -42,7 +42,6 @@
   font-size: 13px;
   line-height: 1.6;
   word-break: break-word;
-  white-space: pre-wrap;
 }
 
 .chat-msg-content-user {
@@ -50,11 +49,27 @@
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
   margin-bottom: 2px;
+  white-space: pre-wrap;
 }
 
 .chat-msg-content-assistant {
   color: var(--fg-dim);
-  padding: 8px 0;
+  padding: 4px 0;
+}
+
+.chat-p {
+  margin: 0 0 8px;
+}
+.chat-p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-msg-stats {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  padding: 0 0 4px;
+  opacity: 0.6;
 }
 
 /* ── Markdown in messages ─────────────────────────── */
@@ -124,30 +139,26 @@
   line-height: 1.5;
 }
 
-/* ── Tool calls ──────────────────────────────────── */
+/* ── Tool calls (inline in stream) ───────────────── */
 .chat-tool-call {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  padding: 4px 10px;
   margin: 4px 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
+  border-left: 2px solid var(--border);
   font-size: 11px;
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   color: var(--muted);
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  animation: fadeUp 0.15s var(--ease-out);
 }
 .chat-tool-call.active {
   color: var(--fg-dim);
-  border-color: var(--primary-border);
-  background: rgba(232,168,56,0.04);
+  border-left-color: var(--primary);
 }
 .chat-tool-call.done {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 .chat-tool-call svg {
   flex-shrink: 0;
@@ -155,26 +166,7 @@
 .chat-tool-title {
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* ── Pulse indicator (working) ───────────────────── */
-.chat-pulse {
-  display: flex;
-  align-items: center;
-  padding: 6px 0;
-}
-.chat-pulse span {
-  width: 100%;
-  max-width: 120px;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--primary);
-  animation: chatPulse 1.8s infinite ease-in-out;
-}
-
-@keyframes chatPulse {
-  0%, 100% { opacity: 0.15; transform: scaleX(0.4); transform-origin: left; }
-  50% { opacity: 0.5; transform: scaleX(1); transform-origin: left; }
+  white-space: nowrap;
 }
 
 /* ── Streaming indicator ──────────────────────────── */
@@ -272,6 +264,17 @@
 }
 .chat-stop-btn:hover {
   filter: brightness(1.1);
+}
+
+/* ── Context usage label ──────────────────────────── */
+.chat-context-label {
+  display: block;
+  text-align: right;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  margin-top: 4px;
+  padding-right: 2px;
 }
 
 /* ── Provider selector (session create) ───────────── */

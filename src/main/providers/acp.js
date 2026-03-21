@@ -44,6 +44,12 @@ class ACPProvider {
         const resolver = this._resolvers.get(sessionId);
         if (resolver) resolver.fullText += text;
       }
+    } else if (update.sessionUpdate === "usage_update") {
+      cb({
+        type: "usage",
+        used: update.used || 0,
+        size: update.size || 0,
+      });
     } else if (update.sessionUpdate === "tool_call") {
       cb({
         type: "tool_call",

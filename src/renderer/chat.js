@@ -11,8 +11,11 @@ function getChatState(sessionId) {
     chatStates.set(sessionId, {
       messages: [],
       streaming: false,
-      streamBuffer: "",
-      toolCalls: [],        // active tool calls during stream
+      // Ordered stream parts: { type: "text", content } or { type: "tool", ... }
+      streamParts: [],
+      contextUsed: 0,
+      contextSize: 0,
+      streamStartTime: 0,
       provider: null,
       model: null,
     });
@@ -20,11 +23,12 @@ function getChatState(sessionId) {
   return chatStates.get(sessionId);
 }
 
-// Simple markdown → HTML
+// ── Markdown → HTML ─────────────────────────────────
 function renderMarkdown(text) {
   if (!text) return "";
   let html = escapeHtml(text);
 
+  // Code blocks
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
     const langLabel = lang ? `<span class="chat-code-lang">${lang}</span>` : "";
     return `<div class="chat-code-block">${langLabel}<pre><code>${code}</code></pre></div>`;
@@ -40,11 +44,34 @@ function renderMarkdown(text) {
   html = html.replace(/((?:<li class="chat-li">.*<\/li>\n?)+)/g, '<ul class="chat-ul">$1</ul>');
   html = html.replace(/^\d+\. (.+)$/gm, '<li class="chat-li-num">$1</li>');
   html = html.replace(/((?:<li class="chat-li-num">.*<\/li>\n?)+)/g, '<ol class="chat-ol">$1</ol>');
+
+  // Paragraphs: double newline = paragraph break
+  html = html.replace(/\n\n+/g, '</p><p class="chat-p">');
   html = html.replace(/\n/g, "<br>");
+
+  // Wrap in paragraph if we split
+  if (html.includes('</p><p class="chat-p">')) {
+    html = '<p class="chat-p">' + html + "</p>";
+  }
 
   return html;
 }
 
+function formatDuration(ms) {
+  if (ms < 1000) return ms + "ms";
+  const s = (ms / 1000).toFixed(1);
+  if (s < 60) return s + "s";
+  const m = Math.floor(ms / 60000);
+  const sec = Math.round((ms % 60000) / 1000);
+  return m + "m " + sec + "s";
+}
+
+function formatTokens(n) {
+  if (n >= 1000) return (n / 1000).toFixed(1) + "k";
+  return String(n);
+}
+
+// ── Pane creation ───────────────────────────────────
 function createChatPane(sessionId, provider, model) {
   const cs = getChatState(sessionId);
   cs.provider = provider || "terminal";
@@ -65,7 +92,7 @@ function createChatPane(sessionId, provider, model) {
         <textarea class="chat-input" placeholder="Ask anything..." rows="1" spellcheck="false"></textarea>
         <button class="chat-send-btn" title="Send">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M3 13V8.5L13 8M3 3v4.5L13 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 14V3M8 3L3 8M8 3l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
         <button class="chat-stop-btn hidden" title="Stop">
@@ -74,6 +101,7 @@ function createChatPane(sessionId, provider, model) {
           </svg>
         </button>
       </div>
+      <span class="chat-context-label hidden"></span>
     </div>
   `;
 
@@ -99,17 +127,24 @@ function createChatPane(sessionId, provider, model) {
     app.ipcRenderer.send("agent:abort", { sessionId, provider: cs.provider });
   });
 
-  // Load existing history
-  app.ipcRenderer.invoke("agent:history", sessionId).then((history) => {
-    if (history && history.length > 0) {
-      cs.messages = history;
+  // Load existing history + context usage
+  app.ipcRenderer.invoke("agent:history", sessionId).then((data) => {
+    if (!data) return;
+    // Handle both old format (array) and new format (object)
+    const messages = Array.isArray(data) ? data : data.messages;
+    if (messages && messages.length > 0) {
+      cs.messages = messages;
+      if (data.contextUsed) cs.contextUsed = data.contextUsed;
+      if (data.contextSize) cs.contextSize = data.contextSize;
       renderMessages(sessionId, paneEl);
+      updateContextBar(sessionId);
     }
   });
 
   return paneEl;
 }
 
+// ── Send ────────────────────────────────────────────
 function sendMessage(sessionId, paneEl) {
   const cs = getChatState(sessionId);
   if (cs.streaming) return;
@@ -136,11 +171,12 @@ function sendMessage(sessionId, paneEl) {
   });
 }
 
+// ── Render all messages ─────────────────────────────
 function renderMessages(sessionId, paneEl) {
   const cs = getChatState(sessionId);
   const messagesEl = paneEl.querySelector(".chat-messages");
 
-  if (cs.messages.length === 0) {
+  if (cs.messages.length === 0 && !cs.streaming) {
     messagesEl.innerHTML = "";
     messagesEl.appendChild(createWelcome());
     return;
@@ -155,22 +191,64 @@ function renderMessages(sessionId, paneEl) {
     if (msg.role === "user") {
       msgEl.innerHTML = `<div class="chat-msg-content chat-msg-content-user">${escapeHtml(msg.content)}</div>`;
     } else {
-      msgEl.innerHTML = `<div class="chat-msg-content chat-msg-content-assistant">${renderMarkdown(msg.content)}</div>`;
+      let statsHtml = "";
+      if (msg.duration || msg.contextUsed) {
+        const parts = [];
+        if (msg.duration) parts.push(formatDuration(msg.duration));
+        if (msg.contextUsed && msg.contextSize) {
+          const pct = Math.round((msg.contextUsed / msg.contextSize) * 100);
+          parts.push(`${formatTokens(msg.contextUsed)} tokens (${pct}%)`);
+        }
+        statsHtml = `<div class="chat-msg-stats">${parts.join(" · ")}</div>`;
+      }
+      msgEl.innerHTML = `<div class="chat-msg-content chat-msg-content-assistant">${renderMarkdown(msg.content)}</div>${statsHtml}`;
     }
 
     messagesEl.appendChild(msgEl);
   }
 
   if (cs.streaming) {
-    const streamEl = document.createElement("div");
-    streamEl.className = "chat-msg chat-msg-assistant";
-    streamEl.innerHTML = `<div class="chat-msg-content chat-msg-content-assistant chat-stream-content">${renderStreamContent(cs)}</div>`;
-    messagesEl.appendChild(streamEl);
+    renderStreamInline(cs, messagesEl);
   }
 
   requestAnimationFrame(() => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
   });
+}
+
+// ── Render streaming content inline ─────────────────
+function renderStreamInline(cs, container) {
+  if (cs.streamParts.length === 0) {
+    // Nothing yet — show typing dots
+    const el = document.createElement("div");
+    el.className = "chat-msg chat-msg-assistant";
+    el.innerHTML = `<div class="chat-msg-content chat-msg-content-assistant chat-stream-content"><span class="chat-typing"><span></span><span></span><span></span></span></div>`;
+    container.appendChild(el);
+    return;
+  }
+
+  for (const part of cs.streamParts) {
+    if (part.type === "text" && part.content) {
+      const el = document.createElement("div");
+      el.className = "chat-msg chat-msg-assistant";
+      el.innerHTML = `<div class="chat-msg-content chat-msg-content-assistant chat-stream-text">${renderMarkdown(part.content)}</div>`;
+      container.appendChild(el);
+    } else if (part.type === "tool") {
+      const el = document.createElement("div");
+      el.className = "chat-tool-call" + (part.status === "completed" ? " done" : " active");
+      el.innerHTML = `${getToolIcon(part.kind)}<span class="chat-tool-title">${escapeHtml(part.title)}</span>`;
+      container.appendChild(el);
+    }
+  }
+
+  // Show typing dots if the last part is a tool call (agent is working)
+  const lastPart = cs.streamParts[cs.streamParts.length - 1];
+  if (lastPart && lastPart.type === "tool") {
+    const el = document.createElement("div");
+    el.className = "chat-msg chat-msg-assistant";
+    el.innerHTML = `<div class="chat-msg-content chat-msg-content-assistant"><span class="chat-typing"><span></span><span></span><span></span></span></div>`;
+    container.appendChild(el);
+  }
 }
 
 function createWelcome() {
@@ -180,25 +258,36 @@ function createWelcome() {
   return el;
 }
 
+// ── Stream handlers ─────────────────────────────────
 function handleStreamStart(sessionId) {
   const cs = getChatState(sessionId);
   cs.streaming = true;
-  cs.streamBuffer = "";
-  cs.toolCalls = [];
+  cs.streamParts = [];
+  cs.streamStartTime = Date.now();
   updateStreamUI(sessionId);
 }
 
 function handleChunk(sessionId, chunk) {
   const cs = getChatState(sessionId);
 
+  if (chunk.type === "usage") {
+    cs.contextUsed = chunk.used;
+    cs.contextSize = chunk.size;
+    updateContextBar(sessionId);
+    return;
+  }
+
   if (chunk.type === "tool_call") {
-    // Track tool calls — update existing or add new
-    const existing = cs.toolCalls.find(t => t.toolCallId === chunk.toolCallId);
+    // Update existing tool call or add new one
+    const existing = cs.streamParts.find(
+      p => p.type === "tool" && p.toolCallId === chunk.toolCallId
+    );
     if (existing) {
       existing.title = chunk.title;
       existing.status = chunk.status;
     } else {
-      cs.toolCalls.push({
+      cs.streamParts.push({
+        type: "tool",
         toolCallId: chunk.toolCallId,
         title: chunk.title,
         status: chunk.status,
@@ -206,75 +295,59 @@ function handleChunk(sessionId, chunk) {
       });
     }
   } else if (chunk.text) {
-    cs.streamBuffer += chunk.text;
+    // Append to the last text part, or create a new one
+    const last = cs.streamParts[cs.streamParts.length - 1];
+    if (last && last.type === "text") {
+      last.content += chunk.text;
+    } else {
+      cs.streamParts.push({ type: "text", content: chunk.text });
+    }
   }
 
   const paneEl = document.querySelector(`.chat-pane[data-session-id="${sessionId}"]`);
-  if (paneEl) {
-    const streamContent = paneEl.querySelector(".chat-stream-content");
-    if (streamContent) {
-      streamContent.innerHTML = renderStreamContent(cs);
-      const messagesEl = paneEl.querySelector(".chat-messages");
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    } else {
-      renderMessages(sessionId, paneEl);
+  if (!paneEl) return;
+
+  // Fast-path: update the last stream text element directly
+  if (chunk.text) {
+    const textEls = paneEl.querySelectorAll(".chat-stream-text");
+    const lastTextEl = textEls[textEls.length - 1];
+    if (lastTextEl) {
+      const last = cs.streamParts.filter(p => p.type === "text").pop();
+      if (last) {
+        lastTextEl.innerHTML = renderMarkdown(last.content);
+        const messagesEl = paneEl.querySelector(".chat-messages");
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return;
+      }
     }
   }
-}
 
-function renderToolCalls(toolCalls) {
-  if (!toolCalls || toolCalls.length === 0) return "";
-  return toolCalls.map(tc => {
-    const icon = getToolIcon(tc.kind);
-    const statusClass = tc.status === "completed" ? "done" : "active";
-    return `<div class="chat-tool-call ${statusClass}">${icon}<span class="chat-tool-title">${escapeHtml(tc.title)}</span></div>`;
-  }).join("");
-}
-
-function getToolIcon(kind) {
-  switch (kind) {
-    case "edit":
-      return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
-    case "read":
-      return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 3h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5 7h4M5 9.5h6" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>';
-    case "command":
-      return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 4l4 4-4 4M9 12h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    default:
-      return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  }
-}
-
-function renderStreamContent(cs) {
-  const text = renderMarkdown(cs.streamBuffer);
-  const tools = renderToolCalls(cs.toolCalls);
-
-  if (!text && !tools) {
-    return '<span class="chat-typing"><span></span><span></span><span></span></span>';
-  }
-
-  // Show text, then active tool calls with pulse
-  let html = text || "";
-  if (tools) {
-    html += tools;
-  }
-
-  // If there are active (non-completed) tool calls, show pulse
-  const hasActive = cs.toolCalls.some(t => t.status !== "completed");
-  if (hasActive) {
-    html += '<div class="chat-pulse"><span></span></div>';
-  }
-
-  return html;
+  // Full re-render for tool calls or first text chunk
+  renderMessages(sessionId, paneEl);
 }
 
 function handleStreamEnd(sessionId, aborted) {
   const cs = getChatState(sessionId);
-  if (!aborted && cs.streamBuffer) {
-    cs.messages.push({ role: "assistant", content: cs.streamBuffer, timestamp: Date.now() });
+  if (!aborted) {
+    const fullText = cs.streamParts
+      .filter(p => p.type === "text")
+      .map(p => p.content)
+      .join("");
+    if (fullText) {
+      const duration = cs.streamStartTime ? Date.now() - cs.streamStartTime : 0;
+      cs.messages.push({
+        role: "assistant",
+        content: fullText,
+        timestamp: Date.now(),
+        duration,
+        contextUsed: cs.contextUsed,
+        contextSize: cs.contextSize,
+      });
+    }
   }
   cs.streaming = false;
-  cs.streamBuffer = "";
-  cs.toolCalls = [];
+  cs.streamParts = [];
+  cs.streamStartTime = 0;
   updateStreamUI(sessionId);
 
   const paneEl = document.querySelector(`.chat-pane[data-session-id="${sessionId}"]`);
@@ -284,7 +357,7 @@ function handleStreamEnd(sessionId, aborted) {
 function handleError(sessionId, error) {
   const cs = getChatState(sessionId);
   cs.streaming = false;
-  cs.streamBuffer = "";
+  cs.streamParts = [];
   updateStreamUI(sessionId);
 
   cs.messages.push({
@@ -298,6 +371,7 @@ function handleError(sessionId, error) {
   if (paneEl) renderMessages(sessionId, paneEl);
 }
 
+// ── UI state ────────────────────────────────────────
 function updateStreamUI(sessionId) {
   const cs = getChatState(sessionId);
   const paneEl = document.querySelector(`.chat-pane[data-session-id="${sessionId}"]`);
@@ -321,6 +395,45 @@ function updateStreamUI(sessionId) {
   }
 }
 
+// ── Context usage ───────────────────────────────────
+function updateContextBar(sessionId) {
+  const cs = getChatState(sessionId);
+  const paneEl = document.querySelector(`.chat-pane[data-session-id="${sessionId}"]`);
+  if (!paneEl) return;
+
+  const label = paneEl.querySelector(".chat-context-label");
+  if (!label) return;
+
+  if (cs.contextSize > 0) {
+    const pct = Math.round((cs.contextUsed / cs.contextSize) * 100);
+    label.classList.remove("hidden");
+    label.textContent = `Context: ${pct}%`;
+
+    if (pct > 80) {
+      label.style.color = "var(--destructive)";
+    } else if (pct > 50) {
+      label.style.color = "var(--primary)";
+    } else {
+      label.style.color = "";
+    }
+  }
+}
+
+// ── Tool call icons ─────────────────────────────────
+function getToolIcon(kind) {
+  switch (kind) {
+    case "edit":
+      return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+    case "read":
+      return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 3h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5 7h4M5 9.5h6" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>';
+    case "command":
+      return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 4l4 4-4 4M9 12h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    default:
+      return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+}
+
+// ── Provider helpers ────────────────────────────────
 function getProviderIcon(provider) {
   switch (provider) {
     case "acp":
