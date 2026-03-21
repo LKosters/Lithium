@@ -1684,8 +1684,77 @@
                 </div>
                 <div class="settings-panel" data-settings-panel="agents">
                     <h2 class="settings-panel-title">AI Agents</h2>
-                    <p class="settings-panel-desc">Configure API keys and endpoints for AI agent providers.</p>
+                    <p class="settings-panel-desc">Choose your default agent and configure API keys.</p>
 
+                    <!-- Default agent selector -->
+                    <div class="settings-group">
+                        <h3 class="settings-group-title">Default Agent</h3>
+                        <p class="settings-row-desc" style="margin: 0 0 10px 1px">New sessions will use this agent by default.</p>
+                        <div id="settings-default-agent" class="agent-card-grid">
+                            <button class="agent-card active" data-agent="terminal">
+                                <div class="agent-card-icon">
+                                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                                        <rect x="1.5" y="1.5" width="13" height="13" rx="2.5" stroke="currentColor" stroke-width="1.2"/>
+                                        <path d="M4.5 5l2.5 2.5-2.5 2.5M8 10.5h3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <span class="agent-card-name">Terminal</span>
+                                <span class="agent-card-desc">Claude Code CLI</span>
+                                <span class="agent-card-check">
+                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                </span>
+                            </button>
+                            <button class="agent-card" data-agent="claude">
+                                <div class="agent-card-icon agent-icon-claude">
+                                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/><circle cx="6.2" cy="7" r="0.8" fill="currentColor"/><circle cx="9.8" cy="7" r="0.8" fill="currentColor"/><path d="M6 10c.5.8 1.2 1.2 2 1.2s1.5-.4 2-1.2" stroke="currentColor" stroke-width="0.9" stroke-linecap="round"/></svg>
+                                </div>
+                                <span class="agent-card-name">Claude</span>
+                                <span class="agent-card-desc">Anthropic SDK</span>
+                                <span class="agent-card-status" id="agent-status-claude"></span>
+                                <span class="agent-card-check">
+                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                </span>
+                            </button>
+                            <button class="agent-card" data-agent="codex">
+                                <div class="agent-card-icon agent-icon-codex">
+                                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="3" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 8h5M8 5.5v5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.7"/></svg>
+                                </div>
+                                <span class="agent-card-name">ChatGPT Codex</span>
+                                <span class="agent-card-desc">OpenAI API</span>
+                                <span class="agent-card-status" id="agent-status-codex"></span>
+                                <span class="agent-card-check">
+                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                </span>
+                            </button>
+                            <button class="agent-card" data-agent="acp">
+                                <div class="agent-card-icon agent-icon-acp">
+                                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="4" r="2.2" stroke="currentColor" stroke-width="1.1"/><circle cx="3.5" cy="12.5" r="2" stroke="currentColor" stroke-width="1.1"/><circle cx="12.5" cy="12.5" r="2" stroke="currentColor" stroke-width="1.1"/><path d="M8 6.2v2M5.8 10.8L6.8 8.8M10.2 10.8L9.2 8.8" stroke="currentColor" stroke-width="0.9" stroke-linecap="round"/></svg>
+                                </div>
+                                <span class="agent-card-name">ACP Agent</span>
+                                <span class="agent-card-desc">Agent Protocol</span>
+                                <span class="agent-card-status" id="agent-status-acp"></span>
+                                <span class="agent-card-check">
+                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Default model for selected agent -->
+                    <div id="settings-default-model-group" class="settings-group hidden">
+                        <h3 class="settings-group-title">Default Model</h3>
+                        <div class="settings-row">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name" id="settings-default-model-label">Model</span>
+                                <span class="settings-row-desc">The model to use when creating new sessions</span>
+                            </div>
+                            <div class="settings-row-action">
+                                <select id="settings-default-model" class="model-select"></select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Claude config -->
                     <div class="settings-group">
                         <h3 class="settings-group-title">Claude (Anthropic)</h3>
                         <div class="settings-row">
@@ -1700,6 +1769,7 @@
                         </div>
                     </div>
 
+                    <!-- Codex config -->
                     <div class="settings-group">
                         <h3 class="settings-group-title">ChatGPT Codex (OpenAI)</h3>
                         <div class="settings-row">
@@ -1714,6 +1784,7 @@
                         </div>
                     </div>
 
+                    <!-- ACP config -->
                     <div class="settings-group">
                         <h3 class="settings-group-title">ACP (Agent Communication Protocol)</h3>
                         <div class="settings-row">

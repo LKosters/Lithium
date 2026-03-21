@@ -119,14 +119,22 @@ btnCreateProjectsDir.addEventListener("click", async () => {
   }
 });
 
-// ── Agent API key settings ────────────────────────────
+// ── Agent settings ───────────────────────────────────
 const claudeKeyInput = document.querySelector("#settings-claude-key");
 const codexKeyInput = document.querySelector("#settings-codex-key");
 const acpEndpointInput = document.querySelector("#settings-acp-endpoint");
 const acpKeyInput = document.querySelector("#settings-acp-key");
+const defaultAgentGrid = document.querySelector("#settings-default-agent");
+const defaultModelGroup = document.querySelector("#settings-default-model-group");
+const defaultModelSelect = document.querySelector("#settings-default-model");
+const defaultModelLabel = document.querySelector("#settings-default-model-label");
+
+let _providerData = [];
+let _selectedDefaultAgent = "terminal";
 
 async function loadAgentSettings() {
   try {
+    // Load API keys
     const claudeCfg = await ipcRenderer.invoke("agent:get-config", "claude");
     if (claudeCfg?.apiKey) claudeKeyInput.value = claudeCfg.apiKey;
 
@@ -136,10 +144,66 @@ async function loadAgentSettings() {
     const acpCfg = await ipcRenderer.invoke("agent:get-config", "acp");
     if (acpCfg?.endpoint) acpEndpointInput.value = acpCfg.endpoint;
     if (acpCfg?.apiKey) acpKeyInput.value = acpCfg.apiKey;
+
+    // Load providers list
+    _providerData = await ipcRenderer.invoke("agent:providers");
+
+    // Load default agent
+    _selectedDefaultAgent = await ipcRenderer.invoke("agent:get-default");
+
+    // Update status dots
+    for (const p of _providerData) {
+      const statusEl = document.querySelector(`#agent-status-${p.name}`);
+      if (statusEl) statusEl.classList.toggle("configured", p.configured);
+    }
+
+    // Update active card
+    updateDefaultAgentUI();
   } catch (err) {
     console.warn("Failed to load agent settings:", err.message);
   }
 }
+
+function updateDefaultAgentUI() {
+  defaultAgentGrid.querySelectorAll(".agent-card").forEach((card) => {
+    card.classList.toggle("active", card.dataset.agent === _selectedDefaultAgent);
+  });
+
+  // Show/hide model selector
+  const provData = _providerData.find((p) => p.name === _selectedDefaultAgent);
+  if (provData && provData.models && provData.models.length > 0) {
+    defaultModelGroup.classList.remove("hidden");
+    defaultModelLabel.textContent = `${provData.label} model`;
+    defaultModelSelect.innerHTML = provData.models
+      .map((m) => `<option value="${m}">${m}</option>`)
+      .join("");
+
+    // Load saved default model for this provider
+    ipcRenderer.invoke("agent:get-default-model", _selectedDefaultAgent).then((savedModel) => {
+      if (savedModel) defaultModelSelect.value = savedModel;
+      else defaultModelSelect.value = provData.defaultModel;
+    });
+  } else {
+    defaultModelGroup.classList.add("hidden");
+  }
+}
+
+// Agent card clicks
+defaultAgentGrid.querySelectorAll(".agent-card").forEach((card) => {
+  card.addEventListener("click", async () => {
+    _selectedDefaultAgent = card.dataset.agent;
+    updateDefaultAgentUI();
+    await ipcRenderer.invoke("agent:set-default", _selectedDefaultAgent);
+  });
+});
+
+// Default model change
+defaultModelSelect.addEventListener("change", async () => {
+  await ipcRenderer.invoke("agent:set-default-model", {
+    provider: _selectedDefaultAgent,
+    model: defaultModelSelect.value,
+  });
+});
 
 function flashSaved(btn) {
   const orig = btn.textContent;

@@ -90,17 +90,31 @@ function closeTab(sessionId) {
   app.refreshLayout();
 }
 
-function newSession() {
+async function newSession() {
   if (!state.currentDir) {
     app.pickDirectory();
     return;
   }
 
+  // Get default agent from settings
+  let defaultAgent = "terminal";
+  let defaultModel = null;
+  try {
+    defaultAgent = await app.ipcRenderer.invoke("agent:get-default") || "terminal";
+    if (defaultAgent !== "terminal") {
+      defaultModel = await app.ipcRenderer.invoke("agent:get-default-model", defaultAgent);
+    }
+  } catch {}
+
+  const mode = (defaultAgent && defaultAgent !== "terminal") ? "chat" : "terminal";
   const id = uuidv4();
   const session = {
     id,
     directory: state.currentDir,
     title: shortDir(state.currentDir),
+    mode,
+    provider: defaultAgent,
+    model: defaultModel,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -108,23 +122,40 @@ function newSession() {
   state.sessions.unshift(session);
   persistSession(session);
 
-  app.createTerminal(id);
-  app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: state.currentDir });
+  if (mode === "chat" && app.createChatPane) {
+    app.createChatPane(id, defaultAgent, defaultModel);
+  } else {
+    app.createTerminal(id);
+    app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: state.currentDir });
+  }
   openTab(id);
 }
 
 // direction: "horizontal" (left/right) or "vertical" (top/bottom)
-function splitNewSession(direction) {
+async function splitNewSession(direction) {
   if (!state.currentDir) {
     app.pickDirectory();
     return;
   }
 
+  let defaultAgent = "terminal";
+  let defaultModel = null;
+  try {
+    defaultAgent = await app.ipcRenderer.invoke("agent:get-default") || "terminal";
+    if (defaultAgent !== "terminal") {
+      defaultModel = await app.ipcRenderer.invoke("agent:get-default-model", defaultAgent);
+    }
+  } catch {}
+
+  const mode = (defaultAgent && defaultAgent !== "terminal") ? "chat" : "terminal";
   const id = uuidv4();
   const session = {
     id,
     directory: state.currentDir,
     title: shortDir(state.currentDir),
+    mode,
+    provider: defaultAgent,
+    model: defaultModel,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -132,8 +163,12 @@ function splitNewSession(direction) {
   state.sessions.unshift(session);
   persistSession(session);
 
-  app.createTerminal(id);
-  app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: state.currentDir });
+  if (mode === "chat" && app.createChatPane) {
+    app.createChatPane(id, defaultAgent, defaultModel);
+  } else {
+    app.createTerminal(id);
+    app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: state.currentDir });
+  }
 
   if (!state.layout) {
     const paneId = genPaneId();

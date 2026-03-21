@@ -68,15 +68,29 @@ function isSearchBarOpen() {
   return searchBar.classList.contains("focused");
 }
 
-function sbShowCreateForm() {
+async function sbShowCreateForm() {
   _sbCreateMode = true;
   sbCreate.classList.remove("hidden");
   sbDirLabel.textContent = _sbCreateDir ? shortDir(_sbCreateDir) : "Select directory...";
   sbCreateName.value = searchBarInput.value.trim();
   sbCreateName.focus();
   sbCreateName.select();
-  _sbSelectedProvider = "terminal";
-  sbLoadProviders();
+
+  // Load default agent from settings
+  try {
+    _sbSelectedProvider = await app.ipcRenderer.invoke("agent:get-default") || "terminal";
+  } catch {
+    _sbSelectedProvider = "terminal";
+  }
+  await sbLoadProviders();
+
+  // If a non-terminal default has a saved model, pre-select it
+  if (_sbSelectedProvider !== "terminal") {
+    try {
+      const savedModel = await app.ipcRenderer.invoke("agent:get-default-model", _sbSelectedProvider);
+      if (savedModel && sbModelSelect) sbModelSelect.value = savedModel;
+    } catch {}
+  }
 }
 
 function sbDoCreate() {

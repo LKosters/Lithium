@@ -164,6 +164,33 @@ function registerAgentHandlers() {
   ipcMain.on("agent:clear-history", (_e, sessionId) => {
     chatHistories.delete(sessionId);
   });
+
+  // Get/set default agent
+  ipcMain.handle("agent:get-default", () => {
+    const config = loadConfig();
+    return config.defaultAgent || "terminal";
+  });
+
+  ipcMain.handle("agent:set-default", (_e, providerName) => {
+    const config = loadConfig();
+    config.defaultAgent = providerName;
+    saveConfig(config);
+    return true;
+  });
+
+  // Get/set default model for a provider
+  ipcMain.handle("agent:get-default-model", (_e, providerName) => {
+    const cfg = getProviderConfig();
+    return cfg[providerName]?.defaultModel || null;
+  });
+
+  ipcMain.handle("agent:set-default-model", (_e, { provider, model }) => {
+    const cfg = getProviderConfig();
+    if (!cfg[provider]) cfg[provider] = {};
+    cfg[provider].defaultModel = model;
+    saveProviderConfig(cfg);
+    return true;
+  });
 }
 
 module.exports = { registerAgentHandlers, chatHistories };

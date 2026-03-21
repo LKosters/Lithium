@@ -469,6 +469,108 @@
   margin-right: 2px;
 }
 
+/* ── Agent card grid (settings) ───────────────────── */
+.agent-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.agent-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px 14px;
+  background: var(--raised);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s var(--ease-out);
+  font-family: var(--font-sans);
+  color: var(--fg-dim);
+}
+.agent-card:hover {
+  background: var(--raised-hover);
+  border-color: var(--border-hover);
+  color: var(--fg);
+}
+.agent-card.active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--fg);
+}
+
+.agent-card-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  margin-bottom: 2px;
+  transition: all 0.15s var(--ease-out);
+}
+.agent-card:hover .agent-card-icon,
+.agent-card.active .agent-card-icon {
+  border-color: var(--border-hover);
+}
+.agent-card.active .agent-card-icon {
+  color: var(--primary);
+  background: rgba(232,168,56,0.08);
+  border-color: var(--primary-border);
+}
+
+.agent-icon-claude { color: #D48348; }
+.agent-icon-codex { color: var(--secondary); }
+.agent-icon-acp { color: #8B78C8; }
+
+.agent-card.active .agent-icon-claude { color: #D48348; }
+.agent-card.active .agent-icon-codex { color: var(--secondary); }
+.agent-card.active .agent-icon-acp { color: #8B78C8; }
+
+.agent-card-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: inherit;
+}
+
+.agent-card-desc {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.agent-card-status {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: 0.4;
+}
+.agent-card-status.configured {
+  background: var(--secondary);
+  opacity: 1;
+}
+
+.agent-card-check {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  color: var(--primary);
+  opacity: 0;
+  transition: opacity 0.15s var(--ease-out);
+}
+.agent-card.active .agent-card-check {
+  opacity: 1;
+}
+
 /* ── Settings input for API keys ──────────────────── */
 .settings-input {
   padding: 5px 10px;
