@@ -1,6 +1,6 @@
 const app = require("./app");
 const { state, terminals, findLeafById, findLeafBySession, getAllLeaves, cleanupEmptyLeaves, genPaneId } = require("./state");
-const { escapeHtml, getSession } = require("./helpers");
+const { escapeHtml, getSession, persistSession } = require("./helpers");
 
 // ── Drag overlay ──────────────────────────────────────
 const dragOverlay = document.querySelector("#drag-overlay");
@@ -35,10 +35,15 @@ function renderLayout(node, parentEl) {
       tab.innerHTML = `
         <span class="pane-tab-status ${t?.alive ? 'alive' : ''}"></span>
         <span class="pane-tab-title">${escapeHtml(s.title || 'Session')}</span>
+        <button class="pane-tab-rename" data-rename-session="${sid}" title="Rename">
+          <svg width="9" height="9" viewBox="0 0 16 16" fill="none">
+            <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
         <button class="pane-tab-close" data-close-session="${sid}">&times;</button>`;
 
       tab.addEventListener('click', (e) => {
-        if (e.target.closest('.pane-tab-close')) return;
+        if (e.target.closest('.pane-tab-close') || e.target.closest('.pane-tab-rename')) return;
         node.activeTab = sid;
         state.focusedPaneId = node.id;
         // Switch workspace to match the selected tab's directory
@@ -46,6 +51,11 @@ function renderLayout(node, parentEl) {
           app.setDirectory(s.directory);
         }
         refreshLayout();
+      });
+
+      tab.querySelector('.pane-tab-rename').addEventListener('click', (e) => {
+        e.stopPropagation();
+        startTabRename(tab, sid);
       });
 
       tab.querySelector('.pane-tab-close').addEventListener('click', (e) => {
@@ -340,6 +350,38 @@ function handleTabDrop(sessionId, targetPaneId, zone) {
   }
 
   refreshLayout();
+}
+
+function startTabRename(tabEl, sessionId) {
+  const s = getSession(sessionId);
+  if (!s) return;
+
+  const titleEl = tabEl.querySelector('.pane-tab-title');
+  if (!titleEl) return;
+
+  const oldTitle = s.title || 'Session';
+
+  const input = document.createElement('input');
+  input.className = 'pane-tab-rename-input';
+  input.value = oldTitle;
+  input.setAttribute('spellcheck', 'false');
+  titleEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  function commit() {
+    const newTitle = input.value.trim() || oldTitle;
+    s.title = newTitle;
+    persistSession(s);
+    app.refreshLayout();
+  }
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = oldTitle; input.blur(); }
+  });
+  input.addEventListener('click', (e) => e.stopPropagation());
 }
 
 module.exports = { renderLayout, refreshLayout, showDropOverlays, hideDropOverlays, handleTabDrop, startDragOverlay, stopDragOverlay, getSavedLayout, clearSavedLayout };
