@@ -1,0 +1,17 @@
+/* ── Focus mode ────────────────────────────────────── */
+body.focus-mode #sidebar,
+body.focus-mode #sidebar-resize-handle,
+body.focus-mode #browser-panel,
+body.focus-mode #browser-resize-handle,
+body.focus-mode .pane-tab-bar,
+body.focus-mode #music-dock,
+body.focus-mode .git-sidebar { display: none !important; }
+
+body.focus-mode #app { padding: 0; gap: 0; }
+body.focus-mode #main { border-radius: 0; border: none; }
+body.focus-mode #terminal-area { margin: 0; border-radius: 0; }
+body.focus-mode #titlebar { padding-left: 80px; }
+body.focus-mode .pane-terminal { padding: 10px; }
+
+.exit-focus-btn { color: var(--muted); }
+.exit-focus-btn:hover { color: var(--destructive); background: rgba(201,66,52,0.1); }

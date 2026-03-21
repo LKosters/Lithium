@@ -226,22 +226,6 @@
 }
 .browser-webview { width: 100%; height: 100%; border: none; }
 
-.browser-bottom-bar {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 8px 10px; border-top: 1px solid var(--border); flex-shrink: 0;
-}
-.browser-shortcut-btn {
-  display: flex; align-items: center; gap: 6px;
-  padding: 7px 16px;
-  border: 1px solid var(--border); border-radius: var(--radius-pill);
-  background: var(--raised); color: var(--muted);
-  font-family: var(--font-sans); font-size: 12px; font-weight: 500;
-  cursor: pointer; transition: all 0.2s var(--ease-out);
-}
-.browser-shortcut-btn:hover { color: var(--fg); border-color: var(--border-hover); transform: translateY(-1px); }
-.browser-shortcut-btn:active { transform: translateY(0) scale(0.97); }
-
-#btn-toggle-browser.active { background: var(--primary-soft); color: var(--primary); }
 
 /* ── Settings overlay ──────────────────────────────── */
 .settings-overlay {
