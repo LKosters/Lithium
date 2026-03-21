@@ -1,5 +1,5 @@
 const app = require("./app");
-const { state, terminals, findLeafById, findLeafBySession, getAllLeaves, cleanupEmptyLeaves, genPaneId } = require("./state");
+const { state, terminals, findLeafById, findLeafBySession, getAllLeaves, cleanupEmptyLeaves, genPaneId, getAllTabs } = require("./state");
 const { escapeHtml, getSession, persistSession } = require("./helpers");
 
 // ── Drag overlay ──────────────────────────────────────
@@ -12,6 +12,90 @@ function stopDragOverlay() {
 }
 
 let _dragSessionId = null;
+
+// ── Tab context menu ────────────────────────────────
+let _ctxMenu = null;
+
+function dismissCtxMenu() {
+  if (_ctxMenu) { _ctxMenu.remove(); _ctxMenu = null; }
+  document.removeEventListener('mousedown', _onCtxOutside, true);
+}
+
+function _onCtxOutside(e) {
+  if (_ctxMenu && !_ctxMenu.contains(e.target)) dismissCtxMenu();
+}
+
+function showTabCtxMenu(x, y, paneId, sessionId) {
+  dismissCtxMenu();
+  const menu = document.createElement('div');
+  menu.className = 'tab-context-menu';
+
+  const leaf = findLeafById(state.layout, paneId);
+
+  // If right-clicked on a specific tab, show close-tab option
+  if (sessionId) {
+    const closeItem = document.createElement('div');
+    closeItem.className = 'tab-context-menu-item';
+    closeItem.textContent = 'Close Tab';
+    closeItem.addEventListener('click', () => { dismissCtxMenu(); app.closeTab(sessionId); });
+    menu.appendChild(closeItem);
+
+    if (leaf && leaf.tabs.length > 1) {
+      const closeOthers = document.createElement('div');
+      closeOthers.className = 'tab-context-menu-item';
+      closeOthers.textContent = 'Close Other Tabs';
+      closeOthers.addEventListener('click', () => {
+        dismissCtxMenu();
+        const toClose = leaf.tabs.filter(id => id !== sessionId);
+        toClose.forEach(id => app.closeTab(id));
+      });
+      menu.appendChild(closeOthers);
+    }
+
+    const sep = document.createElement('div');
+    sep.className = 'tab-context-menu-sep';
+    menu.appendChild(sep);
+  }
+
+  // Close all tabs in this pane
+  if (leaf && leaf.tabs.length > 0) {
+    const closePane = document.createElement('div');
+    closePane.className = 'tab-context-menu-item destructive';
+    closePane.textContent = 'Close All Tabs in Pane';
+    closePane.addEventListener('click', () => {
+      dismissCtxMenu();
+      const toClose = [...leaf.tabs];
+      toClose.forEach(id => app.closeTab(id));
+    });
+    menu.appendChild(closePane);
+  }
+
+  // Close all tabs everywhere
+  const allTabs = state.layout ? getAllTabs(state.layout) : [];
+  if (allTabs.length > 0) {
+    const closeAll = document.createElement('div');
+    closeAll.className = 'tab-context-menu-item destructive';
+    closeAll.textContent = 'Close All Tabs';
+    closeAll.addEventListener('click', () => {
+      dismissCtxMenu();
+      const toClose = [...allTabs];
+      toClose.forEach(id => app.closeTab(id));
+    });
+    menu.appendChild(closeAll);
+  }
+
+  document.body.appendChild(menu);
+  _ctxMenu = menu;
+
+  // Clamp position to viewport
+  const rect = menu.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth) x = window.innerWidth - rect.width - 4;
+  if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 4;
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+
+  setTimeout(() => document.addEventListener('mousedown', _onCtxOutside, true), 0);
+}
 
 function renderLayout(node, parentEl) {
   if (!node) return;
@@ -63,6 +147,12 @@ function renderLayout(node, parentEl) {
         app.closeTab(sid);
       });
 
+      tab.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showTabCtxMenu(e.clientX, e.clientY, node.id, sid);
+      });
+
       tab.addEventListener('dragstart', (e) => {
         _dragSessionId = sid;
         e.dataTransfer.effectAllowed = 'move';
@@ -76,6 +166,11 @@ function renderLayout(node, parentEl) {
 
       tabBar.appendChild(tab);
     }
+    tabBar.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showTabCtxMenu(e.clientX, e.clientY, node.id, null);
+    });
+
     container.appendChild(tabBar);
 
     const termArea = document.createElement('div');
