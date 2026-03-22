@@ -1,3 +1,4 @@
+const { ipcRenderer } = require("electron");
 const app = require("./app");
 const { startDragOverlay, stopDragOverlay } = require("./layout");
 
@@ -134,4 +135,104 @@ function initBrowser() {
   }
 }
 
-module.exports = { initBrowser };
+function initBrowserTools() {
+  const browserPanel = document.querySelector("#browser-panel");
+  const browserWebview = document.querySelector("#browser-webview");
+
+  ipcRenderer.on("browser-tool:exec", async (_e, { requestId, tool, args }) => {
+    const isOpen = browserPanel && !browserPanel.classList.contains("hidden");
+
+    // browser_is_open always works regardless of panel state
+    if (tool === "browser_is_open") {
+      ipcRenderer.send("browser-tool:result", { requestId, result: isOpen });
+      return;
+    }
+
+    if (!isOpen || !browserWebview) {
+      ipcRenderer.send("browser-tool:result", {
+        requestId,
+        result: null,
+        error: "Browser panel is not open",
+      });
+      return;
+    }
+
+    try {
+      let result;
+
+      switch (tool) {
+        case "browser_screenshot": {
+          const image = await browserWebview.capturePage();
+          const png = image.toPNG();
+          result = { _type: "image", data: png.toString("base64"), mimeType: "image/png" };
+          break;
+        }
+
+        case "browser_navigate": {
+          const url = args.url;
+          if (!url) throw new Error("Missing url parameter");
+          if (/^(javascript|data|vbscript):/i.test(url)) {
+            throw new Error("Blocked protocol");
+          }
+          const loadUrl = /^https?:\/\//i.test(url) ? url : "https://" + url;
+          browserWebview.src = loadUrl;
+          // Wait for navigation to complete
+          await new Promise((resolve, reject) => {
+            const onDone = () => { cleanup(); resolve(); };
+            const onFail = (_e, _code, desc) => { cleanup(); reject(new Error(desc || "Navigation failed")); };
+            const cleanup = () => {
+              browserWebview.removeEventListener("did-finish-load", onDone);
+              browserWebview.removeEventListener("did-fail-load", onFail);
+            };
+            browserWebview.addEventListener("did-finish-load", onDone, { once: true });
+            browserWebview.addEventListener("did-fail-load", onFail, { once: true });
+            setTimeout(() => { cleanup(); resolve(); }, 15000); // 15s timeout
+          });
+          result = `Navigated to ${loadUrl}`;
+          break;
+        }
+
+        case "browser_get_url": {
+          result = browserWebview.getURL() || "about:blank";
+          break;
+        }
+
+        case "browser_get_text": {
+          result = await browserWebview.executeJavaScript("document.body.innerText");
+          break;
+        }
+
+        case "browser_execute_js": {
+          const code = args.code;
+          if (!code) throw new Error("Missing code parameter");
+          const jsResult = await browserWebview.executeJavaScript(code);
+          result = jsResult === undefined ? "undefined" : JSON.stringify(jsResult);
+          break;
+        }
+
+        case "browser_click": {
+          const { x, y } = args;
+          if (x == null || y == null) throw new Error("Missing x or y parameter");
+          await browserWebview.executeJavaScript(
+            `(function(){ var el = document.elementFromPoint(${Number(x)}, ${Number(y)}); if(el) el.click(); return el ? el.tagName : null; })()`
+          );
+          result = `Clicked at (${x}, ${y})`;
+          break;
+        }
+
+        default:
+          throw new Error(`Unknown tool: ${tool}`);
+      }
+
+      ipcRenderer.send("browser-tool:result", { requestId, result });
+    } catch (err) {
+      ipcRenderer.send("browser-tool:result", {
+        requestId,
+        result: null,
+        error: err.message || String(err),
+      });
+    }
+  });
+}
+
+module.exports = { initBrowser, initBrowserTools };

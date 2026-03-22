@@ -116,6 +116,7 @@ function renderLayout(node, parentEl) {
       tab.dataset.sessionId = sid;
       tab.dataset.paneId = node.id;
       tab.draggable = true;
+      const isChat = s.mode === 'chat' || t?.isChat;
       tab.innerHTML = `
         <span class="pane-tab-status ${t?.alive ? 'alive' : ''}"></span>
         <span class="pane-tab-title">${escapeHtml(s.title || 'Session')}</span>
