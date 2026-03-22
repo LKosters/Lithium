@@ -640,4 +640,68 @@
   margin-top: 12px;
 }
 
+/* ── Tool approval UI ─────────────────────────────── */
+.chat-tool-approval {
+  margin: 4px 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--primary);
+  background: var(--bg-elevated, var(--surface));
+  border-radius: 0 4px 4px 0;
+  animation: fadeUp 0.15s var(--ease-out);
+}
+.chat-tool-approval-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chat-tool-approval-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+.chat-tool-approval-desc {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 4px 0 6px 18px;
+}
+.chat-tool-approval-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: 18px;
+}
+.chat-tool-approval-allow,
+.chat-tool-approval-deny {
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: all 0.15s var(--ease-out);
+}
+.chat-tool-approval-allow {
+  background: var(--secondary);
+  color: var(--bg);
+}
+.chat-tool-approval-allow:hover {
+  filter: brightness(1.1);
+}
+.chat-tool-approval-deny {
+  background: transparent;
+  color: var(--destructive);
+  border-color: var(--destructive);
+}
+.chat-tool-approval-deny:hover {
+  background: rgba(255, 80, 80, 0.08);
+}
+.chat-tool-approval.resolved .chat-tool-approval-actions {
+  display: none;
+}
+.chat-tool-approval-result {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 18px;
+  font-family: var(--font-mono);
+}
+
 .hidden { display: none !important; }

@@ -139,6 +139,13 @@ async function loadAgentSettings() {
       toggle.checked = enabled.includes(toggle.dataset.acpToggle);
     });
 
+    // Load tool approval mode
+    const approvalMode = await ipcRenderer.invoke("agent:get-tool-approval-mode");
+    const approvalToggle = document.querySelector("#toggle-tool-approval");
+    if (approvalToggle) {
+      approvalToggle.checked = approvalMode !== "auto";
+    }
+
     updateModeUI();
   } catch (err) {
     console.warn("Failed to load agent settings:", err.message);
@@ -170,6 +177,15 @@ document.querySelectorAll("[data-acp-toggle]").forEach((toggle) => {
     });
   });
 });
+
+// Tool approval mode toggle
+const toolApprovalToggle = document.querySelector("#toggle-tool-approval");
+if (toolApprovalToggle) {
+  toolApprovalToggle.addEventListener("change", async () => {
+    const mode = toolApprovalToggle.checked ? "manual" : "auto";
+    await ipcRenderer.invoke("agent:set-tool-approval-mode", mode);
+  });
+}
 
 // ACP server start/stop toggles — driven by data-acp-server attribute
 document.querySelectorAll("[data-acp-server]").forEach((btn) => {

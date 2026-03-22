@@ -3,6 +3,7 @@
 const { spawn } = require("child_process");
 const path = require("path");
 const { getBridgePort } = require("./browser-bridge");
+const { loadConfig } = require("./config");
 
 function createACPServerManager(config) {
   const { name, command, args, authMethodId, logPrefix } = config;
@@ -12,9 +13,11 @@ function createACPServerManager(config) {
   let ready = false;
   let authenticated = false;
   let pendingRequests = new Map();
+  let pendingPermissions = new Map();
   let nextId = 1;
   let stdoutBuffer = "";
   let onUpdateCallback = null;
+  let onPermissionCallback = null;
   let lastError = null;
   let currentSpawnCwd = null;
   let startupPromise = null;
@@ -192,17 +195,35 @@ function createACPServerManager(config) {
       console.log(`${prefix} Agent request:`, msg.method, JSON.stringify(msg.params).slice(0, 500));
 
       if (msg.method === "session/request_permission") {
+        const cfg = loadConfig();
+        const mode = cfg.toolApprovalMode || "manual";
         const options = msg.params?.options || [];
-        const allowOpt = options.find(o => o.kind === "allow_always")
-          || options.find(o => o.kind === "allow_once")
-          || options[0];
-        const optionId = allowOpt ? allowOpt.optionId : "allow_once";
-        console.log(`${prefix} Auto-approving permission, optionId:`, optionId);
-        sendRaw({
-          jsonrpc: "2.0",
-          id: msg.id,
-          result: { outcome: { outcome: "selected", optionId } },
-        });
+
+        if (mode === "auto") {
+          const allowOpt = options.find(o => o.kind === "allow_always")
+            || options.find(o => o.kind === "allow_once")
+            || options[0];
+          const optionId = allowOpt ? allowOpt.optionId : "allow_once";
+          console.log(`${prefix} Auto-approving permission, optionId:`, optionId);
+          sendRaw({
+            jsonrpc: "2.0",
+            id: msg.id,
+            result: { outcome: { outcome: "selected", optionId } },
+          });
+        } else {
+          // Manual mode — store pending and notify UI
+          const permId = msg.id;
+          pendingPermissions.set(permId, { msgId: msg.id, options });
+          console.log(`${prefix} Permission request pending (manual mode), permId:`, permId);
+          if (onPermissionCallback) {
+            onPermissionCallback({
+              permissionId: permId,
+              title: msg.params?.title || "Tool call",
+              description: msg.params?.description || "",
+              options,
+            });
+          }
+        }
       } else {
         sendRaw({ jsonrpc: "2.0", id: msg.id, result: {} });
       }
@@ -271,6 +292,25 @@ function createACPServerManager(config) {
     onUpdateCallback = cb;
   }
 
+  function setPermissionCallback(cb) {
+    onPermissionCallback = cb;
+  }
+
+  function respondPermission(permissionId, optionId) {
+    const pending = pendingPermissions.get(permissionId);
+    if (!pending) {
+      console.warn(`${prefix} No pending permission for id:`, permissionId);
+      return;
+    }
+    pendingPermissions.delete(permissionId);
+    console.log(`${prefix} Responding to permission ${permissionId} with optionId:`, optionId);
+    sendRaw({
+      jsonrpc: "2.0",
+      id: pending.msgId,
+      result: { outcome: { outcome: "selected", optionId } },
+    });
+  }
+
   function isRunning() {
     return !!(proc && !proc.killed);
   }
@@ -295,6 +335,8 @@ function createACPServerManager(config) {
     createSession,
     sendPrompt,
     setUpdateCallback,
+    setPermissionCallback,
+    respondPermission,
   };
 }
 

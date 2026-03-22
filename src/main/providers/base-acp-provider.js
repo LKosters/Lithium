@@ -23,6 +23,23 @@ class BaseACPProvider {
         }
       }
     });
+
+    // Forward permission requests to the active chat session's onChunk callback
+    server.setPermissionCallback((data) => {
+      // Find any active session to route the permission through
+      for (const [sessionId, cb] of this._activeCallbacks) {
+        if (cb) {
+          cb({
+            type: "permission_request",
+            permissionId: data.permissionId,
+            title: data.title,
+            description: data.description,
+            options: data.options,
+          });
+          break;
+        }
+      }
+    });
   }
 
   isAvailable() {
@@ -180,6 +197,10 @@ class BaseACPProvider {
   abort(sessionId) {
     this._activeCallbacks.delete(sessionId);
     this._resolvers.delete(sessionId);
+  }
+
+  respondPermission(permissionId, optionId) {
+    this.server.respondPermission(permissionId, optionId);
   }
 
   clearSession(sessionId) {

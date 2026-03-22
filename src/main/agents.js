@@ -208,6 +208,30 @@ function registerAgentHandlers() {
     }
   });
 
+  // Permission response from renderer
+  ipcMain.on("agent:permission-response", (_e, { permissionId, optionId, provider: providerName }) => {
+    console.log("[agents] Permission response — provider:", providerName, "permId:", permissionId, "optionId:", optionId);
+    const p = getProvider(providerName);
+    if (p && typeof p.respondPermission === "function") {
+      p.respondPermission(permissionId, optionId);
+    } else {
+      console.warn("[agents] No provider or respondPermission for:", providerName);
+    }
+  });
+
+  // Get/set tool approval mode
+  ipcMain.handle("agent:get-tool-approval-mode", () => {
+    const config = loadConfig();
+    return config.toolApprovalMode || "manual";
+  });
+
+  ipcMain.handle("agent:set-tool-approval-mode", (_e, mode) => {
+    const config = loadConfig();
+    config.toolApprovalMode = mode;
+    saveConfig(config);
+    return true;
+  });
+
   // Get/set default mode ("terminal" or provider id)
   ipcMain.handle("agent:get-default", () => {
     const config = loadConfig();

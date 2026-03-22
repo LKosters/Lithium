@@ -313,7 +313,7 @@ function renderMessages(sessionId, paneEl) {
   }
 
   if (cs.streaming) {
-    renderStreamInline(cs, messagesEl);
+    renderStreamInline(cs, messagesEl, sessionId);
   }
 
   requestAnimationFrame(() => {
@@ -322,7 +322,7 @@ function renderMessages(sessionId, paneEl) {
 }
 
 // ── Render streaming content inline ─────────────────
-function renderStreamInline(cs, container) {
+function renderStreamInline(cs, container, sessionId) {
   if (cs.streamParts.length === 0) {
     // Nothing yet — show typing dots
     const el = document.createElement("div");
@@ -338,6 +338,64 @@ function renderStreamInline(cs, container) {
       el.className = "chat-msg chat-msg-assistant";
       el.innerHTML = `<div class="chat-msg-content chat-msg-content-assistant chat-stream-text">${renderMarkdown(part.content)}</div>`;
       container.appendChild(el);
+    } else if (part.type === "permission") {
+      const el = document.createElement("div");
+      el.className = "chat-tool-approval" + (part.resolved ? " resolved" : "");
+      el.dataset.permissionId = part.permissionId;
+
+      const shieldIcon = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1L2 4v4c0 3.3 2.6 6.4 6 7 3.4-.6 6-3.7 6-7V4L8 1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+      let actionsHtml;
+      if (part.resolved) {
+        const label = part.result === "allowed" ? "Allowed" : "Denied";
+        actionsHtml = `<span class="chat-tool-approval-result">${label}</span>`;
+      } else {
+        actionsHtml = `<div class="chat-tool-approval-actions">
+          <button class="chat-tool-approval-allow">Allow</button>
+          <button class="chat-tool-approval-deny">Deny</button>
+        </div>`;
+      }
+
+      el.innerHTML = `<div class="chat-tool-approval-info">${shieldIcon}<span class="chat-tool-approval-title">${escapeHtml(part.title)}</span></div>
+        <div class="chat-tool-approval-desc">${escapeHtml(part.description)}</div>
+        ${actionsHtml}`;
+
+      if (!part.resolved) {
+        const allowBtn = el.querySelector(".chat-tool-approval-allow");
+        const denyBtn = el.querySelector(".chat-tool-approval-deny");
+
+        allowBtn.addEventListener("click", () => {
+          const allowOpt = part.options.find(o => o.kind === "allow_always")
+            || part.options.find(o => o.kind === "allow_once")
+            || part.options[0];
+          const optionId = allowOpt ? allowOpt.optionId : "allow_once";
+          part.resolved = true;
+          part.result = "allowed";
+          app.ipcRenderer.send("agent:permission-response", {
+            permissionId: part.permissionId,
+            optionId,
+            provider: cs.provider,
+          });
+          const paneEl = document.querySelector(`.chat-pane[data-session-id="${sessionId}"]`);
+          if (paneEl) renderMessages(sessionId, paneEl);
+        });
+
+        denyBtn.addEventListener("click", () => {
+          const denyOpt = part.options.find(o => o.kind === "deny")
+            || part.options[part.options.length - 1];
+          const optionId = denyOpt ? denyOpt.optionId : "deny";
+          part.resolved = true;
+          part.result = "denied";
+          app.ipcRenderer.send("agent:permission-response", {
+            permissionId: part.permissionId,
+            optionId,
+            provider: cs.provider,
+          });
+          const paneEl = document.querySelector(`.chat-pane[data-session-id="${sessionId}"]`);
+          if (paneEl) renderMessages(sessionId, paneEl);
+        });
+      }
+
+      container.appendChild(el);
     } else if (part.type === "tool") {
       const el = document.createElement("div");
       el.className = "chat-tool-call" + (part.status === "completed" ? " done" : " active");
@@ -347,8 +405,10 @@ function renderStreamInline(cs, container) {
   }
 
   // Show typing dots if the last part is a tool call (agent is working)
+  // Don't show dots if agent is waiting for permission approval
   const lastPart = cs.streamParts[cs.streamParts.length - 1];
-  if (lastPart && lastPart.type === "tool") {
+  const hasPendingPermission = lastPart && lastPart.type === "permission" && !lastPart.resolved;
+  if (lastPart && lastPart.type === "tool" && !hasPendingPermission) {
     const el = document.createElement("div");
     el.className = "chat-msg chat-msg-assistant";
     el.innerHTML = `<div class="chat-msg-content chat-msg-content-assistant"><span class="chat-typing"><span></span><span></span><span></span></span></div>`;
@@ -379,6 +439,21 @@ function handleChunk(sessionId, chunk) {
     cs.contextUsed = chunk.used;
     cs.contextSize = chunk.size;
     updateContextBar(sessionId);
+    return;
+  }
+
+  if (chunk.type === "permission_request") {
+    cs.streamParts.push({
+      type: "permission",
+      permissionId: chunk.permissionId,
+      title: chunk.title,
+      description: chunk.description,
+      options: chunk.options,
+      resolved: false,
+      result: null,
+    });
+    const paneEl = document.querySelector(`.chat-pane[data-session-id="${sessionId}"]`);
+    if (paneEl) renderMessages(sessionId, paneEl);
     return;
   }
 
