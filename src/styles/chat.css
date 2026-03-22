@@ -361,15 +361,33 @@
   filter: brightness(1.1);
 }
 
+/* ── Model bar (below input) ─────────────────────── */
+.chat-model-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px 0;
+}
+
+.chat-model-select {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 0;
+}
+.chat-model-select:hover { color: var(--fg-dim); }
+.chat-model-select option { background: var(--surface); color: var(--fg); }
+
 /* ── Context usage label ──────────────────────────── */
 .chat-context-label {
-  display: block;
-  text-align: right;
   font-size: 10px;
   font-family: var(--font-mono);
   color: var(--muted);
-  margin-top: 4px;
-  padding-right: 2px;
+  margin-left: auto;
 }
 
 /* ── Provider selector (session create) ───────────── */

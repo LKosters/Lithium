@@ -5,7 +5,9 @@ const fs = require("fs");
 const os = require("os");
 const { loadConfig, saveConfig } = require("./config");
 const { ACPProvider } = require("./providers/acp");
-const { startACPServer, stopACPServer, isACPServerRunning, getACPServerStatus } = require("./acp-server");
+const { CursorACPProvider } = require("./providers/cursor-acp");
+const { startACPServer, stopACPServer, isACPServerRunning, getACPServerStatus, getACPLastError } = require("./acp-server");
+const { startCursorACPServer, stopCursorACPServer, isCursorACPRunning, getCursorACPStatus, getCursorACPLastError } = require("./cursor-acp-server");
 
 // Chat history persistence
 const CHAT_DIR = path.join(os.homedir(), ".synthcode", "chat");
@@ -65,6 +67,7 @@ function saveProviderConfig(providerConfig) {
 
 function initProviders() {
   providers.acp = new ACPProvider();
+  providers["cursor-acp"] = new CursorACPProvider();
 }
 
 function getProvider(name) {
@@ -75,11 +78,15 @@ function getProvider(name) {
 function registerAgentHandlers() {
   initProviders();
 
-  // Auto-start ACP server if it's the default agent
+  // Auto-start ACP servers if they're the default agent
   const config = loadConfig();
-  if ((config.defaultAgent || "terminal") === "acp") {
+  const defaultAgent = config.defaultAgent || "terminal";
+  if (defaultAgent === "acp") {
     console.log("[agents] Default agent is ACP — auto-starting codex-acp server");
     startACPServer();
+  } else if (defaultAgent === "cursor-acp") {
+    console.log("[agents] Default agent is Cursor ACP — auto-starting cursor-acp server");
+    startCursorACPServer();
   }
 
   // List available providers and their status
@@ -89,6 +96,13 @@ function registerAgentHandlers() {
         name: "acp",
         label: "Codex",
         configured: isACPServerRunning(),
+        models: [],
+        defaultModel: "",
+      },
+      {
+        name: "cursor-acp",
+        label: "Cursor",
+        configured: isCursorACPRunning(),
         models: [],
         defaultModel: "",
       },
@@ -122,6 +136,7 @@ function registerAgentHandlers() {
     return {
       running: isACPServerRunning(),
       status: getACPServerStatus(),
+      lastError: getACPLastError(),
     };
   });
 
@@ -136,8 +151,29 @@ function registerAgentHandlers() {
     return true;
   });
 
+  // Cursor ACP server status
+  ipcMain.handle("agent:cursor-acp-server-status", () => {
+    return {
+      running: isCursorACPRunning(),
+      status: getCursorACPStatus(),
+      lastError: getCursorACPLastError(),
+    };
+  });
+
+  // Cursor ACP server start/stop
+  ipcMain.handle("agent:cursor-acp-server-start", () => {
+    startCursorACPServer();
+    return true;
+  });
+
+  ipcMain.handle("agent:cursor-acp-server-stop", () => {
+    stopCursorACPServer();
+    return true;
+  });
+
   // Send a chat message
   ipcMain.on("agent:send", async (e, { sessionId, provider: providerName, message, images, model, cwd }) => {
+    console.log("[agents] agent:send received — provider:", providerName, "cwd:", cwd, "sessionId:", sessionId);
     const sender = e.sender;
     const p = getProvider(providerName);
 
@@ -146,10 +182,11 @@ function registerAgentHandlers() {
       return;
     }
 
-    if (!p.isAvailable()) {
+    // If no cwd and server not running, tell user to start it manually
+    if (!p.isAvailable() && !cwd) {
       sender.send("agent:error", {
         sessionId,
-        error: `Codex is not running. Start the server in Settings > Agents.`,
+        error: `${p.label || providerName} is not running. Start the server in Settings > Agents.`,
       });
       return;
     }
@@ -234,15 +271,33 @@ function registerAgentHandlers() {
     }
   });
 
-  // Get/set default agent
+  // Get/set default mode ("terminal" or "acp")
   ipcMain.handle("agent:get-default", () => {
     const config = loadConfig();
     return config.defaultAgent || "terminal";
   });
 
-  ipcMain.handle("agent:set-default", (_e, providerName) => {
+  ipcMain.handle("agent:set-default", (_e, mode) => {
     const config = loadConfig();
-    config.defaultAgent = providerName;
+    config.defaultAgent = mode;
+    saveConfig(config);
+    return true;
+  });
+
+  // Get/set enabled ACP providers
+  ipcMain.handle("agent:get-enabled-acps", () => {
+    const config = loadConfig();
+    return config.enabledACPs || ["acp"];
+  });
+
+  ipcMain.handle("agent:set-acp-enabled", (_e, { provider, enabled }) => {
+    const config = loadConfig();
+    if (!config.enabledACPs) config.enabledACPs = ["acp"];
+    if (enabled && !config.enabledACPs.includes(provider)) {
+      config.enabledACPs.push(provider);
+    } else if (!enabled) {
+      config.enabledACPs = config.enabledACPs.filter(p => p !== provider);
+    }
     saveConfig(config);
     return true;
   });

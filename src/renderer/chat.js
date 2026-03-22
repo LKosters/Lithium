@@ -110,7 +110,10 @@ function createChatPane(sessionId, provider, model) {
           </button>
         </div>
       </div>
-      <span class="chat-context-label hidden"></span>
+      <div class="chat-model-bar">
+        <select class="chat-model-select" title="Switch model"></select>
+        <span class="chat-context-label hidden"></span>
+      </div>
     </div>
   `;
 
@@ -118,6 +121,31 @@ function createChatPane(sessionId, provider, model) {
   const sendBtn = paneEl.querySelector(".chat-send-btn");
   const stopBtn = paneEl.querySelector(".chat-stop-btn");
   const attachBtn = paneEl.querySelector(".chat-attach-btn");
+  const modelSelect = paneEl.querySelector(".chat-model-select");
+
+  // Populate model selector with enabled ACPs
+  app.ipcRenderer.invoke("agent:get-enabled-acps").then((enabledACPs) => {
+    const labels = { "acp": "Codex", "cursor-acp": "Cursor" };
+    modelSelect.innerHTML = enabledACPs
+      .map(p => `<option value="${p}">${labels[p] || p}</option>`)
+      .join("");
+
+    if (cs.provider && enabledACPs.includes(cs.provider)) {
+      modelSelect.value = cs.provider;
+    } else if (enabledACPs.length > 0) {
+      modelSelect.value = enabledACPs[0];
+      cs.provider = enabledACPs[0];
+    }
+  });
+
+  modelSelect.addEventListener("change", () => {
+    cs.provider = modelSelect.value;
+    const sessionData = state.sessions.find((s) => s.id === sessionId);
+    if (sessionData) {
+      sessionData.provider = modelSelect.value;
+      app.ipcRenderer.send("sessions:save", sessionData);
+    }
+  });
 
   inputEl.addEventListener("input", () => {
     inputEl.style.height = "auto";
@@ -228,8 +256,8 @@ function sendMessage(sessionId, paneEl) {
 
   renderMessages(sessionId, paneEl);
 
-  const sessionData = state.sessions.find((s) => s.id === sessionId);
-  const cwd = sessionData?.directory || null;
+  const cwd = state.currentDir || null;
+  console.log("[chat] Sending message — state.currentDir:", state.currentDir, "cwd:", cwd);
 
   app.ipcRenderer.send("agent:send", {
     sessionId,
@@ -513,6 +541,8 @@ function getProviderIcon(provider) {
   switch (provider) {
     case "acp":
       return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="4" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="4" cy="12" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="12" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M8 6v2M6.3 10.3L7 8.5M9.7 10.3L9 8.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>`;
+    case "cursor-acp":
+      return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2l10 6-4 1.5L7.5 14 6.5 9 3 2z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>`;
     default:
       return `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/></svg>`;
   }
@@ -521,6 +551,7 @@ function getProviderIcon(provider) {
 function getProviderLabel(provider) {
   switch (provider) {
     case "acp": return "Codex";
+    case "cursor-acp": return "Cursor";
     case "terminal": return "Terminal";
     default: return provider;
   }

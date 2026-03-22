@@ -27,6 +27,7 @@ require("./src/main/project");
 // Register agent provider handlers
 const { registerAgentHandlers } = require("./src/main/agents");
 const { stopACPServer } = require("./src/main/acp-server");
+const { stopCursorACPServer } = require("./src/main/cursor-acp-server");
 const { startBrowserBridge, stopBrowserBridge, registerBridgeIPC } = require("./src/main/browser-bridge");
 registerAgentHandlers();
 
@@ -332,6 +333,7 @@ app.on("window-all-closed", () => {
   ptyProcesses.clear();
   killDevServer();
   stopACPServer();
+  stopCursorACPServer();
   stopBrowserBridge();
   if (process.platform !== "darwin") app.quit();
 });
@@ -339,11 +341,13 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   killDevServer();
   stopACPServer();
+  stopCursorACPServer();
   stopBrowserBridge();
 });
 
 app.on("will-quit", () => {
   stopACPServer();
+  stopCursorACPServer();
 });
 
 app.on("render-process-gone", () => {});

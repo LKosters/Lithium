@@ -96,25 +96,26 @@ async function newSession() {
     return;
   }
 
-  // Get default agent from settings
-  let defaultAgent = "terminal";
-  let defaultModel = null;
+  // Get default mode and resolve provider
+  let defaultMode = "terminal";
+  let resolvedProvider = "terminal";
   try {
-    defaultAgent = await app.ipcRenderer.invoke("agent:get-default") || "terminal";
-    if (defaultAgent !== "terminal") {
-      defaultModel = await app.ipcRenderer.invoke("agent:get-default-model", defaultAgent);
+    defaultMode = await app.ipcRenderer.invoke("agent:get-default") || "terminal";
+    if (defaultMode !== "terminal") {
+      const enabledACPs = await app.ipcRenderer.invoke("agent:get-enabled-acps");
+      resolvedProvider = enabledACPs.length > 0 ? enabledACPs[0] : "acp";
     }
   } catch {}
 
-  const mode = (defaultAgent && defaultAgent !== "terminal") ? "chat" : "terminal";
+  const mode = defaultMode !== "terminal" ? "chat" : "terminal";
   const id = uuidv4();
   const session = {
     id,
     directory: state.currentDir,
     title: shortDir(state.currentDir),
     mode,
-    provider: defaultAgent,
-    model: defaultModel,
+    provider: resolvedProvider,
+    model: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -123,7 +124,7 @@ async function newSession() {
   persistSession(session);
 
   if (mode === "chat" && app.createChatPane) {
-    app.createChatPane(id, defaultAgent, defaultModel);
+    app.createChatPane(id, resolvedProvider, null);
   } else {
     app.createTerminal(id);
     app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: state.currentDir });
@@ -138,24 +139,25 @@ async function splitNewSession(direction) {
     return;
   }
 
-  let defaultAgent = "terminal";
-  let defaultModel = null;
+  let defaultMode = "terminal";
+  let resolvedProvider = "terminal";
   try {
-    defaultAgent = await app.ipcRenderer.invoke("agent:get-default") || "terminal";
-    if (defaultAgent !== "terminal") {
-      defaultModel = await app.ipcRenderer.invoke("agent:get-default-model", defaultAgent);
+    defaultMode = await app.ipcRenderer.invoke("agent:get-default") || "terminal";
+    if (defaultMode !== "terminal") {
+      const enabledACPs = await app.ipcRenderer.invoke("agent:get-enabled-acps");
+      resolvedProvider = enabledACPs.length > 0 ? enabledACPs[0] : "acp";
     }
   } catch {}
 
-  const mode = (defaultAgent && defaultAgent !== "terminal") ? "chat" : "terminal";
+  const mode = defaultMode !== "terminal" ? "chat" : "terminal";
   const id = uuidv4();
   const session = {
     id,
     directory: state.currentDir,
     title: shortDir(state.currentDir),
     mode,
-    provider: defaultAgent,
-    model: defaultModel,
+    provider: resolvedProvider,
+    model: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -164,7 +166,7 @@ async function splitNewSession(direction) {
   persistSession(session);
 
   if (mode === "chat" && app.createChatPane) {
-    app.createChatPane(id, defaultAgent, defaultModel);
+    app.createChatPane(id, resolvedProvider, null);
   } else {
     app.createTerminal(id);
     app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: state.currentDir });

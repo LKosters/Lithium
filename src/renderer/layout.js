@@ -118,7 +118,6 @@ function renderLayout(node, parentEl) {
       tab.draggable = true;
       const isChat = s.mode === 'chat' || t?.isChat;
       tab.innerHTML = `
-        ${isChat ? '<span class="pane-tab-mode-chat"></span>' : ''}
         <span class="pane-tab-status ${t?.alive ? 'alive' : ''}"></span>
         <span class="pane-tab-title">${escapeHtml(s.title || 'Session')}</span>
         <button class="pane-tab-rename" data-rename-session="${sid}" title="Rename">

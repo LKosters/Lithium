@@ -1,34 +1,28 @@
-// ACP provider — communicates with codex-acp over stdio JSON-RPC
+// Cursor ACP provider — communicates with cursor-agent acp over stdio JSON-RPC
 const {
-  isACPServerRunning,
-  ensureACPServerCwd,
-  createSession,
-  sendPrompt,
-  setUpdateCallback,
-} = require("../acp-server");
+  isCursorACPRunning,
+  ensureCursorACPServerCwd,
+  createCursorSession,
+  sendCursorPrompt,
+  setCursorUpdateCallback,
+} = require("../cursor-acp-server");
 
-// Map chat sessionIds to ACP sessionIds
-const acpSessions = new Map();
-// Track which cwd was used to create each ACP session
+const cursorSessions = new Map();
 const sessionCwds = new Map();
+const sessionUsage = new Map();
 
-// Track context usage per chat session
-const sessionUsage = new Map(); // sessionId -> { used, size }
+const CONTEXT_THRESHOLD = 0.80;
 
-const CONTEXT_THRESHOLD = 0.80; // 80% — trigger summarization
-
-class ACPProvider {
+class CursorACPProvider {
   constructor() {
-    this.name = "acp";
-    this.label = "Codex";
+    this.name = "cursor-acp";
+    this.label = "Cursor";
     this.abortControllers = new Map();
-    this._activeCallbacks = new Map(); // sessionId -> onChunk
-    this._resolvers = new Map(); // sessionId -> { resolve, fullText }
+    this._activeCallbacks = new Map();
+    this._resolvers = new Map();
 
-    // Listen for session/update notifications
-    setUpdateCallback((acpSessionId, update) => {
-      // Find which chat session this belongs to
-      for (const [chatSid, acpSid] of acpSessions) {
+    setCursorUpdateCallback((acpSessionId, update) => {
+      for (const [chatSid, acpSid] of cursorSessions) {
         if (acpSid === acpSessionId) {
           this._handleUpdate(chatSid, update);
           break;
@@ -38,7 +32,7 @@ class ACPProvider {
   }
 
   isAvailable() {
-    return isACPServerRunning();
+    return isCursorACPRunning();
   }
 
   _handleUpdate(sessionId, update) {
@@ -77,26 +71,22 @@ class ACPProvider {
   }
 
   async _summarizeAndRotate(sessionId, messages, opts, onChunk) {
-    console.log("[acp] Context at threshold — summarizing and rotating session");
+    console.log("[cursor-acp] Context at threshold — summarizing and rotating session");
 
-    const acpSessionId = acpSessions.get(sessionId);
-
-    // Ask the current session for a summary
-    // Use a no-op callback; the resolver in _handleUpdate accumulates fullText
+    const acpSessionId = cursorSessions.get(sessionId);
     const summaryHolder = { fullText: "" };
     this._activeCallbacks.set(sessionId, () => {});
     this._resolvers.set(sessionId, summaryHolder);
 
     try {
-      await sendPrompt(acpSessionId,
+      await sendCursorPrompt(acpSessionId,
         "Summarize our entire conversation so far in a concise but detailed way. " +
         "Include: what the user asked for, key decisions made, what files were changed, " +
         "current state of the project, and any unfinished work. " +
         "This summary will be used to continue the conversation in a fresh context window."
       );
     } catch (err) {
-      console.error("[acp] Summary request failed:", err.message);
-      // Continue without rotation
+      console.error("[cursor-acp] Summary request failed:", err.message);
       return false;
     }
 
@@ -105,95 +95,87 @@ class ACPProvider {
 
     const summary = summaryHolder.fullText;
     if (!summary) {
-      console.warn("[acp] Empty summary, skipping rotation");
+      console.warn("[cursor-acp] Empty summary, skipping rotation");
       return false;
     }
 
-    // Create a new ACP session
     const cwd = opts.cwd || undefined;
-    const newAcpSid = await createSession(cwd);
-    acpSessions.set(sessionId, newAcpSid);
+    const newAcpSid = await createCursorSession(cwd);
+    cursorSessions.set(sessionId, newAcpSid);
     sessionUsage.delete(sessionId);
 
-    // Prime the new session with the summary
     const primeHolder = { fullText: "" };
-    this._activeCallbacks.set(sessionId, () => {}); // swallow prime response
+    this._activeCallbacks.set(sessionId, () => {});
     this._resolvers.set(sessionId, primeHolder);
 
     try {
-      await sendPrompt(newAcpSid,
+      await sendCursorPrompt(newAcpSid,
         "Here is a summary of our previous conversation that ran out of context space. " +
         "Continue from where we left off. Do not repeat the summary back to me.\n\n" +
         "--- CONVERSATION SUMMARY ---\n" + summary + "\n--- END SUMMARY ---"
       );
     } catch (err) {
-      console.error("[acp] Prime failed:", err.message);
+      console.error("[cursor-acp] Prime failed:", err.message);
     }
 
     this._activeCallbacks.delete(sessionId);
     this._resolvers.delete(sessionId);
 
-    // Notify the user
     if (onChunk) {
       onChunk({ type: "text_delta", text: "\n\n---\n*Context was getting full — conversation was summarized and continued in a fresh session.*\n---\n\n" });
     }
 
-    console.log("[acp] Session rotated successfully");
+    console.log("[cursor-acp] Session rotated successfully");
     return true;
   }
 
   async sendMessage(sessionId, messages, opts, onChunk) {
     const requestedCwd = opts.cwd || null;
 
-    // Ensure the ACP server process is running in the correct project directory
+    // Ensure the Cursor ACP server process is running in the correct project directory
     if (requestedCwd) {
-      await ensureACPServerCwd(requestedCwd);
+      await ensureCursorACPServerCwd(requestedCwd);
     }
 
-    if (!isACPServerRunning()) {
-      throw new Error("codex-acp is not running. Start it in Settings > Agents.");
+    if (!isCursorACPRunning()) {
+      throw new Error("Cursor ACP is not running. Start it in Settings > Agents.");
     }
 
-    // Create an ACP session if we don't have one, or if the cwd changed
+    // Create session if we don't have one, or if the cwd changed
     const existingCwd = sessionCwds.get(sessionId) || null;
-    if (!acpSessions.has(sessionId) || (requestedCwd && requestedCwd !== existingCwd)) {
-      if (acpSessions.has(sessionId)) {
-        console.log("[acp] Project directory changed from", existingCwd, "to", requestedCwd, "— creating new ACP session");
+    if (!cursorSessions.has(sessionId) || (requestedCwd && requestedCwd !== existingCwd)) {
+      if (cursorSessions.has(sessionId)) {
+        console.log("[cursor-acp] Project directory changed from", existingCwd, "to", requestedCwd, "— creating new session");
       }
-      const acpSid = await createSession(requestedCwd);
-      acpSessions.set(sessionId, acpSid);
+      const acpSid = await createCursorSession(requestedCwd);
+      cursorSessions.set(sessionId, acpSid);
       sessionCwds.set(sessionId, requestedCwd);
     }
 
-    // Check if we need to summarize before sending
     if (this._needsSummarization(sessionId)) {
       await this._summarizeAndRotate(sessionId, messages, opts, onChunk);
     }
 
-    const acpSessionId = acpSessions.get(sessionId);
+    const acpSessionId = cursorSessions.get(sessionId);
     const lastMessage = messages[messages.length - 1];
     const text = lastMessage?.content || "";
     const images = lastMessage?.images || [];
 
-    // Build prompt parts: text + images
     const promptParts = [];
     if (text) promptParts.push({ type: "text", text });
     for (const img of images) {
-      // Extract base64 data from data URL
       const base64 = img.dataUrl.replace(/^data:[^;]+;base64,/, "");
       promptParts.push({ type: "image", image: base64, mimeType: img.mimeType });
     }
     if (promptParts.length === 0) promptParts.push({ type: "text", text: "" });
 
-    // Set up streaming callback
     this._activeCallbacks.set(sessionId, onChunk);
 
     const fullTextHolder = { fullText: "" };
     this._resolvers.set(sessionId, fullTextHolder);
 
     try {
-      // sendPrompt resolves when the agent's turn is complete
-      await sendPrompt(acpSessionId, promptParts);
+      await sendCursorPrompt(acpSessionId, promptParts);
 
       this._activeCallbacks.delete(sessionId);
       this._resolvers.delete(sessionId);
@@ -212,7 +194,7 @@ class ACPProvider {
   }
 
   clearSession(sessionId) {
-    acpSessions.delete(sessionId);
+    cursorSessions.delete(sessionId);
     sessionCwds.delete(sessionId);
     sessionUsage.delete(sessionId);
     this._activeCallbacks.delete(sessionId);
@@ -220,4 +202,4 @@ class ACPProvider {
   }
 }
 
-module.exports = { ACPProvider };
+module.exports = { CursorACPProvider };

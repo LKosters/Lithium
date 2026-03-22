@@ -1674,67 +1674,105 @@
                 </div>
                 <div class="settings-panel" data-settings-panel="agents">
                     <h2 class="settings-panel-title">AI Agents</h2>
-                    <p class="settings-panel-desc">Configure AI agent providers and set API keys for code assistance.</p>
+                    <p class="settings-panel-desc">Choose how new sessions open &mdash; as a terminal or an AI chat.</p>
 
-                    <!-- Default agent selector -->
-                    <h3 class="settings-group-title">Default Agent</h3>
-                    <p class="settings-group-hint">New sessions will use this agent by default. A green dot indicates the provider is configured.</p>
+                    <!-- Mode selector -->
+                    <h3 class="settings-group-title">Default Mode</h3>
+                    <p class="settings-group-hint">New sessions will open in this mode.</p>
                     <div id="settings-default-agent" class="agent-card-grid">
-                            <button class="agent-card active" data-agent="terminal">
-                                <div class="agent-card-icon">
-                                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
-                                        <rect x="1.5" y="1.5" width="13" height="13" rx="2.5" stroke="currentColor" stroke-width="1.2"/>
-                                        <path d="M4.5 5l2.5 2.5-2.5 2.5M8 10.5h3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                </div>
-                                <span class="agent-card-name">Terminal</span>
-                                <span class="agent-card-desc">Claude Code CLI</span>
-                                <span class="agent-card-check">
-                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                </span>
-                            </button>
-                            <button class="agent-card" data-agent="acp">
-                                <div class="agent-card-icon agent-icon-acp">
-                                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="4" r="2.2" stroke="currentColor" stroke-width="1.1"/><circle cx="3.5" cy="12.5" r="2" stroke="currentColor" stroke-width="1.1"/><circle cx="12.5" cy="12.5" r="2" stroke="currentColor" stroke-width="1.1"/><path d="M8 6.2v2M5.8 10.8L6.8 8.8M10.2 10.8L9.2 8.8" stroke="currentColor" stroke-width="0.9" stroke-linecap="round"/></svg>
-                                </div>
-                                <span class="agent-card-name">Codex</span>
-                                <span class="agent-card-desc">Codex ACP</span>
-                                <span class="agent-card-status" id="agent-status-acp"></span>
-                                <span class="agent-card-check">
-                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                </span>
-                            </button>
-                        </div>
-
-                    <!-- Default model for selected agent -->
-                    <div id="settings-default-model-group" class="settings-group hidden">
-                        <h3 class="settings-group-title">Default Model</h3>
-                        <div class="settings-row">
-                            <div class="settings-row-label">
-                                <span class="settings-row-name" id="settings-default-model-label">Model</span>
-                                <span class="settings-row-desc">The model to use when creating new sessions</span>
+                        <button class="agent-card active" data-agent="terminal">
+                            <div class="agent-card-icon">
+                                <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                                    <rect x="1.5" y="1.5" width="13" height="13" rx="2.5" stroke="currentColor" stroke-width="1.2"/>
+                                    <path d="M4.5 5l2.5 2.5-2.5 2.5M8 10.5h3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
                             </div>
-                            <div class="settings-row-action">
-                                <select id="settings-default-model" class="model-select"></select>
+                            <span class="agent-card-name">Terminal</span>
+                            <span class="agent-card-desc">Claude Code CLI</span>
+                            <span class="agent-card-check">
+                                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </span>
+                        </button>
+                        <button class="agent-card" data-agent="acp">
+                            <div class="agent-card-icon agent-icon-acp">
+                                <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                                    <circle cx="8" cy="5" r="2.5" stroke="currentColor" stroke-width="1.1"/>
+                                    <path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+                                </svg>
                             </div>
-                        </div>
+                            <span class="agent-card-name">ACP</span>
+                            <span class="agent-card-desc">AI Agent Chat</span>
+                            <span class="agent-card-check">
+                                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </span>
+                        </button>
                     </div>
 
-                    <!-- Codex ACP config -->
-                    <h3 class="settings-group-title">Codex ACP</h3>
-                    <p class="settings-group-hint">Runs <code>codex-acp</code> locally to connect OpenAI Codex via the Agent Client Protocol. Uses your ChatGPT subscription &mdash; when you first connect, a browser window opens to sign in with your OpenAI account. No API key needed.</p>
-                    <div class="settings-group">
-                        <div class="settings-row">
-                            <div class="settings-row-label">
-                                <span class="settings-row-name">Server</span>
-                                <span class="settings-row-desc">codex-acp process</span>
+                    <!-- ACP providers (shown when ACP mode selected) -->
+                    <div id="settings-acp-providers" class="hidden">
+                        <h3 class="settings-group-title">ACP Providers</h3>
+                        <p class="settings-group-hint">Enable the agents you want to use. Enabled agents appear in the model selector in chat.</p>
+                        <div class="settings-group">
+                            <div class="settings-row">
+                                <div class="settings-row-label">
+                                    <span class="settings-row-name">Codex</span>
+                                    <span class="settings-row-desc">OpenAI Codex &mdash; uses your ChatGPT subscription</span>
+                                </div>
+                                <div class="settings-row-action">
+                                    <label class="settings-toggle">
+                                        <input type="checkbox" id="toggle-acp-codex" checked>
+                                        <span class="settings-toggle-slider"></span>
+                                    </label>
+                                </div>
                             </div>
-                            <div class="settings-row-action" style="display:flex;align-items:center;gap:10px;">
-                                <span id="acp-server-status" style="display:flex;align-items:center;gap:6px;">
-                                    <span id="acp-server-dot" style="width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;"></span>
-                                    <span id="acp-server-label">Stopped</span>
-                                </span>
-                                <button id="btn-acp-server-toggle" class="settings-btn-sm settings-btn-primary">Start</button>
+                            <div class="settings-row">
+                                <div class="settings-row-label">
+                                    <span class="settings-row-name">Cursor</span>
+                                    <span class="settings-row-desc">Cursor Agent &mdash; uses your Cursor subscription</span>
+                                </div>
+                                <div class="settings-row-action">
+                                    <label class="settings-toggle">
+                                        <input type="checkbox" id="toggle-acp-cursor">
+                                        <span class="settings-toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Debug: ACP server controls -->
+                        <h3 class="settings-group-title">Servers (debug)</h3>
+                        <div class="settings-group">
+                            <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+                                    <div class="settings-row-label">
+                                        <span class="settings-row-name">Codex ACP</span>
+                                        <span class="settings-row-desc">codex-acp process</span>
+                                    </div>
+                                    <div class="settings-row-action" style="display:flex;align-items:center;gap:10px;">
+                                        <span style="display:flex;align-items:center;gap:6px;">
+                                            <span id="acp-server-dot" style="width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;"></span>
+                                            <span id="acp-server-label">Stopped</span>
+                                        </span>
+                                        <button id="btn-acp-server-toggle" class="settings-btn-sm settings-btn-primary">Start</button>
+                                    </div>
+                                </div>
+                                <span id="acp-server-error" class="settings-server-error hidden"></span>
+                            </div>
+                            <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+                                    <div class="settings-row-label">
+                                        <span class="settings-row-name">Cursor ACP</span>
+                                        <span class="settings-row-desc">cursor-agent acp process</span>
+                                    </div>
+                                    <div class="settings-row-action" style="display:flex;align-items:center;gap:10px;">
+                                        <span style="display:flex;align-items:center;gap:6px;">
+                                            <span id="cursor-acp-server-dot" style="width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;"></span>
+                                            <span id="cursor-acp-server-label">Stopped</span>
+                                        </span>
+                                        <button id="btn-cursor-acp-server-toggle" class="settings-btn-sm settings-btn-primary">Start</button>
+                                    </div>
+                                </div>
+                                <span id="cursor-acp-server-error" class="settings-server-error hidden"></span>
                             </div>
                         </div>
                     </div>
