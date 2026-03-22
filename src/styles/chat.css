@@ -1,5 +1,6 @@
 /* ── Chat pane ─────────────────────────────────────── */
 .chat-pane {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -189,6 +190,33 @@
 @keyframes chatTyping {
   0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
   30% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Scroll to bottom button ──────────────────────── */
+.chat-scroll-bottom {
+  position: absolute;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: all 0.15s var(--ease-out);
+  animation: fadeUp 0.15s var(--ease-out);
+}
+.chat-scroll-bottom:hover {
+  color: var(--fg);
+  border-color: var(--border-hover);
+  background: var(--raised-hover);
 }
 
 /* ── Input area ───────────────────────────────────── */
