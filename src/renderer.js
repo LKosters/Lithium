@@ -10,7 +10,7 @@ const { createTerminal, fitAllVisibleTerminals } = require("./renderer/terminal"
 const { renderLayout, refreshLayout, startDragOverlay, stopDragOverlay, getSavedLayout, clearSavedLayout } = require("./renderer/layout");
 const { openTab, closeTab, newSession, splitNewSession } = require("./renderer/tabs");
 const { renderSessionList, deleteSession } = require("./renderer/sessions");
-const { initBrowser } = require("./renderer/browser");
+const { initBrowser, initBrowserTools } = require("./renderer/browser");
 const { initMusicPlayer, updateTrackProgress, setPlayerMode } = require("./renderer/music");
 const { closeSettings, isSettingsOpen } = require("./renderer/settings");
 const { closeGit, isGitOpen, refreshGit } = require("./renderer/git");
@@ -188,6 +188,7 @@ requestAnimationFrame(updateTrackProgress);
 
 // ── Browser panel ─────────────────────────────────────
 initBrowser();
+initBrowserTools();
 
 // ── Init ──────────────────────────────────────────────
 async function init() {

@@ -27,6 +27,7 @@ require("./src/main/project");
 // Register agent provider handlers
 const { registerAgentHandlers } = require("./src/main/agents");
 const { stopACPServer } = require("./src/main/acp-server");
+const { startBrowserBridge, stopBrowserBridge, registerBridgeIPC } = require("./src/main/browser-bridge");
 registerAgentHandlers();
 
 // ── Window ─────────────────────────────────────────────
@@ -305,6 +306,12 @@ app.whenReady().then(() => {
   ensureDirs();
   buildAppMenu();
 
+  // Start browser bridge for MCP tool server
+  startBrowserBridge().catch((err) => {
+    console.error("[main] Browser bridge failed to start:", err.message);
+  });
+  registerBridgeIPC();
+
   if (process.platform === "darwin" && app.dock) {
     app.dock.setMenu(
       Menu.buildFromTemplate([
@@ -325,12 +332,14 @@ app.on("window-all-closed", () => {
   ptyProcesses.clear();
   killDevServer();
   stopACPServer();
+  stopBrowserBridge();
   if (process.platform !== "darwin") app.quit();
 });
 
 app.on("before-quit", () => {
   killDevServer();
   stopACPServer();
+  stopBrowserBridge();
 });
 
 app.on("will-quit", () => {

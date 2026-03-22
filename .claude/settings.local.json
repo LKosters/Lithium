@@ -44,7 +44,12 @@
       "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && grep -n \"Terminal\\\\|claude\\\\|codex\" src/renderer/*.js | grep -v \".map\")",
       "WebFetch(domain:deepwiki.com)",
       "WebFetch(domain:agentclientprotocol.com)",
-      "WebFetch(domain:docs.rs)"
+      "WebFetch(domain:docs.rs)",
+      "Bash(ls /Users/laurenskosters/Downloads/Project\\\\ SynthCode/SyntCode\\\\ Design/*.js 2>/dev/null | head -10)",
+      "Bash(cd /Users/laurenskosters/Downloads/Project\\\\ SynthCode/SyntCode\\\\ Design && find . -type f -name \"*.js\" -o -name \"*.ts\" -o -name \"*.json\" 2>/dev/null | grep -v node_modules | grep -v .git | head -50)",
+      "WebFetch(domain:modelcontextprotocol.info)",
+      "WebFetch(domain:kiro.dev)",
+      "WebFetch(domain:dev.to)"
     ]
   }
 }

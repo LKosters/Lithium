@@ -1,6 +1,8 @@
 // codex-acp process manager — spawns codex-acp as a stdio child process
 // and communicates via JSON-RPC over stdin/stdout (ACP protocol)
 const { spawn } = require("child_process");
+const path = require("path");
+const { getBridgePort } = require("./browser-bridge");
 
 let acpProcess = null;
 let acpReady = false;
@@ -193,9 +195,19 @@ function sendRequest(method, params, timeoutMs) {
 }
 
 async function createSession(cwd) {
+  const bridgePort = getBridgePort();
+  const mcpServers = bridgePort
+    ? [{
+        name: "browser",
+        command: "node",
+        args: [path.join(__dirname, "browser-mcp-server.js")],
+        env: [{ name: "BROWSER_BRIDGE_PORT", value: String(bridgePort) }],
+      }]
+    : [];
+
   const result = await sendRequest("session/new", {
     cwd: cwd || process.cwd(),
-    mcpServers: [],
+    mcpServers,
   }, 15000);
   return result.sessionId;
 }
