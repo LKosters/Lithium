@@ -124,8 +124,10 @@ function createChatPane(sessionId, provider, model) {
   const modelSelect = paneEl.querySelector(".chat-model-select");
 
   // Populate model selector with enabled ACPs
-  app.ipcRenderer.invoke("agent:get-enabled-acps").then((enabledACPs) => {
-    const labels = { "acp": "Codex", "cursor-acp": "Cursor" };
+  Promise.all([
+    app.ipcRenderer.invoke("agent:get-enabled-acps"),
+    app.ipcRenderer.invoke("agent:get-provider-labels"),
+  ]).then(([enabledACPs, labels]) => {
     modelSelect.innerHTML = enabledACPs
       .map(p => `<option value="${p}">${labels[p] || p}</option>`)
       .join("");
@@ -548,14 +550,18 @@ function getProviderIcon(provider) {
   }
 }
 
+// Provider labels are fetched from the registry and cached
+let _providerLabels = null;
 function getProviderLabel(provider) {
-  switch (provider) {
-    case "acp": return "Codex";
-    case "cursor-acp": return "Cursor";
-    case "terminal": return "Terminal";
-    default: return provider;
-  }
+  if (provider === "terminal") return "Terminal";
+  if (_providerLabels && _providerLabels[provider]) return _providerLabels[provider];
+  return provider;
 }
+
+// Load labels from registry on init
+app.ipcRenderer.invoke("agent:get-provider-labels").then((labels) => {
+  _providerLabels = labels;
+});
 
 function deleteChatState(sessionId) {
   chatStates.delete(sessionId);

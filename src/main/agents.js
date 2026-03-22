@@ -4,10 +4,13 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { loadConfig, saveConfig } = require("./config");
-const { ACPProvider } = require("./providers/acp");
-const { CursorACPProvider } = require("./providers/cursor-acp");
-const { startACPServer, stopACPServer, isACPServerRunning, getACPServerStatus, getACPLastError } = require("./acp-server");
-const { startCursorACPServer, stopCursorACPServer, isCursorACPRunning, getCursorACPStatus, getCursorACPLastError } = require("./cursor-acp-server");
+const {
+  getProvider,
+  getServer,
+  getAllProviderIds,
+  getProviderLabel,
+  getAllProviderConfigs,
+} = require("./provider-registry");
 
 // Chat history persistence
 const CHAT_DIR = path.join(os.homedir(), ".synthcode", "chat");
@@ -20,7 +23,6 @@ function loadChatData(sessionId) {
   try {
     const p = path.join(CHAT_DIR, `${sessionId}.json`);
     const raw = JSON.parse(fs.readFileSync(p, "utf-8"));
-    // Backward compat: old format was plain array
     if (Array.isArray(raw)) return { messages: raw, contextUsed: 0, contextSize: 0 };
     return raw;
   } catch {
@@ -38,7 +40,6 @@ function saveChatData(sessionId, data) {
   }
 }
 
-// In-memory context usage per session
 const contextUsage = new Map();
 
 function deleteChatHistory(sessionId) {
@@ -48,80 +49,57 @@ function deleteChatHistory(sessionId) {
   } catch {}
 }
 
-// In-memory chat histories keyed by sessionId
 const chatHistories = new Map();
 
-// Provider instances (lazy-init)
-let providers = {};
-
-function getProviderConfig() {
-  const config = loadConfig();
-  return config.agentProviders || {};
-}
-
-function saveProviderConfig(providerConfig) {
-  const config = loadConfig();
-  config.agentProviders = providerConfig;
-  saveConfig(config);
-}
-
-function initProviders() {
-  providers.acp = new ACPProvider();
-  providers["cursor-acp"] = new CursorACPProvider();
-}
-
-function getProvider(name) {
-  if (!providers[name]) initProviders();
-  return providers[name] || null;
-}
-
 function registerAgentHandlers() {
-  initProviders();
-
-  // Auto-start ACP servers if they're the default agent
-  const config = loadConfig();
-  const defaultAgent = config.defaultAgent || "terminal";
-  if (defaultAgent === "acp") {
-    console.log("[agents] Default agent is ACP — auto-starting codex-acp server");
-    startACPServer();
-  } else if (defaultAgent === "cursor-acp") {
-    console.log("[agents] Default agent is Cursor ACP — auto-starting cursor-acp server");
-    startCursorACPServer();
-  }
+  // ACP servers start lazily on first chat message (ensures correct project directory)
 
   // List available providers and their status
   ipcMain.handle("agent:providers", () => {
-    return [
-      {
-        name: "acp",
-        label: "Codex",
-        configured: isACPServerRunning(),
-        models: [],
-        defaultModel: "",
-      },
-      {
-        name: "cursor-acp",
-        label: "Cursor",
-        configured: isCursorACPRunning(),
-        models: [],
-        defaultModel: "",
-      },
-      {
-        name: "terminal",
-        label: "Terminal",
-        configured: true,
-        models: [],
-        defaultModel: "",
-      },
-    ];
+    const providerList = getAllProviderConfigs().map(cfg => ({
+      name: cfg.id,
+      label: cfg.label,
+      configured: getServer(cfg.id).isRunning(),
+      models: [],
+      defaultModel: "",
+    }));
+    // Always include terminal
+    providerList.push({
+      name: "terminal",
+      label: "Terminal",
+      configured: true,
+      models: [],
+      defaultModel: "",
+    });
+    return providerList;
   });
+
+  // Dynamic IPC handlers for each ACP provider's server
+  for (const cfg of getAllProviderConfigs()) {
+    const server = getServer(cfg.id);
+
+    ipcMain.handle(`agent:${cfg.id}-server-status`, () => ({
+      running: server.isRunning(),
+      status: server.getStatus(),
+      lastError: server.getLastError(),
+    }));
+
+    ipcMain.handle(`agent:${cfg.id}-server-start`, () => {
+      server.start();
+      return true;
+    });
+
+    ipcMain.handle(`agent:${cfg.id}-server-stop`, () => {
+      server.stop();
+      return true;
+    });
+  }
 
   // Configure a provider (kept for future use)
   ipcMain.handle("agent:configure", (_e, { provider, config }) => {
     const cfg = getProviderConfig();
     cfg[provider] = { ...cfg[provider], ...config };
     saveProviderConfig(cfg);
-    initProviders();
     return true;
   });
 
@@ -129,46 +107,6 @@ function registerAgentHandlers() {
   ipcMain.handle("agent:get-config", (_e, providerName) => {
     const cfg = getProviderConfig();
     return cfg[providerName] || {};
-  });
-
-  // ACP server status
-  ipcMain.handle("agent:acp-server-status", () => {
-    return {
-      running: isACPServerRunning(),
-      status: getACPServerStatus(),
-      lastError: getACPLastError(),
-    };
-  });
-
-  // ACP server start/stop
-  ipcMain.handle("agent:acp-server-start", () => {
-    startACPServer();
-    return true;
-  });
-
-  ipcMain.handle("agent:acp-server-stop", () => {
-    stopACPServer();
-    return true;
-  });
-
-  // Cursor ACP server status
-  ipcMain.handle("agent:cursor-acp-server-status", () => {
-    return {
-      running: isCursorACPRunning(),
-      status: getCursorACPStatus(),
-      lastError: getCursorACPLastError(),
-    };
-  });
-
-  // Cursor ACP server start/stop
-  ipcMain.handle("agent:cursor-acp-server-start", () => {
-    startCursorACPServer();
-    return true;
-  });
-
-  ipcMain.handle("agent:cursor-acp-server-stop", () => {
-    stopCursorACPServer();
-    return true;
   });
 
   // Send a chat message
@@ -191,7 +129,7 @@ function registerAgentHandlers() {
       return;
     }
 
-    // Add user message to history (load from disk if needed)
+    // Add user message to history
     if (!chatHistories.has(sessionId)) {
       const data = loadChatData(sessionId);
       chatHistories.set(sessionId, data.messages);
@@ -204,7 +142,6 @@ function registerAgentHandlers() {
     const usage = contextUsage.get(sessionId) || { used: 0, size: 0 };
     saveChatData(sessionId, { messages: history, contextUsed: usage.used, contextSize: usage.size });
 
-    // Notify start
     sender.send("agent:stream-start", { sessionId });
 
     try {
@@ -213,7 +150,6 @@ function registerAgentHandlers() {
         history,
         { model: model || undefined, cwd: cwd || undefined },
         (chunk) => {
-          // Track context usage from usage chunks
           if (chunk.type === "usage") {
             contextUsage.set(sessionId, { used: chunk.used, size: chunk.size });
           }
@@ -264,14 +200,15 @@ function registerAgentHandlers() {
     chatHistories.delete(sessionId);
     contextUsage.delete(sessionId);
     deleteChatHistory(sessionId);
-    for (const p of Object.values(providers)) {
-      if (typeof p.clearSession === "function") {
+    for (const id of getAllProviderIds()) {
+      const p = getProvider(id);
+      if (p && typeof p.clearSession === "function") {
         p.clearSession(sessionId);
       }
     }
   });
 
-  // Get/set default mode ("terminal" or "acp")
+  // Get/set default mode ("terminal" or provider id)
   ipcMain.handle("agent:get-default", () => {
     const config = loadConfig();
     return config.defaultAgent || "terminal";
@@ -315,6 +252,34 @@ function registerAgentHandlers() {
     saveProviderConfig(cfg);
     return true;
   });
+
+  // Get provider labels (for renderer to use dynamically)
+  ipcMain.handle("agent:get-provider-labels", () => {
+    const labels = {};
+    for (const cfg of getAllProviderConfigs()) {
+      labels[cfg.id] = cfg.label;
+    }
+    return labels;
+  });
 }
 
-module.exports = { registerAgentHandlers, chatHistories };
+function getProviderConfig() {
+  const config = loadConfig();
+  return config.agentProviders || {};
+}
+
+function saveProviderConfig(providerConfig) {
+  const config = loadConfig();
+  config.agentProviders = providerConfig;
+  saveConfig(config);
+}
+
+// Stop all servers (called on app quit)
+function stopAllServers() {
+  for (const id of getAllProviderIds()) {
+    const server = getServer(id);
+    if (server) server.stop();
+  }
+}
+
+module.exports = { registerAgentHandlers, chatHistories, stopAllServers };

@@ -25,9 +25,7 @@ require("./src/main/git");
 require("./src/main/project");
 
 // Register agent provider handlers
-const { registerAgentHandlers } = require("./src/main/agents");
-const { stopACPServer } = require("./src/main/acp-server");
-const { stopCursorACPServer } = require("./src/main/cursor-acp-server");
+const { registerAgentHandlers, stopAllServers } = require("./src/main/agents");
 const { startBrowserBridge, stopBrowserBridge, registerBridgeIPC } = require("./src/main/browser-bridge");
 registerAgentHandlers();
 
@@ -332,22 +330,19 @@ app.on("window-all-closed", () => {
   for (const [, entry] of ptyProcesses) entry.proc.kill();
   ptyProcesses.clear();
   killDevServer();
-  stopACPServer();
-  stopCursorACPServer();
+  stopAllServers();
   stopBrowserBridge();
   if (process.platform !== "darwin") app.quit();
 });
 
 app.on("before-quit", () => {
   killDevServer();
-  stopACPServer();
-  stopCursorACPServer();
+  stopAllServers();
   stopBrowserBridge();
 });
 
 app.on("will-quit", () => {
-  stopACPServer();
-  stopCursorACPServer();
+  stopAllServers();
 });
 
 app.on("render-process-gone", () => {});

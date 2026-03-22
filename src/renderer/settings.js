@@ -124,8 +124,6 @@ btnCreateProjectsDir.addEventListener("click", async () => {
 // ── Agent settings ───────────────────────────────────
 const defaultAgentGrid = document.querySelector("#settings-default-agent");
 const acpProvidersSection = document.querySelector("#settings-acp-providers");
-const toggleCodex = document.querySelector("#toggle-acp-codex");
-const toggleCursor = document.querySelector("#toggle-acp-cursor");
 
 let _selectedMode = "terminal"; // "terminal" or "acp"
 let _acpStatusInterval = null;
@@ -133,13 +131,13 @@ let _acpStatusInterval = null;
 async function loadAgentSettings() {
   try {
     _selectedMode = await ipcRenderer.invoke("agent:get-default");
-    // Normalize: any ACP provider maps to "acp" mode
     if (_selectedMode !== "terminal") _selectedMode = "acp";
 
-    // Load enabled ACPs
+    // Load enabled ACPs and set toggles dynamically
     const enabled = await ipcRenderer.invoke("agent:get-enabled-acps");
-    toggleCodex.checked = enabled.includes("acp");
-    toggleCursor.checked = enabled.includes("cursor-acp");
+    document.querySelectorAll("[data-acp-toggle]").forEach((toggle) => {
+      toggle.checked = enabled.includes(toggle.dataset.acpToggle);
+    });
 
     updateModeUI();
   } catch (err) {
@@ -163,38 +161,28 @@ defaultAgentGrid.querySelectorAll(".agent-card").forEach((card) => {
   });
 });
 
-// ACP provider toggles
-toggleCodex.addEventListener("change", async () => {
-  await ipcRenderer.invoke("agent:set-acp-enabled", { provider: "acp", enabled: toggleCodex.checked });
+// ACP provider toggles — driven by data-acp-toggle attribute
+document.querySelectorAll("[data-acp-toggle]").forEach((toggle) => {
+  toggle.addEventListener("change", async () => {
+    await ipcRenderer.invoke("agent:set-acp-enabled", {
+      provider: toggle.dataset.acpToggle,
+      enabled: toggle.checked,
+    });
+  });
 });
 
-toggleCursor.addEventListener("change", async () => {
-  await ipcRenderer.invoke("agent:set-acp-enabled", { provider: "cursor-acp", enabled: toggleCursor.checked });
-});
-
-// ── ACP server start/stop toggles (debug) ────────────
-const btnACPToggle = document.querySelector("#btn-acp-server-toggle");
-
-btnACPToggle.addEventListener("click", async () => {
-  const status = await ipcRenderer.invoke("agent:acp-server-status");
-  if (status.running) {
-    await ipcRenderer.invoke("agent:acp-server-stop");
-  } else {
-    await ipcRenderer.invoke("agent:acp-server-start");
-  }
-  setTimeout(updateACPServerStatus, 1500);
-});
-
-const btnCursorACPToggle = document.querySelector("#btn-cursor-acp-server-toggle");
-
-btnCursorACPToggle.addEventListener("click", async () => {
-  const status = await ipcRenderer.invoke("agent:cursor-acp-server-status");
-  if (status.running) {
-    await ipcRenderer.invoke("agent:cursor-acp-server-stop");
-  } else {
-    await ipcRenderer.invoke("agent:cursor-acp-server-start");
-  }
-  setTimeout(updateCursorACPServerStatus, 1500);
+// ACP server start/stop toggles — driven by data-acp-server attribute
+document.querySelectorAll("[data-acp-server]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const providerId = btn.dataset.acpServer;
+    const status = await ipcRenderer.invoke(`agent:${providerId}-server-status`);
+    if (status.running) {
+      await ipcRenderer.invoke(`agent:${providerId}-server-stop`);
+    } else {
+      await ipcRenderer.invoke(`agent:${providerId}-server-start`);
+    }
+    setTimeout(() => updateServerStatus(providerId), 1500);
+  });
 });
 
 // ── ACP server status polling ────────────────────────
@@ -229,26 +217,25 @@ function updateServerStatusUI(result, dotId, labelId, btnId, errorId) {
   }
 }
 
-async function updateACPServerStatus() {
+async function updateServerStatus(providerId) {
   try {
-    const result = await ipcRenderer.invoke("agent:acp-server-status");
-    updateServerStatusUI(result, "#acp-server-dot", "#acp-server-label", "#btn-acp-server-toggle", "#acp-server-error");
-  } catch {}
-}
-
-async function updateCursorACPServerStatus() {
-  try {
-    const result = await ipcRenderer.invoke("agent:cursor-acp-server-status");
-    updateServerStatusUI(result, "#cursor-acp-server-dot", "#cursor-acp-server-label", "#btn-cursor-acp-server-toggle", "#cursor-acp-server-error");
+    const result = await ipcRenderer.invoke(`agent:${providerId}-server-status`);
+    updateServerStatusUI(
+      result,
+      `#${providerId}-server-dot`,
+      `#${providerId}-server-label`,
+      `#btn-${providerId}-server-toggle`,
+      `#${providerId}-server-error`
+    );
   } catch {}
 }
 
 function pollACPServerStatus() {
-  updateACPServerStatus();
-  updateCursorACPServerStatus();
+  // Poll all providers with data-acp-server buttons
+  const providerIds = [...document.querySelectorAll("[data-acp-server]")].map(b => b.dataset.acpServer);
+  providerIds.forEach(id => updateServerStatus(id));
   _acpStatusInterval = setInterval(() => {
-    updateACPServerStatus();
-    updateCursorACPServerStatus();
+    providerIds.forEach(id => updateServerStatus(id));
   }, 3000);
 }
 
