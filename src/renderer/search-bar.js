@@ -19,11 +19,17 @@ const sbDropdownTabs = document.querySelector("#sb-dropdown-tabs");
 const sbDirsList = document.querySelector("#sb-dirs-list");
 const sbBrowseBtn = document.querySelector("#sb-browse-btn");
 
+const sbProviderSelector = document.querySelector("#sb-provider-selector");
+const sbModelRow = document.querySelector("#sb-model-row");
+const sbModelSelect = document.querySelector("#sb-model-select");
+
 let _sbSelectedIdx = 0;
 let _sbCreateMode = false;
 let _sbCreateDir = null;
 let _sbActiveTab = "favorites";
 let _sbKeyboardNav = false;
+let _sbSelectedProvider = "terminal";
+let _sbProviderData = [];
 
 // ── Functions ────────────────────────────────────────
 function updateSearchBarWorkspace() {
@@ -62,13 +68,29 @@ function isSearchBarOpen() {
   return searchBar.classList.contains("focused");
 }
 
-function sbShowCreateForm() {
+async function sbShowCreateForm() {
   _sbCreateMode = true;
   sbCreate.classList.remove("hidden");
   sbDirLabel.textContent = _sbCreateDir ? shortDir(_sbCreateDir) : "Select directory...";
   sbCreateName.value = searchBarInput.value.trim();
   sbCreateName.focus();
   sbCreateName.select();
+
+  // Load default agent from settings
+  try {
+    _sbSelectedProvider = await app.ipcRenderer.invoke("agent:get-default") || "terminal";
+  } catch {
+    _sbSelectedProvider = "terminal";
+  }
+  await sbLoadProviders();
+
+  // If a non-terminal default has a saved model, pre-select it
+  if (_sbSelectedProvider !== "terminal") {
+    try {
+      const savedModel = await app.ipcRenderer.invoke("agent:get-default-model", _sbSelectedProvider);
+      if (savedModel && sbModelSelect) sbModelSelect.value = savedModel;
+    } catch {}
+  }
 }
 
 function sbDoCreate() {
@@ -78,7 +100,45 @@ function sbDoCreate() {
     setTimeout(() => sbDirBtn.style.borderColor = "", 1000);
     return;
   }
-  createSessionAndOpen({ name, dir: _sbCreateDir, onDone: closeSearchBar });
+  const model = (_sbSelectedProvider !== "terminal" && sbModelSelect.value) ? sbModelSelect.value : null;
+  createSessionAndOpen({
+    name,
+    dir: _sbCreateDir,
+    provider: _sbSelectedProvider,
+    model,
+    onDone: closeSearchBar,
+  });
+}
+
+function sbUpdateProviderUI() {
+  sbProviderSelector.querySelectorAll(".provider-option").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.provider === _sbSelectedProvider);
+  });
+
+  const provData = _sbProviderData.find((p) => p.name === _sbSelectedProvider);
+  if (provData && provData.models && provData.models.length > 0) {
+    sbModelRow.classList.remove("hidden");
+    sbModelSelect.innerHTML = provData.models
+      .map((m) => `<option value="${m}"${m === provData.defaultModel ? " selected" : ""}>${m}</option>`)
+      .join("");
+  } else {
+    sbModelRow.classList.add("hidden");
+  }
+
+  // Mark configured providers
+  for (const p of _sbProviderData) {
+    const btn = sbProviderSelector.querySelector(`[data-provider="${p.name}"]`);
+    if (btn) btn.classList.toggle("configured", p.configured);
+  }
+}
+
+async function sbLoadProviders() {
+  try {
+    _sbProviderData = await app.ipcRenderer.invoke("agent:providers");
+    sbUpdateProviderUI();
+  } catch (err) {
+    console.warn("Failed to load providers:", err.message);
+  }
 }
 
 function renderSbList(query) {
@@ -91,7 +151,14 @@ function renderSbList(query) {
     emptyClass: "sb-empty",
     showWorkspace: true,
     onNew: sbShowCreateForm,
-    onSelect: (sid) => { app.openTab(sid); closeSearchBar(); },
+    onSelect: (sid) => {
+      const s = state.sessions.find((se) => se.id === sid);
+      if (s && s.directory && s.directory !== state.currentDir && app.setDirectory) {
+        app.setDirectory(s.directory);
+      }
+      app.openTab(sid);
+      closeSearchBar();
+    },
     onHover: (idx) => { _sbSelectedIdx = idx; updateSbSelection(); },
   });
   if (_sbSelectedIdx >= totalItems) _sbSelectedIdx = totalItems - 1;
@@ -164,6 +231,10 @@ searchBarInput.addEventListener("keydown", (e) => {
     } else {
       const sel = items[_sbSelectedIdx - 1];
       if (sel) {
+        const s = state.sessions.find((se) => se.id === sel.dataset.sid);
+        if (s && s.directory && s.directory !== state.currentDir && app.setDirectory) {
+          app.setDirectory(s.directory);
+        }
         app.openTab(sel.dataset.sid);
         closeSearchBar();
       }
@@ -221,6 +292,14 @@ sbBrowseBtn.addEventListener("click", async (e) => {
 });
 
 sbCreateBtn.addEventListener("click", sbDoCreate);
+
+sbProviderSelector.querySelectorAll(".provider-option").forEach((btn) => {
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    _sbSelectedProvider = btn.dataset.provider;
+    sbUpdateProviderUI();
+  });
+});
 
 // Close search bar when clicking outside
 document.addEventListener("mousedown", (e) => {

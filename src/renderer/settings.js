@@ -50,6 +50,8 @@ function openSettings() {
 
   // Load settings data
   loadProjectsDirSetting();
+  loadAgentSettings();
+  pollACPServerStatus();
 }
 
 function closeSettings() {
@@ -57,6 +59,7 @@ function closeSettings() {
   settingsOpen = false;
   btnSettings.classList.remove("active");
   app.animateClose(settingsOverlay, "fadeDown", 180);
+  stopACPStatusPolling();
 }
 
 btnSettings.addEventListener("click", () => {
@@ -117,6 +120,147 @@ btnCreateProjectsDir.addEventListener("click", async () => {
     console.error("Failed to create projects directory:", err.message);
   }
 });
+
+// ── Agent settings ───────────────────────────────────
+const defaultAgentGrid = document.querySelector("#settings-default-agent");
+const acpProvidersSection = document.querySelector("#settings-acp-providers");
+
+let _selectedMode = "terminal"; // "terminal" or "acp"
+let _acpStatusInterval = null;
+
+async function loadAgentSettings() {
+  try {
+    _selectedMode = await ipcRenderer.invoke("agent:get-default");
+    if (_selectedMode !== "terminal") _selectedMode = "acp";
+
+    // Load enabled ACPs and set toggles dynamically
+    const enabled = await ipcRenderer.invoke("agent:get-enabled-acps");
+    document.querySelectorAll("[data-acp-toggle]").forEach((toggle) => {
+      toggle.checked = enabled.includes(toggle.dataset.acpToggle);
+    });
+
+    // Load tool approval mode
+    const approvalMode = await ipcRenderer.invoke("agent:get-tool-approval-mode");
+    const approvalToggle = document.querySelector("#toggle-tool-approval");
+    if (approvalToggle) {
+      approvalToggle.checked = approvalMode !== "auto";
+    }
+
+    updateModeUI();
+  } catch (err) {
+    console.warn("Failed to load agent settings:", err.message);
+  }
+}
+
+function updateModeUI() {
+  defaultAgentGrid.querySelectorAll(".agent-card").forEach((card) => {
+    card.classList.toggle("active", card.dataset.agent === _selectedMode);
+  });
+  acpProvidersSection.classList.toggle("hidden", _selectedMode !== "acp");
+}
+
+// Mode card clicks
+defaultAgentGrid.querySelectorAll(".agent-card").forEach((card) => {
+  card.addEventListener("click", async () => {
+    _selectedMode = card.dataset.agent;
+    updateModeUI();
+    await ipcRenderer.invoke("agent:set-default", _selectedMode === "acp" ? "acp" : "terminal");
+  });
+});
+
+// ACP provider toggles — driven by data-acp-toggle attribute
+document.querySelectorAll("[data-acp-toggle]").forEach((toggle) => {
+  toggle.addEventListener("change", async () => {
+    await ipcRenderer.invoke("agent:set-acp-enabled", {
+      provider: toggle.dataset.acpToggle,
+      enabled: toggle.checked,
+    });
+  });
+});
+
+// Tool approval mode toggle
+const toolApprovalToggle = document.querySelector("#toggle-tool-approval");
+if (toolApprovalToggle) {
+  toolApprovalToggle.addEventListener("change", async () => {
+    const mode = toolApprovalToggle.checked ? "manual" : "auto";
+    await ipcRenderer.invoke("agent:set-tool-approval-mode", mode);
+  });
+}
+
+// ACP server start/stop toggles — driven by data-acp-server attribute
+document.querySelectorAll("[data-acp-server]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const providerId = btn.dataset.acpServer;
+    const status = await ipcRenderer.invoke(`agent:${providerId}-server-status`);
+    if (status.running) {
+      await ipcRenderer.invoke(`agent:${providerId}-server-stop`);
+    } else {
+      await ipcRenderer.invoke(`agent:${providerId}-server-start`);
+    }
+    setTimeout(() => updateServerStatus(providerId), 1500);
+  });
+});
+
+// ── ACP server status polling ────────────────────────
+function updateServerStatusUI(result, dotId, labelId, btnId, errorId) {
+  const dot = document.querySelector(dotId);
+  const label = document.querySelector(labelId);
+  const btn = document.querySelector(btnId);
+  const errorEl = errorId ? document.querySelector(errorId) : null;
+  if (!dot || !label || !btn) return;
+
+  if (result.status === "running") {
+    dot.style.background = "var(--secondary)";
+    label.textContent = "Running";
+    btn.textContent = "Stop";
+  } else if (result.status === "starting") {
+    dot.style.background = "#E8A838";
+    label.textContent = "Starting...";
+    btn.textContent = "Stop";
+  } else {
+    dot.style.background = "var(--muted)";
+    label.textContent = "Stopped";
+    btn.textContent = "Start";
+  }
+
+  if (errorEl) {
+    if (result.lastError && result.status === "stopped") {
+      errorEl.textContent = result.lastError;
+      errorEl.classList.remove("hidden");
+    } else {
+      errorEl.classList.add("hidden");
+    }
+  }
+}
+
+async function updateServerStatus(providerId) {
+  try {
+    const result = await ipcRenderer.invoke(`agent:${providerId}-server-status`);
+    updateServerStatusUI(
+      result,
+      `#${providerId}-server-dot`,
+      `#${providerId}-server-label`,
+      `#btn-${providerId}-server-toggle`,
+      `#${providerId}-server-error`
+    );
+  } catch {}
+}
+
+function pollACPServerStatus() {
+  // Poll all providers with data-acp-server buttons
+  const providerIds = [...document.querySelectorAll("[data-acp-server]")].map(b => b.dataset.acpServer);
+  providerIds.forEach(id => updateServerStatus(id));
+  _acpStatusInterval = setInterval(() => {
+    providerIds.forEach(id => updateServerStatus(id));
+  }, 3000);
+}
+
+function stopACPStatusPolling() {
+  if (_acpStatusInterval) {
+    clearInterval(_acpStatusInterval);
+    _acpStatusInterval = null;
+  }
+}
 
 // ── IPC: open settings from app menu (Cmd+,) ─────────
 ipcRenderer.on("menu:open-settings", () => {

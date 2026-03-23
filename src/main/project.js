@@ -18,6 +18,26 @@ ipcMain.handle("project:create", async (_e, { framework, name, projectsDir }) =>
   if (framework === "nextjs") {
     cmd = "npx";
     args = ["create-next-app@latest", name, "--yes"];
+  } else if (framework === "nodejs") {
+    // Scaffold a barebones Node.js project
+    fs.mkdirSync(targetDir, { recursive: true });
+    const pkg = {
+      name,
+      version: "1.0.0",
+      description: "",
+      main: "index.js",
+      scripts: {
+        start: "node index.js",
+        dev: "node --watch index.js",
+      },
+      keywords: [],
+      license: "ISC",
+    };
+    fs.writeFileSync(path.join(targetDir, "package.json"), JSON.stringify(pkg, null, 2) + "\n");
+    fs.writeFileSync(path.join(targetDir, "index.js"), 'console.log("Hello from ' + name + '!");\n');
+    fs.writeFileSync(path.join(targetDir, ".gitignore"), "node_modules/\n");
+    addRecentDir(targetDir);
+    return { ok: true, dir: targetDir };
   } else {
     return { ok: false, error: `Unknown framework: ${framework}` };
   }

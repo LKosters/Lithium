@@ -10,7 +10,7 @@ const FOLDER_ICON = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"
 
 const ICON_FILES = [
   "nextjs", "nuxtjs", "react", "vue", "vuejs", "angular", "svelte", "sveltekit",
-  "php", "symfony", "laravel", "typescript", "javascript", "python",
+  "php", "symfony", "laravel", "typescript", "javascript", "nodejs", "python",
   "rust", "go", "ruby", "astro", "gatsby", "remix", "tanstack",
 ];
 

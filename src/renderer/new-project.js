@@ -109,6 +109,10 @@ document.querySelector("#np-create").addEventListener("click", async () => {
   });
 
   if (result.ok) {
+    // Ensure the new project appears in the projects list
+    if (!state.recentDirs.includes(result.dir)) {
+      state.recentDirs.unshift(result.dir);
+    }
     app.setDirectory(result.dir);
     app.newSession();
     closeNewProject();

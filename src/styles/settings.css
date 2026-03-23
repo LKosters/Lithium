@@ -226,22 +226,6 @@
 }
 .browser-webview { width: 100%; height: 100%; border: none; }
 
-.browser-bottom-bar {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 8px 10px; border-top: 1px solid var(--border); flex-shrink: 0;
-}
-.browser-shortcut-btn {
-  display: flex; align-items: center; gap: 6px;
-  padding: 7px 16px;
-  border: 1px solid var(--border); border-radius: var(--radius-pill);
-  background: var(--raised); color: var(--muted);
-  font-family: var(--font-sans); font-size: 12px; font-weight: 500;
-  cursor: pointer; transition: all 0.2s var(--ease-out);
-}
-.browser-shortcut-btn:hover { color: var(--fg); border-color: var(--border-hover); transform: translateY(-1px); }
-.browser-shortcut-btn:active { transform: translateY(0) scale(0.97); }
-
-#btn-toggle-browser.active { background: var(--primary-soft); color: var(--primary); }
 
 /* ── Settings overlay ──────────────────────────────── */
 .settings-overlay {
@@ -337,6 +321,64 @@
   padding: 3px 8px; letter-spacing: 0.03em;
   white-space: nowrap;
 }
+
+/* ── Toggle switch ────────────────────────────────── */
+.settings-toggle {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.settings-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+.settings-toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  left: 3px;
+  bottom: 3px;
+  background: var(--fg-dim);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.settings-toggle input:checked + .settings-toggle-slider {
+  background: var(--primary);
+}
+
+.settings-toggle input:checked + .settings-toggle-slider::before {
+  transform: translateX(16px);
+  background: var(--bg);
+}
+
+/* ── Server error message ─────────────────────────── */
+.settings-server-error {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--destructive);
+  background: rgba(201, 66, 52, 0.08);
+  border: 1px solid rgba(201, 66, 52, 0.2);
+  border-radius: var(--radius-xs);
+  padding: 6px 10px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.settings-server-error.hidden { display: none; }
 
 #btn-settings.active { background: var(--primary-soft); color: var(--primary); }
 #btn-git.active { background: var(--primary-soft); color: var(--primary); }

@@ -5,7 +5,6 @@ const state = {
   starredDirs: [],
   layout: null,
   focusedPaneId: null,
-  focusMode: { active: false, sessionId: null, savedLayout: null, savedFocusedPaneId: null },
 };
 
 // ── Layout tree utilities ─────────────────────────────

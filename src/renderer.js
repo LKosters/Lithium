@@ -10,12 +10,12 @@ const { createTerminal, fitAllVisibleTerminals } = require("./renderer/terminal"
 const { renderLayout, refreshLayout, startDragOverlay, stopDragOverlay, getSavedLayout, clearSavedLayout } = require("./renderer/layout");
 const { openTab, closeTab, newSession, splitNewSession } = require("./renderer/tabs");
 const { renderSessionList, deleteSession } = require("./renderer/sessions");
-const { initBrowser } = require("./renderer/browser");
+const { initBrowser, initBrowserTools } = require("./renderer/browser");
 const { initMusicPlayer, updateTrackProgress, setPlayerMode } = require("./renderer/music");
-const { enterFocusMode, exitFocusMode } = require("./renderer/focus");
 const { closeSettings, isSettingsOpen } = require("./renderer/settings");
 const { closeGit, isGitOpen, refreshGit } = require("./renderer/git");
 const { pickDirectory, setDirectory, renderRecentDirs, renderProjectsList } = require("./renderer/directory");
+const { createChatPane, deleteChatState, handleStreamStart, handleChunk, handleStreamEnd, handleError, chatStates } = require("./renderer/chat");
 
 // ── Wire functions onto app for cross-module calls ────
 app.state = state;
@@ -27,6 +27,12 @@ app.dom = {
   welcomeEl: document.querySelector("#welcome"),
 };
 app.createTerminal = createTerminal;
+app.createChatPane = (sessionId, provider, model) => {
+  const paneEl = createChatPane(sessionId, provider, model);
+  // Store in terminals map with a chat flag for layout compatibility
+  terminals.set(sessionId, { paneEl, alive: true, isChat: true });
+  return paneEl;
+};
 app.fitAllVisibleTerminals = fitAllVisibleTerminals;
 app.renderLayout = renderLayout;
 app.refreshLayout = refreshLayout;
@@ -35,13 +41,13 @@ app.closeTab = closeTab;
 app.newSession = newSession;
 app.renderSessionList = renderSessionList;
 app.deleteSession = deleteSession;
-app.enterFocusMode = enterFocusMode;
-app.exitFocusMode = exitFocusMode;
 app.pickDirectory = pickDirectory;
 app.setDirectory = setDirectory;
 app.renderProjectsList = renderProjectsList;
 app.refreshGit = refreshGit;
 app.setPlayerMode = setPlayerMode;
+app.chatStates = chatStates;
+app.deleteChatState = deleteChatState;
 
 // ── Load feature modules (must come after app wiring) ─
 const { openSearchBar, closeSearchBar, isSearchBarOpen, updateSearchBarWorkspace } = require("./renderer/search-bar");
@@ -113,7 +119,6 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && isQuickOpenVisible()) { closeQuickOpen(); return; }
   if (e.key === "Escape" && isSettingsOpen()) { closeSettings(); return; }
   if (e.key === "Escape" && isGitOpen()) { closeGit(); return; }
-  if (e.key === "Escape" && state.focusMode.active) { exitFocusMode(); return; }
 
   if (e.code === "KeyP" && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
     e.preventDefault();
@@ -154,11 +159,22 @@ ipcRenderer.on("pty:exit", (_e, { sessionId, exitCode, resume, lifetime }) => {
   refreshLayout();
 });
 
-// Focus mode auto-exit on pty:exit
-ipcRenderer.on("pty:exit", (_e, { sessionId }) => {
-  if (state.focusMode.active && state.focusMode.sessionId === sessionId) {
-    exitFocusMode();
-  }
+
+// ── Agent events from main ───────────────────────────
+ipcRenderer.on("agent:stream-start", (_e, { sessionId }) => {
+  handleStreamStart(sessionId);
+});
+
+ipcRenderer.on("agent:chunk", (_e, { sessionId, chunk }) => {
+  handleChunk(sessionId, chunk);
+});
+
+ipcRenderer.on("agent:stream-end", (_e, { sessionId, aborted }) => {
+  handleStreamEnd(sessionId, aborted);
+});
+
+ipcRenderer.on("agent:error", (_e, { sessionId, error }) => {
+  handleError(sessionId, error);
 });
 
 // ── Resize observer ───────────────────────────────────
@@ -172,6 +188,7 @@ requestAnimationFrame(updateTrackProgress);
 
 // ── Browser panel ─────────────────────────────────────
 initBrowser();
+initBrowserTools();
 
 // ── Init ──────────────────────────────────────────────
 async function init() {
@@ -207,8 +224,12 @@ async function init() {
         for (const sid of leaf.tabs) {
           const s = state.sessions.find((ss) => ss.id === sid);
           if (s && !terminals.has(sid)) {
-            createTerminal(sid);
-            ipcRenderer.send("pty:spawn", { sessionId: sid, cwd: s.directory, resume: true });
+            if (s.mode === "chat") {
+              app.createChatPane(sid, s.provider, s.model);
+            } else {
+              createTerminal(sid);
+              ipcRenderer.send("pty:spawn", { sessionId: sid, cwd: s.directory, resume: true });
+            }
           }
         }
       }

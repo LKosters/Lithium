@@ -1,6 +1,6 @@
 const app = require("./app");
-const { state, terminals, findLeafById, findLeafBySession, getAllLeaves, cleanupEmptyLeaves, genPaneId } = require("./state");
-const { escapeHtml, getSession } = require("./helpers");
+const { state, terminals, findLeafById, findLeafBySession, getAllLeaves, cleanupEmptyLeaves, genPaneId, getAllTabs } = require("./state");
+const { escapeHtml, getSession, persistSession } = require("./helpers");
 
 // ── Drag overlay ──────────────────────────────────────
 const dragOverlay = document.querySelector("#drag-overlay");
@@ -12,6 +12,90 @@ function stopDragOverlay() {
 }
 
 let _dragSessionId = null;
+
+// ── Tab context menu ────────────────────────────────
+let _ctxMenu = null;
+
+function dismissCtxMenu() {
+  if (_ctxMenu) { _ctxMenu.remove(); _ctxMenu = null; }
+  document.removeEventListener('mousedown', _onCtxOutside, true);
+}
+
+function _onCtxOutside(e) {
+  if (_ctxMenu && !_ctxMenu.contains(e.target)) dismissCtxMenu();
+}
+
+function showTabCtxMenu(x, y, paneId, sessionId) {
+  dismissCtxMenu();
+  const menu = document.createElement('div');
+  menu.className = 'tab-context-menu';
+
+  const leaf = findLeafById(state.layout, paneId);
+
+  // If right-clicked on a specific tab, show close-tab option
+  if (sessionId) {
+    const closeItem = document.createElement('div');
+    closeItem.className = 'tab-context-menu-item';
+    closeItem.textContent = 'Close Tab';
+    closeItem.addEventListener('click', () => { dismissCtxMenu(); app.closeTab(sessionId); });
+    menu.appendChild(closeItem);
+
+    if (leaf && leaf.tabs.length > 1) {
+      const closeOthers = document.createElement('div');
+      closeOthers.className = 'tab-context-menu-item';
+      closeOthers.textContent = 'Close Other Tabs';
+      closeOthers.addEventListener('click', () => {
+        dismissCtxMenu();
+        const toClose = leaf.tabs.filter(id => id !== sessionId);
+        toClose.forEach(id => app.closeTab(id));
+      });
+      menu.appendChild(closeOthers);
+    }
+
+    const sep = document.createElement('div');
+    sep.className = 'tab-context-menu-sep';
+    menu.appendChild(sep);
+  }
+
+  // Close all tabs in this pane
+  if (leaf && leaf.tabs.length > 0) {
+    const closePane = document.createElement('div');
+    closePane.className = 'tab-context-menu-item destructive';
+    closePane.textContent = 'Close All Tabs in Pane';
+    closePane.addEventListener('click', () => {
+      dismissCtxMenu();
+      const toClose = [...leaf.tabs];
+      toClose.forEach(id => app.closeTab(id));
+    });
+    menu.appendChild(closePane);
+  }
+
+  // Close all tabs everywhere
+  const allTabs = state.layout ? getAllTabs(state.layout) : [];
+  if (allTabs.length > 0) {
+    const closeAll = document.createElement('div');
+    closeAll.className = 'tab-context-menu-item destructive';
+    closeAll.textContent = 'Close All Tabs';
+    closeAll.addEventListener('click', () => {
+      dismissCtxMenu();
+      const toClose = [...allTabs];
+      toClose.forEach(id => app.closeTab(id));
+    });
+    menu.appendChild(closeAll);
+  }
+
+  document.body.appendChild(menu);
+  _ctxMenu = menu;
+
+  // Clamp position to viewport
+  const rect = menu.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth) x = window.innerWidth - rect.width - 4;
+  if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 4;
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+
+  setTimeout(() => document.addEventListener('mousedown', _onCtxOutside, true), 0);
+}
 
 function renderLayout(node, parentEl) {
   if (!node) return;
@@ -32,13 +116,19 @@ function renderLayout(node, parentEl) {
       tab.dataset.sessionId = sid;
       tab.dataset.paneId = node.id;
       tab.draggable = true;
+      const isChat = s.mode === 'chat' || t?.isChat;
       tab.innerHTML = `
         <span class="pane-tab-status ${t?.alive ? 'alive' : ''}"></span>
         <span class="pane-tab-title">${escapeHtml(s.title || 'Session')}</span>
+        <button class="pane-tab-rename" data-rename-session="${sid}" title="Rename">
+          <svg width="9" height="9" viewBox="0 0 16 16" fill="none">
+            <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
         <button class="pane-tab-close" data-close-session="${sid}">&times;</button>`;
 
       tab.addEventListener('click', (e) => {
-        if (e.target.closest('.pane-tab-close')) return;
+        if (e.target.closest('.pane-tab-close') || e.target.closest('.pane-tab-rename')) return;
         node.activeTab = sid;
         state.focusedPaneId = node.id;
         // Switch workspace to match the selected tab's directory
@@ -48,9 +138,20 @@ function renderLayout(node, parentEl) {
         refreshLayout();
       });
 
+      tab.querySelector('.pane-tab-rename').addEventListener('click', (e) => {
+        e.stopPropagation();
+        startTabRename(tab, sid);
+      });
+
       tab.querySelector('.pane-tab-close').addEventListener('click', (e) => {
         e.stopPropagation();
         app.closeTab(sid);
+      });
+
+      tab.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showTabCtxMenu(e.clientX, e.clientY, node.id, sid);
       });
 
       tab.addEventListener('dragstart', (e) => {
@@ -66,6 +167,11 @@ function renderLayout(node, parentEl) {
 
       tabBar.appendChild(tab);
     }
+    tabBar.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showTabCtxMenu(e.clientX, e.clientY, node.id, null);
+    });
+
     container.appendChild(tabBar);
 
     const termArea = document.createElement('div');
@@ -340,6 +446,38 @@ function handleTabDrop(sessionId, targetPaneId, zone) {
   }
 
   refreshLayout();
+}
+
+function startTabRename(tabEl, sessionId) {
+  const s = getSession(sessionId);
+  if (!s) return;
+
+  const titleEl = tabEl.querySelector('.pane-tab-title');
+  if (!titleEl) return;
+
+  const oldTitle = s.title || 'Session';
+
+  const input = document.createElement('input');
+  input.className = 'pane-tab-rename-input';
+  input.value = oldTitle;
+  input.setAttribute('spellcheck', 'false');
+  titleEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  function commit() {
+    const newTitle = input.value.trim() || oldTitle;
+    s.title = newTitle;
+    persistSession(s);
+    app.refreshLayout();
+  }
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = oldTitle; input.blur(); }
+  });
+  input.addEventListener('click', (e) => e.stopPropagation());
 }
 
 module.exports = { renderLayout, refreshLayout, showDropOverlays, hideDropOverlays, handleTabDrop, startDragOverlay, stopDragOverlay, getSavedLayout, clearSavedLayout };

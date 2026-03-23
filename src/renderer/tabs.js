@@ -17,8 +17,12 @@ function openTab(sessionId) {
   if (!terminals.has(sessionId)) {
     const s = getSession(sessionId);
     if (s) {
-      app.createTerminal(sessionId);
-      app.ipcRenderer.send("pty:spawn", { sessionId, cwd: s.directory, resume: true });
+      if (s.mode === "chat" && app.createChatPane) {
+        app.createChatPane(sessionId, s.provider, s.model);
+      } else {
+        app.createTerminal(sessionId);
+        app.ipcRenderer.send("pty:spawn", { sessionId, cwd: s.directory, resume: true });
+      }
     }
   }
 
@@ -45,13 +49,22 @@ function openTab(sessionId) {
 }
 
 function closeTab(sessionId) {
-  app.ipcRenderer.send("pty:kill", { sessionId });
-
   const t = terminals.get(sessionId);
-  if (t) {
-    t.term.dispose();
+
+  if (t && t.isChat) {
+    // Chat mode — clean up chat state
     t.paneEl.remove();
     terminals.delete(sessionId);
+    if (app.deleteChatState) app.deleteChatState(sessionId);
+    app.ipcRenderer.send("agent:clear-history", sessionId);
+  } else {
+    // Terminal mode — kill PTY
+    app.ipcRenderer.send("pty:kill", { sessionId });
+    if (t) {
+      t.term.dispose();
+      t.paneEl.remove();
+      terminals.delete(sessionId);
+    }
   }
 
   if (state.layout) {
@@ -77,17 +90,32 @@ function closeTab(sessionId) {
   app.refreshLayout();
 }
 
-function newSession() {
+async function newSession() {
   if (!state.currentDir) {
     app.pickDirectory();
     return;
   }
 
+  // Get default mode and resolve provider
+  let defaultMode = "terminal";
+  let resolvedProvider = "terminal";
+  try {
+    defaultMode = await app.ipcRenderer.invoke("agent:get-default") || "terminal";
+    if (defaultMode !== "terminal") {
+      const enabledACPs = await app.ipcRenderer.invoke("agent:get-enabled-acps");
+      resolvedProvider = enabledACPs.length > 0 ? enabledACPs[0] : "acp";
+    }
+  } catch {}
+
+  const mode = defaultMode !== "terminal" ? "chat" : "terminal";
   const id = uuidv4();
   const session = {
     id,
     directory: state.currentDir,
     title: shortDir(state.currentDir),
+    mode,
+    provider: resolvedProvider,
+    model: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -95,23 +123,41 @@ function newSession() {
   state.sessions.unshift(session);
   persistSession(session);
 
-  app.createTerminal(id);
-  app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: state.currentDir });
+  if (mode === "chat" && app.createChatPane) {
+    app.createChatPane(id, resolvedProvider, null);
+  } else {
+    app.createTerminal(id);
+    app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: state.currentDir });
+  }
   openTab(id);
 }
 
 // direction: "horizontal" (left/right) or "vertical" (top/bottom)
-function splitNewSession(direction) {
+async function splitNewSession(direction) {
   if (!state.currentDir) {
     app.pickDirectory();
     return;
   }
 
+  let defaultMode = "terminal";
+  let resolvedProvider = "terminal";
+  try {
+    defaultMode = await app.ipcRenderer.invoke("agent:get-default") || "terminal";
+    if (defaultMode !== "terminal") {
+      const enabledACPs = await app.ipcRenderer.invoke("agent:get-enabled-acps");
+      resolvedProvider = enabledACPs.length > 0 ? enabledACPs[0] : "acp";
+    }
+  } catch {}
+
+  const mode = defaultMode !== "terminal" ? "chat" : "terminal";
   const id = uuidv4();
   const session = {
     id,
     directory: state.currentDir,
     title: shortDir(state.currentDir),
+    mode,
+    provider: resolvedProvider,
+    model: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -119,8 +165,12 @@ function splitNewSession(direction) {
   state.sessions.unshift(session);
   persistSession(session);
 
-  app.createTerminal(id);
-  app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: state.currentDir });
+  if (mode === "chat" && app.createChatPane) {
+    app.createChatPane(id, resolvedProvider, null);
+  } else {
+    app.createTerminal(id);
+    app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: state.currentDir });
+  }
 
   if (!state.layout) {
     const paneId = genPaneId();
