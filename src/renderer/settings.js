@@ -1,5 +1,6 @@
 const { ipcRenderer } = require("electron");
 const app = require("./app");
+const state = require("./state");
 
 const settingsOverlay = document.querySelector("#settings-overlay");
 const btnSettings = document.querySelector("#btn-settings");
@@ -147,6 +148,7 @@ async function loadAgentSettings() {
     }
 
     updateModeUI();
+    loadAllowedCommands();
   } catch (err) {
     console.warn("Failed to load agent settings:", err.message);
   }
@@ -260,6 +262,48 @@ function stopACPStatusPolling() {
     clearInterval(_acpStatusInterval);
     _acpStatusInterval = null;
   }
+}
+
+// ── Per-project allowed commands ─────────────────────
+const allowedCommandsList = document.querySelector("#allowed-commands-list");
+
+async function loadAllowedCommands() {
+  if (!allowedCommandsList) return;
+  const projectDir = state.currentDir;
+  if (!projectDir) {
+    allowedCommandsList.innerHTML = '<p class="settings-empty-hint muted">Open a project to manage allowed commands.</p>';
+    return;
+  }
+
+  try {
+    const commands = await ipcRenderer.invoke("agent:get-project-allowed-commands", projectDir);
+    if (!commands || commands.length === 0) {
+      allowedCommandsList.innerHTML = '<p class="settings-empty-hint muted">No allowed commands for this project.</p>';
+      return;
+    }
+
+    allowedCommandsList.innerHTML = "";
+    for (const cmd of commands) {
+      const row = document.createElement("div");
+      row.className = "settings-allowed-cmd";
+      row.innerHTML = `<span class="settings-allowed-cmd-text" title="${escapeAttr(cmd)}">${escapeHtml(cmd)}</span><button class="settings-allowed-cmd-remove">Remove</button>`;
+      row.querySelector(".settings-allowed-cmd-remove").addEventListener("click", async () => {
+        await ipcRenderer.invoke("agent:remove-project-allowed-command", { projectDir, command: cmd });
+        loadAllowedCommands();
+      });
+      allowedCommandsList.appendChild(row);
+    }
+  } catch (err) {
+    console.warn("Failed to load allowed commands:", err.message);
+  }
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function escapeAttr(str) {
+  return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 // ── IPC: open settings from app menu (Cmd+,) ─────────

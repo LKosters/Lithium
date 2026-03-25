@@ -199,8 +199,8 @@ class BaseACPProvider {
     this._resolvers.delete(sessionId);
   }
 
-  respondPermission(permissionId, optionId) {
-    this.server.respondPermission(permissionId, optionId);
+  respondPermission(permissionId, optionId, allowAlwaysCommand) {
+    this.server.respondPermission(permissionId, optionId, allowAlwaysCommand);
   }
 
   clearSession(sessionId) {

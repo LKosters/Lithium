@@ -3,7 +3,7 @@
 const { spawn } = require("child_process");
 const path = require("path");
 const { getBridgePort } = require("./browser-bridge");
-const { loadConfig } = require("./config");
+const { loadConfig, isCommandAllowed, addAllowedCommand } = require("./config");
 
 function createACPServerManager(config) {
   const { name, command, args, authMethodId, logPrefix } = config;
@@ -198,6 +198,7 @@ function createACPServerManager(config) {
         const cfg = loadConfig();
         const mode = cfg.toolApprovalMode || "manual";
         const options = msg.params?.options || [];
+        const description = msg.params?.description || "";
 
         if (mode === "auto") {
           const allowOpt = options.find(o => o.kind === "allow_always")
@@ -205,6 +206,18 @@ function createACPServerManager(config) {
             || options[0];
           const optionId = allowOpt ? allowOpt.optionId : "allow_once";
           console.log(`${prefix} Auto-approving permission, optionId:`, optionId);
+          sendRaw({
+            jsonrpc: "2.0",
+            id: msg.id,
+            result: { outcome: { outcome: "selected", optionId } },
+          });
+        } else if (currentSpawnCwd && isCommandAllowed(currentSpawnCwd, description)) {
+          // Command is in project's allowed list — auto-approve
+          const allowOpt = options.find(o => o.kind === "allow_always")
+            || options.find(o => o.kind === "allow_once")
+            || options[0];
+          const optionId = allowOpt ? allowOpt.optionId : "allow_once";
+          console.log(`${prefix} Project-allowed command, auto-approving:`, description);
           sendRaw({
             jsonrpc: "2.0",
             id: msg.id,
@@ -296,7 +309,7 @@ function createACPServerManager(config) {
     onPermissionCallback = cb;
   }
 
-  function respondPermission(permissionId, optionId) {
+  function respondPermission(permissionId, optionId, allowAlwaysCommand) {
     const pending = pendingPermissions.get(permissionId);
     if (!pending) {
       console.warn(`${prefix} No pending permission for id:`, permissionId);
@@ -304,11 +317,22 @@ function createACPServerManager(config) {
     }
     pendingPermissions.delete(permissionId);
     console.log(`${prefix} Responding to permission ${permissionId} with optionId:`, optionId);
+
+    // If "allow always" was chosen, save command to project settings
+    if (allowAlwaysCommand && currentSpawnCwd) {
+      addAllowedCommand(currentSpawnCwd, allowAlwaysCommand);
+      console.log(`${prefix} Added to project allowed commands:`, allowAlwaysCommand);
+    }
+
     sendRaw({
       jsonrpc: "2.0",
       id: pending.msgId,
       result: { outcome: { outcome: "selected", optionId } },
     });
+  }
+
+  function getCwd() {
+    return currentSpawnCwd;
   }
 
   function isRunning() {
@@ -332,6 +356,7 @@ function createACPServerManager(config) {
     isRunning,
     getStatus,
     getLastError,
+    getCwd,
     createSession,
     sendPrompt,
     setUpdateCallback,

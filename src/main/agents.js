@@ -3,7 +3,7 @@ const { ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
-const { loadConfig, saveConfig } = require("./config");
+const { loadConfig, saveConfig, loadProjectSettings, saveProjectSettings, removeAllowedCommand } = require("./config");
 const {
   getProvider,
   getServer,
@@ -209,11 +209,11 @@ function registerAgentHandlers() {
   });
 
   // Permission response from renderer
-  ipcMain.on("agent:permission-response", (_e, { permissionId, optionId, provider: providerName }) => {
-    console.log("[agents] Permission response — provider:", providerName, "permId:", permissionId, "optionId:", optionId);
+  ipcMain.on("agent:permission-response", (_e, { permissionId, optionId, provider: providerName, allowAlwaysCommand }) => {
+    console.log("[agents] Permission response — provider:", providerName, "permId:", permissionId, "optionId:", optionId, "allowAlways:", !!allowAlwaysCommand);
     const p = getProvider(providerName);
     if (p && typeof p.respondPermission === "function") {
-      p.respondPermission(permissionId, optionId);
+      p.respondPermission(permissionId, optionId, allowAlwaysCommand || null);
     } else {
       console.warn("[agents] No provider or respondPermission for:", providerName);
     }
@@ -261,6 +261,26 @@ function registerAgentHandlers() {
     }
     saveConfig(config);
     return true;
+  });
+
+  // Get per-project allowed commands
+  ipcMain.handle("agent:get-project-allowed-commands", (_e, projectDir) => {
+    if (!projectDir) return [];
+    const settings = loadProjectSettings(projectDir);
+    return settings.allowedCommands || [];
+  });
+
+  // Remove a per-project allowed command
+  ipcMain.handle("agent:remove-project-allowed-command", (_e, { projectDir, command }) => {
+    if (!projectDir || !command) return false;
+    removeAllowedCommand(projectDir, command);
+    return true;
+  });
+
+  // Get project settings
+  ipcMain.handle("agent:get-project-settings", (_e, projectDir) => {
+    if (!projectDir) return { allowedCommands: [] };
+    return loadProjectSettings(projectDir);
   });
 
   // Get/set default model for a provider

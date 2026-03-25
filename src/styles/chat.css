@@ -698,6 +698,7 @@
   margin-left: 18px;
 }
 .chat-tool-approval-allow,
+.chat-tool-approval-allow-always,
 .chat-tool-approval-deny {
   font-size: 11px;
   padding: 2px 10px;
@@ -713,6 +714,15 @@
 }
 .chat-tool-approval-allow:hover {
   filter: brightness(1.1);
+}
+.chat-tool-approval-allow-always {
+  background: transparent;
+  color: var(--secondary);
+  border-color: var(--secondary);
+}
+.chat-tool-approval-allow-always:hover {
+  background: var(--secondary);
+  color: var(--bg);
 }
 .chat-tool-approval-deny {
   background: transparent;
@@ -730,6 +740,52 @@
   color: var(--muted);
   margin-left: 18px;
   font-family: var(--font-mono);
+}
+
+/* ── Per-project allowed commands list ────────────── */
+.settings-allowed-commands-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-empty-hint {
+  font-size: 11px;
+  padding: 6px 10px;
+}
+.settings-allowed-cmd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+}
+.settings-allowed-cmd-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.settings-allowed-cmd-remove {
+  font-size: 10px;
+  padding: 1px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--destructive);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: all 0.15s var(--ease-out);
+  flex-shrink: 0;
+}
+.settings-allowed-cmd-remove:hover {
+  background: rgba(255, 80, 80, 0.08);
+  border-color: var(--destructive);
 }
 
 .hidden { display: none !important; }

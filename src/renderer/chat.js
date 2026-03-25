@@ -368,11 +368,12 @@ function renderStreamInline(cs, container, sessionId) {
       const shieldIcon = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1L2 4v4c0 3.3 2.6 6.4 6 7 3.4-.6 6-3.7 6-7V4L8 1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
       let actionsHtml;
       if (part.resolved) {
-        const label = part.result === "allowed" ? "Allowed" : "Denied";
+        const label = part.result === "allowed" ? "Allowed" : part.result === "allowed_always" ? "Allowed (always)" : "Denied";
         actionsHtml = `<span class="chat-tool-approval-result">${label}</span>`;
       } else {
         actionsHtml = `<div class="chat-tool-approval-actions">
           <button class="chat-tool-approval-allow">Allow</button>
+          <button class="chat-tool-approval-allow-always">Always Allow</button>
           <button class="chat-tool-approval-deny">Deny</button>
         </div>`;
       }
@@ -383,6 +384,7 @@ function renderStreamInline(cs, container, sessionId) {
 
       if (!part.resolved) {
         const allowBtn = el.querySelector(".chat-tool-approval-allow");
+        const allowAlwaysBtn = el.querySelector(".chat-tool-approval-allow-always");
         const denyBtn = el.querySelector(".chat-tool-approval-deny");
 
         allowBtn.addEventListener("click", () => {
@@ -396,6 +398,26 @@ function renderStreamInline(cs, container, sessionId) {
             permissionId: part.permissionId,
             optionId,
             provider: cs.provider,
+          });
+          const paneEl = document.querySelector(`.chat-pane[data-session-id="${sessionId}"]`);
+          if (paneEl) renderMessages(sessionId, paneEl);
+        });
+
+        allowAlwaysBtn.addEventListener("click", () => {
+          const allowOpt = part.options.find(o => o.kind === "allow_always")
+            || part.options.find(o => o.kind === "allow_once")
+            || part.options[0];
+          const optionId = allowOpt ? allowOpt.optionId : "allow_once";
+          part.resolved = true;
+          part.result = "allowed_always";
+          // Extract the command identifier from the description to save in project settings
+          // e.g. "bash: npm install" → save "bash: npm install"
+          const commandId = part.description || part.title || "";
+          app.ipcRenderer.send("agent:permission-response", {
+            permissionId: part.permissionId,
+            optionId,
+            provider: cs.provider,
+            allowAlwaysCommand: commandId,
           });
           const paneEl = document.querySelector(`.chat-pane[data-session-id="${sessionId}"]`);
           if (paneEl) renderMessages(sessionId, paneEl);
