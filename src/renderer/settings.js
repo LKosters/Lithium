@@ -262,6 +262,54 @@ function stopACPStatusPolling() {
   }
 }
 
+// ── Update checker ───────────────────────────────────
+const aboutVersion = document.querySelector("#about-version");
+const updateStatus = document.querySelector("#update-status");
+const btnCheckUpdate = document.querySelector("#btn-check-update");
+const btnDownloadUpdate = document.querySelector("#btn-download-update");
+let _releaseUrl = null;
+
+// Show current version in about panel
+(async () => {
+  try {
+    const version = await ipcRenderer.invoke("updater:get-version");
+    if (aboutVersion) aboutVersion.textContent = version;
+  } catch {}
+})();
+
+if (btnCheckUpdate) {
+  btnCheckUpdate.addEventListener("click", async () => {
+    btnCheckUpdate.disabled = true;
+    btnCheckUpdate.textContent = "Checking...";
+    updateStatus.textContent = "Checking for updates...";
+    btnDownloadUpdate.classList.add("hidden");
+
+    try {
+      const result = await ipcRenderer.invoke("updater:check");
+      if (result.error) {
+        updateStatus.textContent = `Failed to check: ${result.error}`;
+      } else if (result.updateAvailable) {
+        updateStatus.textContent = `New version available: v${result.latestVersion}`;
+        _releaseUrl = result.releaseUrl;
+        btnDownloadUpdate.classList.remove("hidden");
+      } else {
+        updateStatus.textContent = `You're on the latest version (v${result.currentVersion})`;
+      }
+    } catch (err) {
+      updateStatus.textContent = `Failed to check: ${err.message}`;
+    }
+
+    btnCheckUpdate.disabled = false;
+    btnCheckUpdate.textContent = "Check for Updates";
+  });
+}
+
+if (btnDownloadUpdate) {
+  btnDownloadUpdate.addEventListener("click", () => {
+    if (_releaseUrl) ipcRenderer.send("updater:open-release", _releaseUrl);
+  });
+}
+
 // ── IPC: open settings from app menu (Cmd+,) ─────────
 ipcRenderer.on("menu:open-settings", () => {
   if (!settingsOpen) openSettings();
