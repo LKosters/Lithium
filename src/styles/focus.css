@@ -3,7 +3,7 @@ body.focus-mode #sidebar,
 body.focus-mode #sidebar-resize-handle,
 body.focus-mode #browser-panel,
 body.focus-mode #browser-resize-handle,
-body.focus-mode .pane-tab-bar,
+body.focus-mode .pane-tab-bar-wrapper,
 body.focus-mode #music-dock,
 body.focus-mode .git-sidebar { display: none !important; }
 

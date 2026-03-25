@@ -122,21 +122,57 @@
   display: flex; flex: 1; flex-direction: column; overflow: hidden;
   min-width: 80px; min-height: 60px; position: relative;
 }
-.pane-container.focused > .pane-tab-bar {
-  background: var(--raised);
-}
+/* focused tab-bar background handled by .pane-tab-bar-wrapper */
 
 /* Per-pane tab bar — pill style */
+.pane-tab-bar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+  height: 36px;
+  background: var(--surface);
+  transition: background 0.3s var(--ease-out);
+}
+.pane-container.focused > .pane-tab-bar-wrapper {
+  background: var(--raised);
+}
 .pane-tab-bar {
   height: 36px; flex-shrink: 0;
   display: flex; align-items: center;
   padding: 0 8px; gap: 4px;
-  background: var(--surface);
+  background: transparent;
   overflow-x: auto; overflow-y: hidden;
   user-select: none;
-  transition: background 0.3s var(--ease-out);
 }
 .pane-tab-bar::-webkit-scrollbar { height: 0; }
+
+/* Scroll fade indicators */
+.pane-tab-bar-wrapper::before,
+.pane-tab-bar-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 24px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.2s var(--ease-out);
+}
+.pane-tab-bar-wrapper::before {
+  left: 0;
+  background: linear-gradient(to right, var(--surface), transparent);
+}
+.pane-tab-bar-wrapper::after {
+  right: 0;
+  background: linear-gradient(to left, var(--surface), transparent);
+}
+.pane-container.focused > .pane-tab-bar-wrapper::before {
+  background: linear-gradient(to right, var(--raised), transparent);
+}
+.pane-container.focused > .pane-tab-bar-wrapper::after {
+  background: linear-gradient(to left, var(--raised), transparent);
+}
+.pane-tab-bar-wrapper.scroll-left::before { opacity: 1; }
+.pane-tab-bar-wrapper.scroll-right::after { opacity: 1; }
 
 /* Pill tabs */
 .pane-tab {
@@ -144,6 +180,7 @@
   padding: 4px 12px; border: none;
   font-size: 11px; color: var(--muted); cursor: pointer;
   white-space: nowrap; max-width: 160px;
+  flex-shrink: 0;
   border-radius: var(--radius-pill);
   background: transparent;
   transition: all 0.2s var(--ease-out);

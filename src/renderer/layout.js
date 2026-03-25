@@ -105,8 +105,26 @@ function renderLayout(node, parentEl) {
     container.className = 'pane-container' + (node.id === state.focusedPaneId ? ' focused' : '');
     container.dataset.paneId = node.id;
 
+    const tabBarWrapper = document.createElement('div');
+    tabBarWrapper.className = 'pane-tab-bar-wrapper';
     const tabBar = document.createElement('div');
     tabBar.className = 'pane-tab-bar';
+
+    // Horizontal scroll with mouse wheel
+    tabBar.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // native horizontal scroll
+      e.preventDefault();
+      tabBar.scrollLeft += e.deltaY;
+    }, { passive: false });
+
+    // Update scroll fade indicators
+    function updateScrollIndicators() {
+      const { scrollLeft, scrollWidth, clientWidth } = tabBar;
+      tabBarWrapper.classList.toggle('scroll-left', scrollLeft > 2);
+      tabBarWrapper.classList.toggle('scroll-right', scrollLeft + clientWidth < scrollWidth - 2);
+    }
+    tabBar.addEventListener('scroll', updateScrollIndicators);
+
     for (const sid of node.tabs) {
       const s = getSession(sid);
       if (!s) continue;
@@ -172,7 +190,17 @@ function renderLayout(node, parentEl) {
       showTabCtxMenu(e.clientX, e.clientY, node.id, null);
     });
 
-    container.appendChild(tabBar);
+    tabBarWrapper.appendChild(tabBar);
+    container.appendChild(tabBarWrapper);
+
+    // Scroll active tab into view and update fade indicators after render
+    requestAnimationFrame(() => {
+      const activeTab = tabBar.querySelector('.pane-tab.active');
+      if (activeTab) {
+        activeTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+      updateScrollIndicators();
+    });
 
     const termArea = document.createElement('div');
     termArea.className = 'pane-terminal';
