@@ -93,6 +93,57 @@ function loadLayoutFromDisk() {
   }
 }
 
+// ── Per-project settings (.lithium/settings.local.json) ──
+const LITHIUM_DIR_NAME = ".lithium";
+const PROJECT_SETTINGS_FILE = "settings.local.json";
+
+function getProjectSettingsPath(projectDir) {
+  return path.join(projectDir, LITHIUM_DIR_NAME, PROJECT_SETTINGS_FILE);
+}
+
+function loadProjectSettings(projectDir) {
+  if (!projectDir) return { allowedCommands: [] };
+  try {
+    const p = getProjectSettingsPath(projectDir);
+    const data = JSON.parse(fs.readFileSync(p, "utf-8"));
+    if (!Array.isArray(data.allowedCommands)) data.allowedCommands = [];
+    return data;
+  } catch {
+    return { allowedCommands: [] };
+  }
+}
+
+function saveProjectSettings(projectDir, settings) {
+  if (!projectDir) return;
+  const dir = path.join(projectDir, LITHIUM_DIR_NAME);
+  fs.mkdirSync(dir, { recursive: true });
+  const p = path.join(dir, PROJECT_SETTINGS_FILE);
+  fs.writeFileSync(p, JSON.stringify(settings, null, 2));
+}
+
+function addAllowedCommand(projectDir, command) {
+  if (!projectDir || !command) return;
+  const settings = loadProjectSettings(projectDir);
+  // Normalize: store the command description string (e.g. "bash: npm install")
+  if (!settings.allowedCommands.includes(command)) {
+    settings.allowedCommands.push(command);
+    saveProjectSettings(projectDir, settings);
+  }
+}
+
+function removeAllowedCommand(projectDir, command) {
+  if (!projectDir || !command) return;
+  const settings = loadProjectSettings(projectDir);
+  settings.allowedCommands = settings.allowedCommands.filter(c => c !== command);
+  saveProjectSettings(projectDir, settings);
+}
+
+function isCommandAllowed(projectDir, description) {
+  if (!projectDir || !description) return false;
+  const settings = loadProjectSettings(projectDir);
+  return settings.allowedCommands.some(cmd => description.startsWith(cmd));
+}
+
 module.exports = {
   DEFAULT_PROJECTS_DIR,
   ensureDirs,
@@ -105,4 +156,9 @@ module.exports = {
   deleteSession,
   saveLayoutToDisk,
   loadLayoutFromDisk,
+  loadProjectSettings,
+  saveProjectSettings,
+  addAllowedCommand,
+  removeAllowedCommand,
+  isCommandAllowed,
 };
