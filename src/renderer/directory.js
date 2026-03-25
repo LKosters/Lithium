@@ -78,6 +78,18 @@ function setDirectory(dir) {
   if (app.renderSessionList) app.renderSessionList();
 }
 
+async function detectFrameworks(dirs) {
+  const uncached = dirs.filter((d) => !frameworkCache.has(d));
+  if (uncached.length > 0) {
+    await Promise.all(
+      uncached.map(async (d) => {
+        const fw = await app.ipcRenderer.invoke("project:detect-framework", d);
+        frameworkCache.set(d, fw);
+      }),
+    );
+  }
+}
+
 async function renderProjectsList() {
   if (!projectsListEl) return;
 
@@ -113,15 +125,7 @@ async function renderProjectsList() {
   }
 
   // Detect frameworks for uncached dirs
-  const uncached = allDirs.filter((d) => !frameworkCache.has(d));
-  if (uncached.length > 0) {
-    await Promise.all(
-      uncached.map(async (d) => {
-        const fw = await app.ipcRenderer.invoke("project:detect-framework", d);
-        frameworkCache.set(d, fw);
-      }),
-    );
-  }
+  await detectFrameworks(allDirs);
 
   let html = "";
   for (const dir of allDirs) {
@@ -312,4 +316,7 @@ module.exports = {
   setDirectory,
   renderRecentDirs,
   renderProjectsList,
+  getProjectIcon,
+  frameworkCache,
+  detectFrameworks,
 };
