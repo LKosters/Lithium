@@ -81,6 +81,7 @@
 .git-file-status.deleted { color: #e06c75; }
 .git-file-status.renamed { color: #61afef; }
 .git-file-status.untracked { color: #6bc46d; }
+.git-file-status.conflict { color: #e5c07b; font-weight: 700; }
 .git-file-name {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
   flex: 1;
@@ -242,6 +243,33 @@
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--primary); flex-shrink: 0;
 }
+
+/* Git init */
+.git-init-btn {
+  margin-top: 8px; padding: 6px 14px;
+  background: var(--primary); color: var(--bg);
+  border: none; border-radius: var(--radius-sm);
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: opacity 0.15s var(--ease-out);
+}
+.git-init-btn:hover { opacity: 0.85; }
+.git-init-btn.secondary {
+  background: var(--surface); color: var(--fg);
+  border: 1px solid var(--border);
+}
+.git-init-btn.secondary:hover { background: var(--border); }
+.git-remote-setup {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 10px; width: 100%;
+}
+.git-remote-input {
+  width: 100%; padding: 5px 8px;
+  background: var(--surface); color: var(--fg);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-family: var(--font-mono); font-size: 11px;
+  outline: none; box-sizing: border-box;
+}
+.git-remote-input:focus { border-color: var(--primary); }
 
 /* Scrollable content area */
 .git-scrollable {
