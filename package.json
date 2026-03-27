@@ -34,7 +34,10 @@
     "mac": {
       "target": "dmg",
       "icon": "public/icon.png",
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "win": {
       "target": [
