@@ -146,16 +146,20 @@ ipcRenderer.on("pty:data", (_e, { sessionId, data }) => {
 });
 
 ipcRenderer.on("pty:exit", (_e, { sessionId, exitCode, resume, lifetime }) => {
+  const t = terminals.get(sessionId);
+
+  // If the terminal was already removed from the map, the tab was closed
+  // intentionally (e.g. via context menu / close button) — don't delete the session.
+  if (!t) return;
+
+  // Auto-delete sessions that crash immediately on resume
   if (resume && lifetime < 5000 && exitCode !== 0) {
     deleteSession(sessionId);
     return;
   }
 
-  const t = terminals.get(sessionId);
-  if (t) {
-    t.alive = false;
-    t.term.write("\r\n\x1b[90m[session ended]\x1b[0m\r\n");
-  }
+  t.alive = false;
+  t.term.write("\r\n\x1b[90m[session ended]\x1b[0m\r\n");
   refreshLayout();
 });
 
