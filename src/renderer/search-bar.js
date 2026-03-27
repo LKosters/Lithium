@@ -1,7 +1,8 @@
 const app = require("./app");
 const { state } = require("./state");
-const { shortDir } = require("./helpers");
-const { createSessionAndOpen, renderDirDropdown, renderSessionList: renderSharedSessionList } = require("./session-create");
+const { shortDir, escapeHtml, dirName } = require("./helpers");
+const { createSessionAndOpen, renderSessionList: renderSharedSessionList } = require("./session-create");
+const { getProjectIcon, frameworkCache, detectFrameworks } = require("./directory");
 
 // ── DOM elements ─────────────────────────────────────
 const searchBar = document.querySelector("#search-bar");
@@ -11,12 +12,8 @@ const searchBarResults = document.querySelector("#search-bar-results");
 const sbList = document.querySelector("#sb-list");
 const sbCreate = document.querySelector("#sb-create");
 const sbCreateName = document.querySelector("#sb-create-name");
-const sbDirBtn = document.querySelector("#sb-dir-btn");
-const sbDirLabel = document.querySelector("#sb-dir-label");
 const sbCreateBtn = document.querySelector("#sb-create-btn");
-const sbDirDropdown = document.querySelector("#sb-dir-dropdown");
-const sbDropdownTabs = document.querySelector("#sb-dropdown-tabs");
-const sbDirsList = document.querySelector("#sb-dirs-list");
+const sbProjectList = document.querySelector("#sb-project-list");
 const sbBrowseBtn = document.querySelector("#sb-browse-btn");
 
 const sbProviderSelector = document.querySelector("#sb-provider-selector");
@@ -26,7 +23,6 @@ const sbModelSelect = document.querySelector("#sb-model-select");
 let _sbSelectedIdx = 0;
 let _sbCreateMode = false;
 let _sbCreateDir = null;
-let _sbActiveTab = "favorites";
 let _sbKeyboardNav = false;
 let _sbSelectedProvider = "terminal";
 let _sbProviderData = [];
@@ -51,9 +47,6 @@ function openSearchBar() {
 }
 
 function closeSearchBar() {
-  if (_sbCreateMode) {
-    sbDirDropdown.classList.add("hidden");
-  }
   searchBar.classList.remove("focused");
   searchBarInput.value = "";
   searchBarResults.classList.add("hidden");
@@ -71,10 +64,12 @@ function isSearchBarOpen() {
 async function sbShowCreateForm() {
   _sbCreateMode = true;
   sbCreate.classList.remove("hidden");
-  sbDirLabel.textContent = _sbCreateDir ? shortDir(_sbCreateDir) : "Select directory...";
   sbCreateName.value = searchBarInput.value.trim();
   sbCreateName.focus();
   sbCreateName.select();
+
+  // Render the project list
+  await renderSbProjectList();
 
   // Load default agent from settings
   try {
@@ -96,8 +91,9 @@ async function sbShowCreateForm() {
 function sbDoCreate() {
   const name = sbCreateName.value.trim();
   if (!_sbCreateDir) {
-    sbDirBtn.style.borderColor = "var(--primary)";
-    setTimeout(() => sbDirBtn.style.borderColor = "", 1000);
+    // Flash the project list to indicate selection needed
+    sbProjectList.style.borderColor = "var(--primary)";
+    setTimeout(() => sbProjectList.style.borderColor = "", 1000);
     return;
   }
   const model = (_sbSelectedProvider !== "terminal" && sbModelSelect.value) ? sbModelSelect.value : null;
@@ -141,6 +137,68 @@ async function sbLoadProviders() {
   }
 }
 
+async function renderSbProjectList() {
+  if (!sbProjectList) return;
+
+  // Build project list same as sidebar: starred first, then recent, then session dirs
+  const seen = new Set();
+  const allDirs = [];
+  const sessionDirs = new Set(
+    state.sessions.map((s) => s.directory).filter(Boolean),
+  );
+
+  for (const d of state.starredDirs) {
+    if (!seen.has(d)) { seen.add(d); allDirs.push(d); }
+  }
+  for (const d of state.recentDirs) {
+    if (!seen.has(d)) { seen.add(d); allDirs.push(d); }
+  }
+  for (const d of sessionDirs) {
+    if (!seen.has(d)) { seen.add(d); allDirs.push(d); }
+  }
+
+  // Move current project to the top
+  if (state.currentDir && allDirs.includes(state.currentDir)) {
+    const idx = allDirs.indexOf(state.currentDir);
+    allDirs.splice(idx, 1);
+    allDirs.unshift(state.currentDir);
+  }
+
+  // Detect frameworks for uncached dirs
+  await detectFrameworks(allDirs);
+
+  let html = "";
+  for (const dir of allDirs) {
+    const isSelected = dir === _sbCreateDir;
+    const selectedClass = isSelected ? "selected" : "";
+    const icon = getProjectIcon(frameworkCache.get(dir));
+    const sessionCount = state.sessions.filter((s) => s.directory === dir).length;
+    html += `<div class="sb-project-item ${selectedClass}" data-dir="${escapeHtml(dir)}" title="${escapeHtml(shortDir(dir))}">
+      <span class="sb-project-item-icon">${icon}</span>
+      <span class="sb-project-item-name">${escapeHtml(dirName(dir))}</span>
+      ${sessionCount > 0 ? `<span class="sb-project-item-count">${sessionCount}</span>` : ""}
+    </div>`;
+  }
+
+  if (allDirs.length === 0) {
+    html = `<div class="sb-project-empty">No projects yet</div>`;
+  }
+
+  sbProjectList.innerHTML = html;
+
+  // Click to select project
+  sbProjectList.querySelectorAll(".sb-project-item[data-dir]").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      _sbCreateDir = el.dataset.dir;
+      // Update selection
+      sbProjectList.querySelectorAll(".sb-project-item").forEach((item) => {
+        item.classList.toggle("selected", item.dataset.dir === _sbCreateDir);
+      });
+    });
+  });
+}
+
 function renderSbList(query) {
   const { totalItems } = renderSharedSessionList({
     query,
@@ -175,21 +233,6 @@ function updateSbSelection() {
     if (sel) sel.scrollIntoView({ block: "nearest" });
     _sbKeyboardNav = false;
   }
-}
-
-function renderSbDirList() {
-  renderDirDropdown({
-    tabsEl: sbDropdownTabs,
-    listEl: sbDirsList,
-    dropdownEl: sbDirDropdown,
-    tabAttr: "sbTab",
-    activeTab: _sbActiveTab,
-    onSelectDir: (dir) => {
-      _sbCreateDir = dir;
-      sbDirLabel.textContent = shortDir(dir);
-    },
-    onTabChange: (tab) => { _sbActiveTab = tab; },
-  });
 }
 
 // ── Event listeners ──────────────────────────────────
@@ -257,38 +300,15 @@ sbCreateName.addEventListener("keydown", (e) => {
   }
 });
 
-sbDirBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  const isHidden = sbDirDropdown.classList.contains("hidden");
-  if (isHidden) {
-    _sbActiveTab = state.starredDirs.length > 0 ? "favorites" : "recent";
-    renderSbDirList();
-    sbDirDropdown.classList.remove("hidden");
-  } else {
-    app.animateClose(sbDirDropdown, "dropOut", 150);
-  }
-});
-
-sbDropdownTabs.querySelectorAll(".dropdown-tab").forEach((tab) => {
-  tab.addEventListener("click", (e) => {
-    e.stopPropagation();
-    _sbActiveTab = tab.dataset.sbTab;
-    renderSbDirList();
-  });
-});
-
-sbDirDropdown.addEventListener("click", (e) => { e.stopPropagation(); });
-
 sbBrowseBtn.addEventListener("click", async (e) => {
   e.stopPropagation();
   const result = await app.ipcRenderer.invoke("directory:pick");
   if (result) {
     _sbCreateDir = result.dir;
-    sbDirLabel.textContent = shortDir(result.dir);
     state.recentDirs = result.recents;
     state.starredDirs = result.starred || [];
+    await renderSbProjectList();
   }
-  app.animateClose(sbDirDropdown, "dropOut", 150);
 });
 
 sbCreateBtn.addEventListener("click", sbDoCreate);
