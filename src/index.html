@@ -1805,13 +1805,25 @@
                             <div class="settings-row-label">
                                 <span class="settings-row-name">Version</span>
                             </div>
-                            <span class="settings-row-value">1.0.0</span>
+                            <span id="about-version" class="settings-row-value"></span>
                         </div>
                         <div class="settings-row">
                             <div class="settings-row-label">
                                 <span class="settings-row-name">Electron</span>
                             </div>
                             <span class="settings-row-value">33.x</span>
+                        </div>
+                    </div>
+                    <div class="settings-group" style="margin-top: 16px;">
+                        <div class="settings-row settings-row-update">
+                            <div class="settings-row-label">
+                                <span class="settings-row-name">Updates</span>
+                                <span id="update-status" class="settings-row-desc">Click to check for updates</span>
+                            </div>
+                            <div class="update-actions">
+                                <button id="btn-check-update" class="settings-btn-sm settings-btn-primary">Check for Updates</button>
+                                <button id="btn-download-update" class="settings-btn-sm settings-btn-accent hidden">Download Update</button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -3,6 +3,7 @@
   "version": "0.3.0",
   "description": "Lithium — UI for Claude Code",
   "author": "Laurens Kosters",
+  "license": "CC-BY-NC-4.0",
   "main": "main.js",
   "productName": "Lithium",
   "scripts": {

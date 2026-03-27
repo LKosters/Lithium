@@ -380,5 +380,22 @@
 }
 .settings-server-error.hidden { display: none; }
 
+/* ── Update checker ───────────────────────────────── */
+.update-actions {
+  display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+}
+
+.settings-btn-sm:disabled {
+  opacity: 0.5; cursor: not-allowed;
+}
+
+.settings-btn-accent {
+  border-color: var(--primary); background: var(--primary); color: var(--bg);
+}
+.settings-btn-accent:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.settings-btn-accent.hidden { display: none; }
+
 #btn-settings.active { background: var(--primary-soft); color: var(--primary); }
 #btn-git.active { background: var(--primary-soft); color: var(--primary); }

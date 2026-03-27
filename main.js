@@ -27,7 +27,9 @@ require("./src/main/project");
 // Register agent provider handlers
 const { registerAgentHandlers, stopAllServers } = require("./src/main/agents");
 const { startBrowserBridge, stopBrowserBridge, registerBridgeIPC } = require("./src/main/browser-bridge");
+const { registerUpdaterHandlers } = require("./src/main/updater");
 registerAgentHandlers();
+registerUpdaterHandlers();
 
 // ── Window ─────────────────────────────────────────────
 function createWindow() {
