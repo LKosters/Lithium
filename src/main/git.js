@@ -30,6 +30,16 @@ registerGitCommand("git:pull", () => ["pull"]);
 registerGitCommand("git:fetch", () => ["fetch"]);
 registerGitCommand("git:discard-file", ({ file }) => ["checkout", "--", file]);
 
+ipcMain.handle("git:init", async (_e, { cwd }) => {
+  const res = await runGit(["init"], cwd);
+  return res !== null;
+});
+
+ipcMain.handle("git:add-remote", async (_e, { cwd, url }) => {
+  const res = await runGit(["remote", "add", "origin", url], cwd);
+  return res !== null;
+});
+
 ipcMain.handle("git:status", async (_e, { cwd }) => {
   const branch = await runGit(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
   if (!branch) return null;
@@ -40,16 +50,20 @@ ipcMain.handle("git:status", async (_e, { cwd }) => {
 
   if (statusRaw) {
     for (const line of statusRaw.split("\n")) {
-      if (!line) continue;
+      if (line.length < 4) continue;          // XY + space + at least 1 char
       const x = line[0];
       const y = line[1];
       const file = line.substring(3);
+      if (!file) continue;                     // skip empty filenames
 
-      if (x !== " " && x !== "?") {
+      // Unmerged statuses (conflicts) — not real staged changes
+      const unmerged = (x === "U" || y === "U") || (x === "D" && y === "D") || (x === "A" && y === "A");
+
+      if (!unmerged && x !== " " && x !== "?") {
         staged.push({ file, status: x });
       }
       if (y !== " " || x === "?") {
-        changes.push({ file, status: x === "?" ? "?" : y });
+        changes.push({ file, status: x === "?" ? "?" : (unmerged ? "U" : y) });
       }
     }
   }

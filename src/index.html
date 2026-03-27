@@ -1110,6 +1110,21 @@
                     />
                 </svg>
                 <span>No git repository</span>
+                <button id="btn-git-init" class="git-init-btn" title="Initialize a git repository">
+                    Initialize Repository
+                </button>
+                <div id="git-remote-setup" class="git-remote-setup hidden">
+                    <input
+                        id="git-remote-url-input"
+                        class="git-remote-input"
+                        type="text"
+                        placeholder="Remote URL (optional)"
+                        spellcheck="false"
+                    />
+                    <button id="btn-git-add-remote" class="git-init-btn secondary" title="Add remote origin">
+                        Add Remote
+                    </button>
+                </div>
             </div>
         </aside>
 

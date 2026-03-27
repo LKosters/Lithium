@@ -12,6 +12,7 @@ const STATUS_MAP = {
   A: { label: "A", cls: "added" },
   D: { label: "D", cls: "deleted" },
   R: { label: "R", cls: "renamed" },
+  U: { label: "!", cls: "conflict" },
   "?": { label: "U", cls: "untracked" },
 };
 
@@ -405,6 +406,36 @@ document.querySelector("#git-commit-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
     commitChanges();
+  }
+});
+
+// ── Git Init ──────────────────────────────────────────
+document.querySelector("#btn-git-init").addEventListener("click", async () => {
+  const cwd = getCwd();
+  if (!cwd) return;
+  const ok = await app.ipcRenderer.invoke("git:init", { cwd });
+  if (ok) {
+    document.querySelector("#git-remote-setup").classList.remove("hidden");
+    refreshGit();
+  }
+});
+
+document.querySelector("#btn-git-add-remote").addEventListener("click", async () => {
+  const input = document.querySelector("#git-remote-url-input");
+  const url = input.value.trim();
+  if (!url) { input.focus(); return; }
+  const cwd = getCwd();
+  if (!cwd) return;
+  await app.ipcRenderer.invoke("git:add-remote", { cwd, url });
+  input.value = "";
+  document.querySelector("#git-remote-setup").classList.add("hidden");
+  refreshGit();
+});
+
+document.querySelector("#git-remote-url-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    document.querySelector("#btn-git-add-remote").click();
   }
 });
 
