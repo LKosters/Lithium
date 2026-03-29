@@ -4,6 +4,8 @@ const { escapeHtml, shortDir, timeAgo, dirName, getSession, groupSessionsByDir, 
 
 function renderSessionList() {
   const sessionListEl = app.dom.sessionListEl;
+  const btnNewSession = document.getElementById("btn-new-session");
+  if (btnNewSession) btnNewSession.style.display = state.currentDir ? "" : "none";
 
   // Filter sessions to only show those matching the current workspace
   const currentDir = state.currentDir;
