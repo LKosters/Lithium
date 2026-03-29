@@ -17,6 +17,35 @@ navItems.forEach((btn) => {
   });
 });
 
+// ── Sidebar view setting ────────────────────────────
+const sidebarViewBtns = document.querySelectorAll("[data-sidebar-view]");
+
+function setSidebarView(mode) {
+  localStorage.setItem("sidebarView", mode);
+  const sidebar = document.querySelector("#sidebar");
+  if (sidebar) {
+    sidebar.classList.toggle("sidebar-compact", mode === "compact");
+  }
+}
+
+function updateSidebarViewUI(mode) {
+  sidebarViewBtns.forEach((b) => b.classList.toggle("active", b.dataset.sidebarView === mode));
+}
+
+sidebarViewBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const mode = btn.dataset.sidebarView;
+    updateSidebarViewUI(mode);
+    setSidebarView(mode);
+  });
+});
+
+// Restore sidebar view on load
+(function restoreSidebarView() {
+  const saved = localStorage.getItem("sidebarView") || "default";
+  setSidebarView(saved);
+})();
+
 // ── Player mode setting ──────────────────────────────
 const playerModeBtns = document.querySelectorAll("[data-player-mode]");
 const previewFull = document.querySelector(".pm-preview-full");
@@ -43,6 +72,10 @@ function openSettings() {
   settingsOpen = true;
   settingsOverlay.classList.remove("hidden");
   btnSettings.classList.add("active");
+
+  // Restore current sidebar view in UI
+  const currentSidebarView = localStorage.getItem("sidebarView") || "default";
+  updateSidebarViewUI(currentSidebarView);
 
   // Restore current player mode in UI
   const currentMode = localStorage.getItem("playerMode") || "full";

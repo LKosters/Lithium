@@ -93,6 +93,48 @@
 }
 .project-item-btn:hover { color: var(--destructive); background: rgba(201,66,52,0.1); }
 .project-item-btn:active { transform: scale(0.88); }
+/* ── Compact sidebar view ────────────────────────── */
+.sidebar-compact .projects-panel {
+  width: 72px; min-width: 72px;
+}
+.sidebar-compact .projects-header {
+  justify-content: center; padding: 14px 6px 10px;
+}
+.sidebar-compact .projects-title {
+  font-size: 8px; letter-spacing: 0.12em;
+}
+.sidebar-compact .projects-list {
+  padding: 0 4px; gap: 2px;
+}
+.sidebar-compact .project-item {
+  flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 4px; text-align: center;
+}
+.sidebar-compact .project-item-icon {
+  width: 22px; height: 22px;
+}
+.sidebar-compact .project-item-icon svg {
+  width: 22px; height: 22px;
+}
+.sidebar-compact .project-item-name {
+  font-size: 9px; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+.sidebar-compact .project-item-count {
+  display: none;
+}
+.sidebar-compact .project-item-actions {
+  position: static; transform: none;
+  opacity: 0; height: 0; overflow: hidden;
+}
+.sidebar-compact .project-item:hover .project-item-actions {
+  opacity: 1; height: auto; margin-top: 2px;
+}
+.sidebar-compact .btn-add-workspace {
+  margin: 6px 6px 8px; padding: 6px;
+}
+
 .btn-add-workspace {
   display: flex; align-items: center; justify-content: center;
   margin: 6px 8px 8px; padding: 7px;
