@@ -22,6 +22,7 @@ const sidebarViewBtns = document.querySelectorAll("[data-sidebar-view]");
 
 function setSidebarView(mode) {
   localStorage.setItem("sidebarView", mode);
+  ipcRenderer.send("config:set", { key: "sidebarView", value: mode });
   const sidebar = document.querySelector("#sidebar");
   if (sidebar) {
     sidebar.classList.toggle("sidebar-compact", mode === "compact");
@@ -41,9 +42,10 @@ sidebarViewBtns.forEach((btn) => {
 });
 
 // Restore sidebar view on load
-(function restoreSidebarView() {
-  const saved = localStorage.getItem("sidebarView") || "default";
+(async function restoreSidebarView() {
+  const saved = await ipcRenderer.invoke("config:get", "sidebarView") || localStorage.getItem("sidebarView") || "default";
   setSidebarView(saved);
+  updateSidebarViewUI(saved);
 })();
 
 // ── Player mode setting ──────────────────────────────

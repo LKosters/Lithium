@@ -253,6 +253,25 @@ async function init() {
   initMusicPlayer().catch((err) => console.error("Music player init failed:", err));
 
   await restoreDevServer();
+
+  // Auto-check for updates
+  try {
+    const result = await ipcRenderer.invoke("updater:check");
+    if (result.updateAvailable) {
+      const toast = document.getElementById("update-toast");
+      const versionEl = document.getElementById("update-toast-version");
+      versionEl.textContent = `v${result.latestVersion} is ready`;
+      toast.classList.remove("hidden");
+
+      document.getElementById("btn-toast-update").addEventListener("click", () => {
+        ipcRenderer.send("updater:open-release", result.releaseUrl);
+        toast.classList.add("hidden");
+      });
+      document.getElementById("btn-toast-dismiss").addEventListener("click", () => {
+        toast.classList.add("hidden");
+      });
+    }
+  } catch {}
 }
 
 init();

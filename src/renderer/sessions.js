@@ -9,7 +9,7 @@ function renderSessionList() {
   const currentDir = state.currentDir;
   const filtered = currentDir
     ? state.sessions.filter((s) => s.directory === currentDir)
-    : state.sessions;
+    : [];
 
   // Sort by most recently updated
   const sorted = [...filtered].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -42,7 +42,7 @@ function renderSessionList() {
   if (sorted.length === 0) {
     html = currentDir
       ? `<div class="session-empty">No sessions in this workspace</div>`
-      : `<div class="session-empty">Select a project to see sessions</div>`;
+      : `<div class="session-empty">Select a project to view sessions</div>`;
   }
 
   sessionListEl.innerHTML = html;
