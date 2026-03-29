@@ -1743,6 +1743,18 @@
                                     </label>
                                 </div>
                             </div>
+                            <div class="settings-row">
+                                <div class="settings-row-label">
+                                    <span class="settings-row-name">Claude</span>
+                                    <span class="settings-row-desc">Claude Agent &mdash; uses your Anthropic / Claude account</span>
+                                </div>
+                                <div class="settings-row-action">
+                                    <label class="settings-toggle">
+                                        <input type="checkbox" id="toggle-acp-claude" data-acp-toggle="claude-acp">
+                                        <span class="settings-toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Tool Approval -->
@@ -1797,6 +1809,22 @@
                                     </div>
                                 </div>
                                 <span id="cursor-acp-server-error" class="settings-server-error hidden"></span>
+                            </div>
+                            <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+                                    <div class="settings-row-label">
+                                        <span class="settings-row-name">Claude ACP</span>
+                                        <span class="settings-row-desc">claude-agent-acp process</span>
+                                    </div>
+                                    <div class="settings-row-action" style="display:flex;align-items:center;gap:10px;">
+                                        <span style="display:flex;align-items:center;gap:6px;">
+                                            <span id="claude-acp-server-dot" style="width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;"></span>
+                                            <span id="claude-acp-server-label">Stopped</span>
+                                        </span>
+                                        <button id="btn-claude-acp-server-toggle" data-acp-server="claude-acp" class="settings-btn-sm settings-btn-primary">Start</button>
+                                    </div>
+                                </div>
+                                <span id="claude-acp-server-error" class="settings-server-error hidden"></span>
                             </div>
                         </div>
                     </div>

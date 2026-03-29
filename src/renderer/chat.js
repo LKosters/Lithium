@@ -372,18 +372,41 @@ function renderStreamInline(cs, container, sessionId) {
         actionsHtml = `<span class="chat-tool-approval-result">${label}</span>`;
       } else {
         actionsHtml = `<div class="chat-tool-approval-actions">
+          <button class="chat-tool-approval-allow-always" title="Allow this tool for the entire project">Always</button>
           <button class="chat-tool-approval-allow">Allow</button>
           <button class="chat-tool-approval-deny">Deny</button>
         </div>`;
       }
 
+      const descHtml = part.description
+        ? `<pre class="chat-tool-approval-code">${escapeHtml(part.description)}</pre>`
+        : "";
+
       el.innerHTML = `<div class="chat-tool-approval-info">${shieldIcon}<span class="chat-tool-approval-title">${escapeHtml(part.title)}</span></div>
-        <div class="chat-tool-approval-desc">${escapeHtml(part.description)}</div>
+        ${descHtml}
         ${actionsHtml}`;
 
       if (!part.resolved) {
+        const alwaysBtn = el.querySelector(".chat-tool-approval-allow-always");
         const allowBtn = el.querySelector(".chat-tool-approval-allow");
         const denyBtn = el.querySelector(".chat-tool-approval-deny");
+
+        alwaysBtn.addEventListener("click", () => {
+          const allowOpt = part.options.find(o => o.kind === "allow_always")
+            || part.options.find(o => o.kind === "allow_once")
+            || part.options[0];
+          const optionId = allowOpt ? allowOpt.optionId : "allow_once";
+          part.resolved = true;
+          part.result = "allowed";
+          app.ipcRenderer.send("agent:permission-response", {
+            permissionId: part.permissionId,
+            optionId,
+            provider: cs.provider,
+            alwaysAllow: true,
+          });
+          const paneEl = document.querySelector(`.chat-pane[data-session-id="${sessionId}"]`);
+          if (paneEl) renderMessages(sessionId, paneEl);
+        });
 
         allowBtn.addEventListener("click", () => {
           const allowOpt = part.options.find(o => o.kind === "allow_always")

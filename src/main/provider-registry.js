@@ -18,14 +18,13 @@ const PROVIDER_CONFIGS = [
     args: ["acp"],
     authMethodId: "cursor_login",
   },
-  // To add a new ACP provider, add an entry like:
-  // {
-  //   id: "my-agent",
-  //   label: "My Agent",
-  //   command: "my-agent-binary",
-  //   args: ["acp"],
-  //   authMethodId: "my_auth",   // or null if no auth needed
-  // },
+  {
+    id: "claude-acp",
+    label: "Claude",
+    command: "npx",
+    args: ["@agentclientprotocol/claude-agent-acp"],
+    authMethodId: "claude-login",
+  },
 ];
 
 // Build server managers and provider instances from config

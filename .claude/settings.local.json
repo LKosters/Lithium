@@ -51,7 +51,8 @@
       "WebFetch(domain:kiro.dev)",
       "WebFetch(domain:dev.to)",
       "Bash(cd \"/Users/laurenskosters/Downloads/Project SynthCode/SyntCode Design\" && node -c src/main/agents.js && node -c src/main/acp-server.js && node -c src/main/cursor-acp-server.js && node -c src/renderer/settings.js && node -c src/renderer/tabs.js && echo \"All JS files parse OK\")",
-      "Bash(grep -r \"sessionListEl\\\\|sessionList\\\\|session.list\\\\|session-list\" /Users/laurenskosters/Downloads/Project\\\\ SynthCode/SyntCode\\\\ Design/src --include=\"*.js\" --include=\"*.html\" 2>/dev/null | head -20)"
+      "Bash(grep -r \"sessionListEl\\\\|sessionList\\\\|session.list\\\\|session-list\" /Users/laurenskosters/Downloads/Project\\\\ SynthCode/SyntCode\\\\ Design/src --include=\"*.js\" --include=\"*.html\" 2>/dev/null | head -20)",
+      "Bash(grep -r \"currentDir\" /Users/laurenskosters/Downloads/Project\\\\ SynthCode/SyntCode\\\\ Design/src/renderer/*.js 2>/dev/null | grep -v node_modules)"
     ]
   }
 }

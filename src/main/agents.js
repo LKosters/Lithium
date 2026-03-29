@@ -209,11 +209,11 @@ function registerAgentHandlers() {
   });
 
   // Permission response from renderer
-  ipcMain.on("agent:permission-response", (_e, { permissionId, optionId, provider: providerName }) => {
-    console.log("[agents] Permission response — provider:", providerName, "permId:", permissionId, "optionId:", optionId);
+  ipcMain.on("agent:permission-response", (_e, { permissionId, optionId, provider: providerName, alwaysAllow }) => {
+    console.log("[agents] Permission response — provider:", providerName, "permId:", permissionId, "optionId:", optionId, alwaysAllow ? "(always)" : "");
     const p = getProvider(providerName);
     if (p && typeof p.respondPermission === "function") {
-      p.respondPermission(permissionId, optionId);
+      p.respondPermission(permissionId, optionId, !!alwaysAllow);
     } else {
       console.warn("[agents] No provider or respondPermission for:", providerName);
     }

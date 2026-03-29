@@ -201,7 +201,7 @@ async function init() {
   state.starredDirs = dirData.starred || [];
   renderRecentDirs();
 
-  const savedDir = localStorage.getItem("currentDir");
+  const savedDir = await ipcRenderer.invoke("config:get", "currentDir") || localStorage.getItem("currentDir");
   if (savedDir) setDirectory(savedDir);
 
   state.sessions = await ipcRenderer.invoke("sessions:list");

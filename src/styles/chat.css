@@ -692,11 +692,26 @@
   color: var(--muted);
   margin: 4px 0 6px 18px;
 }
+.chat-tool-approval-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin: 4px 0 6px 18px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 120px;
+  overflow-y: auto;
+}
 .chat-tool-approval-actions {
   display: flex;
   gap: 6px;
   margin-left: 18px;
 }
+.chat-tool-approval-allow-always,
 .chat-tool-approval-allow,
 .chat-tool-approval-deny {
   font-size: 11px;
@@ -706,6 +721,15 @@
   cursor: pointer;
   font-family: var(--font-mono);
   transition: all 0.15s var(--ease-out);
+}
+.chat-tool-approval-allow-always {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--primary-border);
+}
+.chat-tool-approval-allow-always:hover {
+  background: rgba(232,168,56,0.18);
+  border-color: var(--primary);
 }
 .chat-tool-approval-allow {
   background: var(--secondary);

@@ -69,6 +69,7 @@ function setDirectory(dir) {
   state.currentDir = dir;
   currentDirLabel.textContent = shortDir(dir);
   localStorage.setItem("currentDir", dir);
+  app.ipcRenderer.send("config:set", { key: "currentDir", value: dir });
   app.ipcRenderer.send("directory:add-recent", dir);
   if (app.refreshGit) app.refreshGit();
   if (app.checkDevServerAvailable) app.checkDevServerAvailable();
@@ -296,6 +297,7 @@ function removeWorkspace(dir) {
     state.currentDir = null;
     currentDirLabel.textContent = "";
     localStorage.removeItem("currentDir");
+    app.ipcRenderer.send("config:set", { key: "currentDir", value: null });
   }
   renderProjectsList();
   renderRecentDirs();

@@ -2,6 +2,7 @@
 // for any ACP-compatible agent. Each call returns an independent server instance.
 const { spawn } = require("child_process");
 const path = require("path");
+const fs = require("fs");
 const { getBridgePort } = require("./browser-bridge");
 const { loadConfig } = require("./config");
 
@@ -124,7 +125,10 @@ function createACPServerManager(config) {
     try {
       const initResult = await sendRequest("initialize", {
         protocolVersion: 1,
-        clientCapabilities: {},
+        clientCapabilities: {
+          permissions: { supported: true },
+          _meta: { terminal_output: true },
+        },
         clientInfo: {
           name: "lithium",
           title: "Lithium",
@@ -164,6 +168,86 @@ function createACPServerManager(config) {
     }
   }
 
+  // ── Per-project tool approval ──────────────────────
+  // Generic/default names that should never be auto-approved or saved
+  const GENERIC_TOOL_NAMES = ["Tool call", "Unknown", "tool_call"];
+
+  function getApprovedToolsPath(cwd) {
+    if (!cwd) return null;
+    return path.join(cwd, ".lithium", "approved-tools.json");
+  }
+
+  function loadApprovedTools(cwd) {
+    const p = getApprovedToolsPath(cwd);
+    if (!p) return [];
+    try {
+      return JSON.parse(fs.readFileSync(p, "utf-8"));
+    } catch {
+      return [];
+    }
+  }
+
+  function saveApprovedTool(cwd, toolName) {
+    if (!cwd || !toolName) return;
+    // Never save generic/default tool names
+    if (GENERIC_TOOL_NAMES.includes(toolName)) return;
+    const dirPath = path.join(cwd, ".lithium");
+    fs.mkdirSync(dirPath, { recursive: true });
+    const approved = loadApprovedTools(cwd);
+    // Also clean out any stale generic entries
+    const cleaned = approved.filter(a => !GENERIC_TOOL_NAMES.includes(a));
+    if (!cleaned.includes(toolName)) {
+      cleaned.push(toolName);
+    }
+    fs.writeFileSync(getApprovedToolsPath(cwd), JSON.stringify(cleaned, null, 2));
+  }
+
+  function isToolApproved(cwd, title) {
+    if (!cwd || !title) return false;
+    const toolName = title.split(":")[0].split("(")[0].trim();
+    // Never auto-approve generic/default names
+    if (GENERIC_TOOL_NAMES.includes(toolName)) return false;
+    const approved = loadApprovedTools(cwd);
+    return approved.some(a => !GENERIC_TOOL_NAMES.includes(a) && (toolName.startsWith(a) || a === toolName));
+  }
+
+  // Gate a direct tool operation behind the approval UI
+  function requireToolApproval(msgId, toolTitle, description, kind) {
+    const cfg = loadConfig();
+    const mode = cfg.toolApprovalMode || "manual";
+
+    if (mode === "auto") {
+      console.log(`${prefix} Auto-approving ${toolTitle} (auto mode)`);
+      sendRaw({ jsonrpc: "2.0", id: msgId, result: {} });
+      return;
+    }
+
+    if (isToolApproved(currentSpawnCwd, toolTitle)) {
+      console.log(`${prefix} "${toolTitle}" is project-approved, auto-allowing`);
+      sendRaw({ jsonrpc: "2.0", id: msgId, result: {} });
+      return;
+    }
+
+    // Manual mode — require user approval
+    const options = [
+      { optionId: "allow_once", kind: "allow_once", label: "Allow" },
+      { optionId: "allow_always", kind: "allow_always", label: "Always Allow" },
+      { optionId: "deny", kind: "deny", label: "Deny" },
+    ];
+    pendingPermissions.set(msgId, { msgId, options, title: toolTitle, directAck: true });
+    console.log(`${prefix} Tool "${toolTitle}" pending approval, permId:`, msgId);
+
+    if (onPermissionCallback) {
+      onPermissionCallback({
+        permissionId: msgId,
+        title: toolTitle,
+        description,
+        kind,
+        options,
+      });
+    }
+  }
+
   function handleMessage(msg) {
     if (msg.id != null && pendingRequests.has(msg.id)) {
       const req = pendingRequests.get(msg.id);
@@ -192,12 +276,37 @@ function createACPServerManager(config) {
     }
 
     if (msg.method && msg.id != null) {
-      console.log(`${prefix} Agent request:`, msg.method, JSON.stringify(msg.params).slice(0, 500));
+      const logLen = msg.method === "session/request_permission" ? 2000 : 500;
+      console.log(`${prefix} Agent request:`, msg.method, JSON.stringify(msg.params).slice(0, logLen));
 
       if (msg.method === "session/request_permission") {
         const cfg = loadConfig();
         const mode = cfg.toolApprovalMode || "manual";
         const options = msg.params?.options || [];
+        const toolCall = msg.params?.toolCall || {};
+        const title = toolCall.title || msg.params?.title || msg.params?.name || "Tool call";
+        const kind = toolCall.kind || msg.params?.kind || "";
+        const content = toolCall.content || msg.params?.content || [];
+
+        // Build a readable description from toolCall content
+        let description = msg.params?.description || toolCall.description || "";
+        if (!description && content.length > 0) {
+          description = content
+            .map(c => {
+              if (c.type === "text") return c.text;
+              if (c.type === "code") return c.code;
+              if (typeof c === "string") return c;
+              return "";
+            })
+            .filter(Boolean)
+            .join("\n");
+        }
+        // If still no description, try to extract from params directly
+        if (!description && msg.params?.command) {
+          description = msg.params.command;
+        }
+
+        console.log(`${prefix} Permission — title: "${title}", kind: "${kind}", description: "${(description || "").slice(0, 200)}"`);
 
         if (mode === "auto") {
           const allowOpt = options.find(o => o.kind === "allow_always")
@@ -210,21 +319,62 @@ function createACPServerManager(config) {
             id: msg.id,
             result: { outcome: { outcome: "selected", optionId } },
           });
+        } else if (isToolApproved(currentSpawnCwd, title)) {
+          // Tool is approved for this project — auto-allow
+          const allowOpt = options.find(o => o.kind === "allow_always")
+            || options.find(o => o.kind === "allow_once")
+            || options[0];
+          const optionId = allowOpt ? allowOpt.optionId : "allow_once";
+          console.log(`${prefix} Tool "${title}" is project-approved, auto-allowing`);
+          sendRaw({
+            jsonrpc: "2.0",
+            id: msg.id,
+            result: { outcome: { outcome: "selected", optionId } },
+          });
         } else {
           // Manual mode — store pending and notify UI
           const permId = msg.id;
-          pendingPermissions.set(permId, { msgId: msg.id, options });
+          pendingPermissions.set(permId, { msgId: msg.id, options, title });
           console.log(`${prefix} Permission request pending (manual mode), permId:`, permId);
           if (onPermissionCallback) {
             onPermissionCallback({
               permissionId: permId,
-              title: msg.params?.title || "Tool call",
-              description: msg.params?.description || "",
+              title,
+              description,
+              kind,
               options,
             });
           }
         }
+      } else if (msg.method === "terminal/create") {
+        // Terminal create — requires approval (this runs a command)
+        const cmdParts = [];
+        if (msg.params?.command) cmdParts.push(msg.params.command);
+        if (msg.params?.args) cmdParts.push(...(Array.isArray(msg.params.args) ? msg.params.args : [msg.params.args]));
+        if (msg.params?.cmd) cmdParts.push(msg.params.cmd);
+        const cmdDesc = cmdParts.join(" ") || JSON.stringify(msg.params || {}).slice(0, 500);
+        const toolTitle = "Terminal";
+
+        requireToolApproval(msg.id, toolTitle, cmdDesc, "command");
+      } else if (msg.method === "fs/write_text_file") {
+        // File write — requires approval
+        const filePath = msg.params?.path || "Unknown file";
+        const contentPreview = (msg.params?.content || "").slice(0, 500);
+        const toolTitle = "Write File";
+        const desc = `${filePath}\n\n${contentPreview}${(msg.params?.content || "").length > 500 ? "\n..." : ""}`;
+
+        requireToolApproval(msg.id, toolTitle, desc, "edit");
+      } else if (msg.method === "fs/read_text_file") {
+        // File read — auto-approve (safe, read-only)
+        console.log(`${prefix} File read (auto-ack):`, msg.params?.path || "");
+        sendRaw({ jsonrpc: "2.0", id: msg.id, result: {} });
+      } else if (msg.method === "terminal/output" || msg.method === "terminal/release"
+        || msg.method === "terminal/wait_for_exit" || msg.method === "terminal/kill") {
+        // Terminal lifecycle ops — auto-ack (the create was already approved)
+        console.log(`${prefix} Terminal op (auto-ack):`, msg.method);
+        sendRaw({ jsonrpc: "2.0", id: msg.id, result: {} });
       } else {
+        console.log(`${prefix} Unknown agent request (auto-ack):`, msg.method);
         sendRaw({ jsonrpc: "2.0", id: msg.id, result: {} });
       }
     }
@@ -296,19 +446,41 @@ function createACPServerManager(config) {
     onPermissionCallback = cb;
   }
 
-  function respondPermission(permissionId, optionId) {
+  function respondPermission(permissionId, optionId, alwaysAllow) {
     const pending = pendingPermissions.get(permissionId);
     if (!pending) {
       console.warn(`${prefix} No pending permission for id:`, permissionId);
       return;
     }
     pendingPermissions.delete(permissionId);
-    console.log(`${prefix} Responding to permission ${permissionId} with optionId:`, optionId);
-    sendRaw({
-      jsonrpc: "2.0",
-      id: pending.msgId,
-      result: { outcome: { outcome: "selected", optionId } },
-    });
+    console.log(`${prefix} Responding to permission ${permissionId} with optionId:`, optionId, alwaysAllow ? "(always allow)" : "");
+
+    // If "always allow" was chosen, save the tool name to the project's approved list
+    if (alwaysAllow && currentSpawnCwd && pending.title) {
+      const toolName = pending.title.split(":")[0].split("(")[0].trim();
+      saveApprovedTool(currentSpawnCwd, toolName);
+      console.log(`${prefix} Saved "${toolName}" as approved tool for project:`, currentSpawnCwd);
+    }
+
+    if (pending.directAck) {
+      // Direct tool operation (terminal/create, fs/write_text_file) — send simple ack or error
+      if (optionId === "deny") {
+        sendRaw({
+          jsonrpc: "2.0",
+          id: pending.msgId,
+          error: { code: -32000, message: "User denied the operation" },
+        });
+      } else {
+        sendRaw({ jsonrpc: "2.0", id: pending.msgId, result: {} });
+      }
+    } else {
+      // Standard session/request_permission response
+      sendRaw({
+        jsonrpc: "2.0",
+        id: pending.msgId,
+        result: { outcome: { outcome: "selected", optionId } },
+      });
+    }
   }
 
   function isRunning() {
