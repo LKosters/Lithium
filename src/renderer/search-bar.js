@@ -14,18 +14,13 @@ const sbCreate = document.querySelector("#sb-create");
 const sbCreateName = document.querySelector("#sb-create-name");
 const sbCreateBtn = document.querySelector("#sb-create-btn");
 const sbProjectList = document.querySelector("#sb-project-list");
-const sbBrowseBtn = document.querySelector("#sb-browse-btn");
-
-const sbProviderSelector = document.querySelector("#sb-provider-selector");
-const sbModelRow = document.querySelector("#sb-model-row");
-const sbModelSelect = document.querySelector("#sb-model-select");
+const sbProjectSearch = document.querySelector("#sb-project-search");
 
 let _sbSelectedIdx = 0;
 let _sbCreateMode = false;
 let _sbCreateDir = null;
 let _sbKeyboardNav = false;
 let _sbSelectedProvider = "terminal";
-let _sbProviderData = [];
 
 // ── Functions ────────────────────────────────────────
 function updateSearchBarWorkspace() {
@@ -51,6 +46,7 @@ function closeSearchBar() {
   searchBarInput.value = "";
   searchBarResults.classList.add("hidden");
   sbCreate.classList.add("hidden");
+  sbList.classList.remove("hidden");
   _sbSelectedIdx = 0;
   _sbCreateMode = false;
   searchBarWorkspace.classList.remove("hidden");
@@ -64,12 +60,11 @@ function isSearchBarOpen() {
 async function sbShowCreateForm() {
   _sbCreateMode = true;
   sbCreate.classList.remove("hidden");
+  sbList.classList.add("hidden");
   sbCreateName.value = searchBarInput.value.trim();
   sbCreateName.focus();
   sbCreateName.select();
-
-  // Render the project list
-  await renderSbProjectList();
+  if (sbProjectSearch) sbProjectSearch.value = "";
 
   // Load default agent from settings
   try {
@@ -77,15 +72,9 @@ async function sbShowCreateForm() {
   } catch {
     _sbSelectedProvider = "terminal";
   }
-  await sbLoadProviders();
 
-  // If a non-terminal default has a saved model, pre-select it
-  if (_sbSelectedProvider !== "terminal") {
-    try {
-      const savedModel = await app.ipcRenderer.invoke("agent:get-default-model", _sbSelectedProvider);
-      if (savedModel && sbModelSelect) sbModelSelect.value = savedModel;
-    } catch {}
-  }
+  // Render the project list
+  await renderSbProjectList();
 }
 
 function sbDoCreate() {
@@ -96,48 +85,16 @@ function sbDoCreate() {
     setTimeout(() => sbProjectList.style.borderColor = "", 1000);
     return;
   }
-  const model = (_sbSelectedProvider !== "terminal" && sbModelSelect.value) ? sbModelSelect.value : null;
   createSessionAndOpen({
     name,
     dir: _sbCreateDir,
     provider: _sbSelectedProvider,
-    model,
+    model: null,
     onDone: closeSearchBar,
   });
 }
 
-function sbUpdateProviderUI() {
-  sbProviderSelector.querySelectorAll(".provider-option").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.provider === _sbSelectedProvider);
-  });
-
-  const provData = _sbProviderData.find((p) => p.name === _sbSelectedProvider);
-  if (provData && provData.models && provData.models.length > 0) {
-    sbModelRow.classList.remove("hidden");
-    sbModelSelect.innerHTML = provData.models
-      .map((m) => `<option value="${m}"${m === provData.defaultModel ? " selected" : ""}>${m}</option>`)
-      .join("");
-  } else {
-    sbModelRow.classList.add("hidden");
-  }
-
-  // Mark configured providers
-  for (const p of _sbProviderData) {
-    const btn = sbProviderSelector.querySelector(`[data-provider="${p.name}"]`);
-    if (btn) btn.classList.toggle("configured", p.configured);
-  }
-}
-
-async function sbLoadProviders() {
-  try {
-    _sbProviderData = await app.ipcRenderer.invoke("agent:providers");
-    sbUpdateProviderUI();
-  } catch (err) {
-    console.warn("Failed to load providers:", err.message);
-  }
-}
-
-async function renderSbProjectList() {
+async function renderSbProjectList(filter) {
   if (!sbProjectList) return;
 
   // Build project list same as sidebar: starred first, then recent, then session dirs
@@ -164,11 +121,17 @@ async function renderSbProjectList() {
     allDirs.unshift(state.currentDir);
   }
 
+  // Filter by search query
+  const q = (filter || "").toLowerCase();
+  const filteredDirs = q
+    ? allDirs.filter((d) => dirName(d).toLowerCase().includes(q))
+    : allDirs;
+
   // Detect frameworks for uncached dirs
-  await detectFrameworks(allDirs);
+  await detectFrameworks(filteredDirs);
 
   let html = "";
-  for (const dir of allDirs) {
+  for (const dir of filteredDirs) {
     const isSelected = dir === _sbCreateDir;
     const selectedClass = isSelected ? "selected" : "";
     const icon = getProjectIcon(frameworkCache.get(dir));
@@ -180,8 +143,10 @@ async function renderSbProjectList() {
     </div>`;
   }
 
-  if (allDirs.length === 0) {
-    html = `<div class="sb-project-empty">No projects yet</div>`;
+  if (filteredDirs.length === 0) {
+    html = q
+      ? `<div class="sb-project-empty">No matching projects</div>`
+      : `<div class="sb-project-empty">No projects yet</div>`;
   }
 
   sbProjectList.innerHTML = html;
@@ -248,6 +213,7 @@ searchBarInput.addEventListener("input", () => {
   _sbSelectedIdx = 0;
   _sbCreateMode = false;
   sbCreate.classList.add("hidden");
+  sbList.classList.remove("hidden");
   renderSbList(searchBarInput.value);
 });
 
@@ -296,29 +262,24 @@ sbCreateName.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     _sbCreateMode = false;
     sbCreate.classList.add("hidden");
+    sbList.classList.remove("hidden");
     searchBarInput.focus();
-  }
-});
-
-sbBrowseBtn.addEventListener("click", async (e) => {
-  e.stopPropagation();
-  const result = await app.ipcRenderer.invoke("directory:pick");
-  if (result) {
-    _sbCreateDir = result.dir;
-    state.recentDirs = result.recents;
-    state.starredDirs = result.starred || [];
-    await renderSbProjectList();
   }
 });
 
 sbCreateBtn.addEventListener("click", sbDoCreate);
 
-sbProviderSelector.querySelectorAll(".provider-option").forEach((btn) => {
-  btn.addEventListener("click", (e) => {
+sbProjectSearch.addEventListener("input", () => {
+  renderSbProjectList(sbProjectSearch.value);
+});
+
+sbProjectSearch.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
     e.stopPropagation();
-    _sbSelectedProvider = btn.dataset.provider;
-    sbUpdateProviderUI();
-  });
+    sbProjectSearch.value = "";
+    renderSbProjectList();
+    sbCreateName.focus();
+  }
 });
 
 // Close search bar when clicking outside

@@ -43,35 +43,14 @@
                             <div class="sb-create-row sb-create-row-top">
                                 <label class="sb-create-label">Project</label>
                             </div>
+                            <div class="sb-project-search-row">
+                                <svg class="sb-project-search-icon" width="12" height="12" viewBox="0 0 16 16" fill="none">
+                                    <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.3"/>
+                                    <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                                </svg>
+                                <input id="sb-project-search" class="sb-project-search" type="text" placeholder="Search projects..." spellcheck="false" autocomplete="off" />
+                            </div>
                             <div id="sb-project-list" class="sb-project-list"></div>
-                            <div class="sb-browse-row">
-                                <button id="sb-browse-btn" class="sb-browse-btn">
-                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                                        <path d="M2 13V3a1 1 0 011-1h4l2 2h4a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-                                    </svg>
-                                    Browse...
-                                </button>
-                            </div>
-                            <div class="sb-create-row">
-                                <label class="sb-create-label">Agent</label>
-                                <div id="sb-provider-selector" class="provider-selector">
-                                    <button class="provider-option active" data-provider="terminal">
-                                        <span class="provider-opt-icon"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 4l4 4-4 4M9 12h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                                        Terminal
-                                    </button>
-                                    <button class="provider-option" data-provider="acp">
-                                        <span class="provider-opt-icon"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="4" r="2" stroke="currentColor" stroke-width="1"/><circle cx="4" cy="12" r="2" stroke="currentColor" stroke-width="1"/><circle cx="12" cy="12" r="2" stroke="currentColor" stroke-width="1"/><path d="M8 6v2M6.3 10.3L7 8.5M9.7 10.3L9 8.5" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/></svg></span>
-                                        Codex
-                                        <span class="provider-opt-dot"></span>
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="sb-model-row" class="sb-create-row hidden">
-                                <label class="sb-create-label">Model</label>
-                                <div class="model-selector">
-                                    <select id="sb-model-select" class="model-select"></select>
-                                </div>
-                            </div>
                             <button id="sb-create-btn" class="sb-create-btn">Create</button>
                         </div>
                         <div id="sb-list" class="sb-list"></div>

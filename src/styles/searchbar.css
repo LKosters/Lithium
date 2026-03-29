@@ -251,18 +251,21 @@
   padding: 12px 10px; text-align: center;
   font-family: var(--font-sans); font-size: 11px; color: var(--muted);
 }
-.sb-browse-row {
-  padding: 4px 6px 0;
-}
-.sb-browse-btn {
+.sb-project-search-row {
   display: flex; align-items: center; gap: 6px;
-  width: 100%; padding: 5px 8px;
-  border: 1px dashed var(--border); border-radius: var(--radius-xs);
-  background: none; color: var(--muted);
+  padding: 0 4px 4px;
+  position: relative;
+}
+.sb-project-search-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-60%);
+  color: var(--muted); pointer-events: none;
+}
+.sb-project-search {
+  width: 100%; padding: 5px 8px 5px 28px;
+  border: 1px solid var(--border); border-radius: var(--radius-xs);
+  background: var(--surface); color: var(--fg);
   font-family: var(--font-sans); font-size: 11px;
-  cursor: pointer; transition: all 0.15s var(--ease-out);
+  outline: none; transition: border-color 0.15s var(--ease-out);
 }
-.sb-browse-btn:hover {
-  border-color: var(--primary-border); color: var(--primary);
-  background: var(--primary-soft);
-}
+.sb-project-search:focus { border-color: var(--primary); }
+.sb-project-search::placeholder { color: var(--muted); }
