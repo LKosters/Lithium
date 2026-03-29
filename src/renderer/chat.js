@@ -46,6 +46,13 @@ function renderMarkdown(text) {
   html = html.replace(/^\d+\. (.+)$/gm, '<li class="chat-li-num">$1</li>');
   html = html.replace(/((?:<li class="chat-li-num">.*<\/li>\n?)+)/g, '<ol class="chat-ol">$1</ol>');
 
+  // Strip stray newlines inside lists (prevents <br> gaps between items)
+  html = html.replace(/(<\/li>)\n+(<li )/g, "$1$2");
+  html = html.replace(/(<ul[^>]*>)\n+/g, "$1");
+  html = html.replace(/\n+(<\/ul>)/g, "$1");
+  html = html.replace(/(<ol[^>]*>)\n+/g, "$1");
+  html = html.replace(/\n+(<\/ol>)/g, "$1");
+
   // Paragraphs: double newline = paragraph break
   html = html.replace(/\n\n+/g, '</p><p class="chat-p">');
   html = html.replace(/\n/g, "<br>");
@@ -113,6 +120,11 @@ function createChatPane(sessionId, provider, model) {
               <rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor"/>
             </svg>
           </button>
+          <button class="chat-clear-btn" title="Clear context">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M2 4h12M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1M6.5 7v5M9.5 7v5M4 4l.8 9a1 1 0 001 .9h4.4a1 1 0 001-.9L12 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
       </div>
       <div class="chat-model-bar">
@@ -125,6 +137,7 @@ function createChatPane(sessionId, provider, model) {
   const inputEl = paneEl.querySelector(".chat-input");
   const sendBtn = paneEl.querySelector(".chat-send-btn");
   const stopBtn = paneEl.querySelector(".chat-stop-btn");
+  const clearBtn = paneEl.querySelector(".chat-clear-btn");
   const attachBtn = paneEl.querySelector(".chat-attach-btn");
   const modelSelect = paneEl.querySelector(".chat-model-select");
   const scrollBottomBtn = paneEl.querySelector(".chat-scroll-bottom");
@@ -210,6 +223,24 @@ function createChatPane(sessionId, provider, model) {
 
   stopBtn.addEventListener("click", () => {
     app.ipcRenderer.send("agent:abort", { sessionId, provider: cs.provider });
+    // Force end the stream on the UI side
+    cs.streaming = false;
+    cs.streamParts = [];
+    cs.streamStartTime = 0;
+    updateStreamUI(sessionId);
+    renderMessages(sessionId, paneEl);
+  });
+
+  clearBtn.addEventListener("click", () => {
+    cs.messages = [];
+    cs.streamParts = [];
+    cs.streaming = false;
+    cs.contextUsed = 0;
+    cs.contextSize = 0;
+    app.ipcRenderer.send("agent:clear-history", sessionId);
+    updateStreamUI(sessionId);
+    updateContextBar(sessionId);
+    renderMessages(sessionId, paneEl);
   });
 
   // Load existing history + context usage

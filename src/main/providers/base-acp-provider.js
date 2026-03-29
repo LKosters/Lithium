@@ -190,6 +190,10 @@ class BaseACPProvider {
     } catch (err) {
       this._activeCallbacks.delete(sessionId);
       this._resolvers.delete(sessionId);
+      // If aborted by user, return gracefully instead of throwing
+      if (err.message && err.message.includes("aborted")) {
+        return { content: fullTextHolder.fullText, role: "assistant", aborted: true };
+      }
       throw err;
     }
   }
@@ -197,6 +201,8 @@ class BaseACPProvider {
   abort(sessionId) {
     this._activeCallbacks.delete(sessionId);
     this._resolvers.delete(sessionId);
+    // Reject pending server requests to unblock the awaiting sendMessage
+    this.server.abortPendingRequests();
   }
 
   respondPermission(permissionId, optionId, alwaysAllow) {

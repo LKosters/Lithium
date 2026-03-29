@@ -497,6 +497,14 @@ function createACPServerManager(config) {
     return lastError;
   }
 
+  function abortPendingRequests() {
+    for (const [id, req] of pendingRequests) {
+      req.reject(new Error("Request aborted by user"));
+    }
+    pendingRequests.clear();
+    pendingPermissions.clear();
+  }
+
   return {
     start,
     stop,
@@ -509,6 +517,7 @@ function createACPServerManager(config) {
     setUpdateCallback,
     setPermissionCallback,
     respondPermission,
+    abortPendingRequests,
   };
 }
 

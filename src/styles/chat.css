@@ -47,6 +47,8 @@
 
 .chat-msg-content-user {
   color: var(--fg);
+  font-size: 15px;
+  font-weight: 600;
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
   margin-bottom: 2px;
@@ -59,7 +61,7 @@
 }
 
 .chat-p {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
 }
 .chat-p:last-child {
   margin-bottom: 0;
@@ -81,7 +83,7 @@
   font-family: var(--font-sans);
   font-weight: 600;
   color: var(--fg);
-  margin: 12px 0 4px;
+  margin: 8px 0 2px;
 }
 .chat-msg-content h2.chat-h { font-size: 15px; }
 .chat-msg-content h3.chat-h { font-size: 14px; }
@@ -133,10 +135,11 @@
 
 .chat-ul, .chat-ol {
   padding-left: 18px;
-  margin: 4px 0;
+  margin: 2px 0;
 }
 .chat-li, .chat-li-num {
-  margin: 2px 0;
+  margin: 0;
+  padding: 0;
   line-height: 1.5;
 }
 
@@ -387,6 +390,25 @@
 }
 .chat-stop-btn:hover {
   filter: brightness(1.1);
+}
+
+.chat-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s var(--ease-out);
+}
+.chat-clear-btn:hover {
+  color: var(--destructive);
+  background: rgba(255, 80, 80, 0.08);
 }
 
 /* ── Model bar (below input) ─────────────────────── */
