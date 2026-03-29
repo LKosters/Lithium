@@ -260,12 +260,31 @@ async function init() {
     if (result.updateAvailable) {
       const toast = document.getElementById("update-toast");
       const versionEl = document.getElementById("update-toast-version");
+      const btnUpdate = document.getElementById("btn-toast-update");
       versionEl.textContent = `v${result.latestVersion} is ready`;
       toast.classList.remove("hidden");
 
-      document.getElementById("btn-toast-update").addEventListener("click", () => {
-        ipcRenderer.send("updater:open-release", result.releaseUrl);
-        toast.classList.add("hidden");
+      btnUpdate.addEventListener("click", async () => {
+        if (result.downloadUrl) {
+          btnUpdate.disabled = true;
+          btnUpdate.textContent = "0%";
+          ipcRenderer.on("updater:download-progress", (_e, percent) => {
+            btnUpdate.textContent = `${percent}%`;
+          });
+          const res = await ipcRenderer.invoke("updater:download-and-install", {
+            downloadUrl: result.downloadUrl,
+            assetName: result.assetName,
+          });
+          if (res.error) {
+            btnUpdate.textContent = "Failed";
+            btnUpdate.disabled = false;
+            setTimeout(() => { btnUpdate.textContent = "Retry"; }, 2000);
+          }
+        } else {
+          // Fallback: no matching asset, open release page
+          ipcRenderer.send("updater:open-release", result.releaseUrl);
+          toast.classList.add("hidden");
+        }
       });
       document.getElementById("btn-toast-dismiss").addEventListener("click", () => {
         toast.classList.add("hidden");

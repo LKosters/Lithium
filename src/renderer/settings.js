@@ -302,7 +302,7 @@ const aboutVersion = document.querySelector("#about-version");
 const updateStatus = document.querySelector("#update-status");
 const btnCheckUpdate = document.querySelector("#btn-check-update");
 const btnDownloadUpdate = document.querySelector("#btn-download-update");
-let _releaseUrl = null;
+let _updateResult = null;
 
 // Show current version in about panel
 (async () => {
@@ -325,7 +325,9 @@ if (btnCheckUpdate) {
         updateStatus.textContent = `Failed to check: ${result.error}`;
       } else if (result.updateAvailable) {
         updateStatus.textContent = `New version available: v${result.latestVersion}`;
-        _releaseUrl = result.releaseUrl;
+        _updateResult = result;
+        btnDownloadUpdate.textContent = "Download & Install";
+        btnDownloadUpdate.disabled = false;
         btnDownloadUpdate.classList.remove("hidden");
       } else {
         updateStatus.textContent = `You're on the latest version (v${result.currentVersion})`;
@@ -340,8 +342,31 @@ if (btnCheckUpdate) {
 }
 
 if (btnDownloadUpdate) {
-  btnDownloadUpdate.addEventListener("click", () => {
-    if (_releaseUrl) ipcRenderer.send("updater:open-release", _releaseUrl);
+  btnDownloadUpdate.addEventListener("click", async () => {
+    if (!_updateResult) return;
+    if (_updateResult.downloadUrl) {
+      btnDownloadUpdate.disabled = true;
+      btnDownloadUpdate.textContent = "Downloading 0%";
+      updateStatus.textContent = "Downloading update...";
+      ipcRenderer.on("updater:download-progress", (_e, percent) => {
+        btnDownloadUpdate.textContent = `Downloading ${percent}%`;
+      });
+      const res = await ipcRenderer.invoke("updater:download-and-install", {
+        downloadUrl: _updateResult.downloadUrl,
+        assetName: _updateResult.assetName,
+      });
+      if (res.error) {
+        updateStatus.textContent = `Download failed: ${res.error}`;
+        btnDownloadUpdate.textContent = "Retry";
+        btnDownloadUpdate.disabled = false;
+      } else {
+        updateStatus.textContent = "Installing update...";
+        btnDownloadUpdate.textContent = "Installing...";
+      }
+    } else {
+      // Fallback if no matching asset
+      ipcRenderer.send("updater:open-release", _updateResult.releaseUrl);
+    }
   });
 }
 
