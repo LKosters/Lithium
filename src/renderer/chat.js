@@ -309,6 +309,30 @@ function sendMessage(sessionId, paneEl) {
   cs.attachedImages = [];
   renderImagePreviews(sessionId, paneEl);
 
+  // Auto-title: use first prompt as session title if still default
+  const sessionData = state.sessions.find((s) => s.id === sessionId);
+  if (sessionData && text) {
+    const defaultTitle = sessionData.directory
+      ? require("./helpers").shortDir(sessionData.directory)
+      : "";
+    const dirName = sessionData.directory
+      ? require("path").basename(sessionData.directory)
+      : "";
+    const isDefault = !sessionData.title
+      || sessionData.title === defaultTitle
+      || sessionData.title === dirName
+      || sessionData.title === "Session";
+    if (isDefault) {
+      const maxLen = 50;
+      sessionData.title = text.length > maxLen ? text.slice(0, maxLen) + "…" : text;
+      require("./helpers").persistSession(sessionData);
+      if (app.renderSessionList) app.renderSessionList();
+      // Update tab title in layout
+      const tabEl = document.querySelector(`.pane-tab[data-session-id="${sessionId}"] .pane-tab-title`);
+      if (tabEl) tabEl.textContent = sessionData.title;
+    }
+  }
+
   renderMessages(sessionId, paneEl);
 
   const cwd = state.currentDir || null;
