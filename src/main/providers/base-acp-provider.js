@@ -174,7 +174,7 @@ class BaseACPProvider {
     if (text) promptParts.push({ type: "text", text });
     for (const img of images) {
       const base64 = img.dataUrl.replace(/^data:[^;]+;base64,/, "");
-      promptParts.push({ type: "image", image: base64, mimeType: img.mimeType });
+      promptParts.push({ type: "image", data: base64, mimeType: img.mimeType });
     }
     if (promptParts.length === 0) promptParts.push({ type: "text", text: "" });
 
