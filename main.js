@@ -2,6 +2,11 @@ const { app, BrowserWindow, Menu, ipcMain, dialog, protocol, net } = require("el
 const path = require("path");
 const fs = require("fs");
 
+// Fix PATH before loading any module that spawns child processes — GUI-launched
+// Electron apps don't inherit the login shell's PATH, which breaks `env node`
+// shebangs used by claude / npx / codex-acp. Must run before pty/agents load.
+require("./src/main/shell-env").fixPath();
+
 // ── Load modules ──────────────────────────────────────
 const {
   ensureDirs,
