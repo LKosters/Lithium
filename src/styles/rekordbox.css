@@ -1,0 +1,252 @@
+/* ── Rekordbox DJ panel ───────────────────────────────── */
+#rekordbox-panel {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: 1fr 180px 1fr;
+  gap: 10px;
+  padding: 10px 14px 12px;
+  background:
+    linear-gradient(180deg, rgba(232,168,56,0.03), transparent 40%),
+    var(--surface);
+  border-top: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-family: var(--font-mono);
+  animation: rbSlideUp 0.28s var(--ease-out);
+}
+#rekordbox-panel.hidden { display: none; }
+
+@keyframes rbSlideUp {
+  from { transform: translateY(18px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* ── Decks ────────────────────────────────────────────── */
+.rb-deck {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 10px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+.rb-deck::before {
+  content: "";
+  position: absolute; inset: 0 0 auto 0; height: 2px;
+  background: linear-gradient(90deg, transparent, currentColor, transparent);
+  opacity: 0.35;
+  pointer-events: none;
+}
+.rb-deck-a { color: #3da9fc; }
+.rb-deck-b { color: #e8a838; }
+
+.rb-deck-a.playing { box-shadow: inset 0 0 0 1px rgba(61,169,252,0.35), 0 0 22px rgba(61,169,252,0.08); }
+.rb-deck-b.playing { box-shadow: inset 0 0 0 1px rgba(232,168,56,0.35), 0 0 22px rgba(232,168,56,0.08); }
+
+.rb-deck-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  font-size: 9px; letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: currentColor;
+  opacity: 0.9;
+}
+.rb-deck-b .rb-deck-header { flex-direction: row-reverse; }
+.rb-deck-label { font-weight: 600; letter-spacing: 0.18em; }
+.rb-deck-bpm { color: var(--fg); font-size: 10px; font-weight: 600; }
+.rb-deck-time { color: var(--muted); font-size: 9px; }
+
+.rb-deck-title {
+  font-size: 11px;
+  color: var(--fg-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--font-sans);
+  letter-spacing: 0.01em;
+}
+.rb-deck-b .rb-deck-title { text-align: right; }
+.rb-deck.playing .rb-deck-title { color: var(--fg); }
+
+/* ── Waveform canvas ────────────────────────────────── */
+.rb-wave-wrap {
+  position: relative;
+  height: 78px;
+  background: #0a0908;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: crosshair;
+  transition: border-color 0.2s var(--ease-out);
+}
+.rb-wave-wrap:hover { border-color: var(--border-hover); }
+.rb-wave-wrap.cue-flash { box-shadow: 0 0 0 2px currentColor, 0 0 20px currentColor; }
+
+.rb-waveform {
+  display: block;
+  width: 100%; height: 100%;
+}
+
+.rb-playhead {
+  position: absolute; top: 0; bottom: 0;
+  left: 0; width: 1px;
+  background: rgba(255,255,255,0.85);
+  box-shadow: 0 0 6px rgba(255,255,255,0.6);
+  pointer-events: none;
+  transform: translateX(-0.5px);
+  transition: left 0.08s linear;
+}
+
+/* ── Per-deck controls ───────────────────────────────── */
+.rb-deck-controls {
+  display: flex; align-items: center; gap: 4px;
+  margin-top: auto;
+}
+.rb-deck-b .rb-deck-controls { flex-direction: row; }
+
+.rb-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 26px; min-width: 26px; padding: 0 6px;
+  border: 1px solid var(--border);
+  background: var(--raised);
+  color: var(--fg-dim);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s var(--ease-out);
+}
+.rb-btn:hover { color: var(--fg); border-color: var(--border-hover); background: var(--raised-hover); }
+.rb-btn:active { transform: scale(0.92); }
+
+.rb-play-btn { width: 32px; height: 32px; border-radius: 50%; }
+.rb-play-btn.playing { background: currentColor; color: var(--bg); border-color: transparent; }
+.rb-deck-a .rb-play-btn.playing { box-shadow: 0 0 14px rgba(61,169,252,0.55); }
+.rb-deck-b .rb-play-btn.playing { box-shadow: 0 0 14px rgba(232,168,56,0.55); }
+
+.rb-cue { color: currentColor; font-weight: 600; }
+.rb-cue:hover { background: currentColor; color: var(--bg); border-color: transparent; }
+
+/* Gain "knob" (vertical slider) */
+.rb-knob {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 2px; margin-left: auto;
+}
+.rb-deck-b .rb-knob { margin-left: 0; margin-right: auto; }
+.rb-knob-label { font-size: 8px; color: var(--muted); letter-spacing: 0.12em; }
+.rb-gain {
+  -webkit-appearance: slider-vertical;
+  appearance: slider-vertical;
+  width: 18px; height: 40px;
+  writing-mode: bt-lr; /* legacy IE */
+  cursor: pointer;
+  accent-color: currentColor;
+}
+
+/* ── Master strip ─────────────────────────────────────── */
+.rb-master {
+  display: flex; flex-direction: column;
+  align-items: stretch; gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  position: relative;
+}
+.rb-master-label {
+  font-size: 9px; letter-spacing: 0.2em;
+  color: var(--muted); text-align: center;
+  font-weight: 600;
+}
+
+/* VU meters */
+.rb-vu {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; flex: 1; min-height: 42px;
+  padding: 4px 2px;
+}
+.rb-vu-col {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 3px; min-height: 0;
+}
+.rb-vu-col > span {
+  font-size: 8px; letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.rb-vu-bar {
+  flex: 1; width: 14px;
+  background: var(--raised);
+  border-radius: 2px;
+  position: relative; overflow: hidden;
+  min-height: 20px;
+}
+.rb-vu-bar::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: var(--rb-vu, 0%);
+  background: linear-gradient(to top,
+    #3da9fc 0%,
+    #5BA88C 45%,
+    #E8A838 75%,
+    #C94234 100%);
+  border-radius: 2px;
+  transition: height 0.05s linear;
+}
+/* Deck-tinted bars: first column = A (blue), second = B (warm) */
+.rb-vu-col:first-child .rb-vu-bar::after {
+  background: linear-gradient(to top, #1e4a6e, #3da9fc 55%, #7fd3ff);
+}
+.rb-vu-col:last-child .rb-vu-bar::after {
+  background: linear-gradient(to top, #6e4a1e, #e8a838 55%, #ffc97a);
+}
+
+/* Crossfader */
+.rb-xfader-wrap {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 4px 2px;
+}
+.rb-xfader-tag {
+  font-size: 9px; color: var(--muted);
+  font-weight: 600; letter-spacing: 0.15em;
+  width: 10px; text-align: center;
+}
+.rb-xfader-tag:first-child { color: #3da9fc; }
+.rb-xfader-tag:last-child { color: #e8a838; }
+
+#rb-xfader, #rb-master-vol {
+  -webkit-appearance: none; appearance: none;
+  flex: 1; height: 4px;
+  background: linear-gradient(90deg, #3da9fc22, #e8a83822);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: none; cursor: pointer;
+}
+#rb-master-vol {
+  background: var(--border);
+}
+#rb-xfader::-webkit-slider-thumb,
+#rb-master-vol::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 18px;
+  background: var(--fg);
+  border: 1px solid var(--bg);
+  border-radius: 3px;
+  cursor: grab;
+  box-shadow: 0 0 6px rgba(255,255,255,0.2);
+}
+#rb-xfader::-webkit-slider-thumb:active,
+#rb-master-vol::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(0.95); }
+
+.rb-master-vol {
+  display: flex; align-items: center; gap: 6px;
+}
+.rb-master-vol .rb-knob-label {
+  font-size: 8px;
+}
+
+/* ── Active indicator on source toggle ───────────────── */
+.mp-source-btn.rekordbox-active,
+.cp-source-btn.rekordbox-active {
+  color: #3da9fc;
+  border-color: rgba(61,169,252,0.4);
+  background: linear-gradient(90deg, rgba(61,169,252,0.08), rgba(232,168,56,0.08));
+}

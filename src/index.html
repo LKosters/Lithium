@@ -296,6 +296,19 @@
                                     stroke-linejoin="round"
                                 />
                             </svg>
+                            <svg
+                                id="cp-source-icon-rekordbox"
+                                width="11"
+                                height="11"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                class="hidden"
+                            >
+                                <circle cx="7" cy="12" r="4.2" stroke="currentColor" stroke-width="1.5" />
+                                <circle cx="17" cy="12" r="4.2" stroke="currentColor" stroke-width="1.5" />
+                                <circle cx="7" cy="12" r="1.2" fill="currentColor" />
+                                <circle cx="17" cy="12" r="1.2" fill="currentColor" />
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -490,6 +503,108 @@
             </aside>
         </div>
 
+        <!-- Rekordbox DJ panel (shown when music source = rekordbox) -->
+        <section id="rekordbox-panel" class="rekordbox-panel hidden">
+            <div class="rb-deck rb-deck-a" data-deck="a">
+                <div class="rb-deck-header">
+                    <span class="rb-deck-label">DECK A</span>
+                    <span class="rb-deck-bpm" data-deck="a">--- BPM</span>
+                    <span class="rb-deck-time" data-deck="a">0:00 / 0:00</span>
+                </div>
+                <div class="rb-deck-title" data-deck="a">— load —</div>
+                <div class="rb-wave-wrap">
+                    <canvas class="rb-waveform" data-deck="a"></canvas>
+                    <div class="rb-playhead"></div>
+                </div>
+                <div class="rb-deck-controls">
+                    <button class="rb-btn rb-prev" data-deck="a" title="Previous">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                            <path d="M12 3L6 8l6 5V3z" fill="currentColor" />
+                            <rect x="3" y="3" width="2" height="10" rx="0.5" fill="currentColor" />
+                        </svg>
+                    </button>
+                    <button class="rb-btn rb-cue" data-deck="a" title="Cue (jump to start)">CUE</button>
+                    <button class="rb-btn rb-play rb-play-btn" data-deck="a" title="Play / Pause">
+                        <svg class="rb-icon-play" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                            <path d="M4 2.5l9 5.5-9 5.5V2.5z" fill="currentColor" />
+                        </svg>
+                        <svg class="rb-icon-pause hidden" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                            <rect x="3" y="2" width="3.5" height="12" rx="0.8" fill="currentColor" />
+                            <rect x="9.5" y="2" width="3.5" height="12" rx="0.8" fill="currentColor" />
+                        </svg>
+                    </button>
+                    <button class="rb-btn rb-next" data-deck="a" title="Next">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                            <path d="M4 3l6 5-6 5V3z" fill="currentColor" />
+                            <rect x="11" y="3" width="2" height="10" rx="0.5" fill="currentColor" />
+                        </svg>
+                    </button>
+                    <label class="rb-knob">
+                        <span class="rb-knob-label">GAIN</span>
+                        <input class="rb-gain" type="range" min="0" max="100" value="80" data-deck="a" orient="vertical" />
+                    </label>
+                </div>
+            </div>
+
+            <div class="rb-master">
+                <div class="rb-master-label">MASTER</div>
+                <div class="rb-vu">
+                    <div class="rb-vu-col"><span>A</span><div class="rb-vu-bar" data-deck="a"></div></div>
+                    <div class="rb-vu-col"><span>B</span><div class="rb-vu-bar" data-deck="b"></div></div>
+                </div>
+                <div class="rb-xfader-wrap">
+                    <span class="rb-xfader-tag">A</span>
+                    <input id="rb-xfader" type="range" min="0" max="100" value="50" title="Crossfader" />
+                    <span class="rb-xfader-tag">B</span>
+                </div>
+                <div class="rb-master-vol">
+                    <span class="rb-knob-label">VOL</span>
+                    <input id="rb-master-vol" type="range" min="0" max="100" value="70" title="Master volume" />
+                </div>
+            </div>
+
+            <div class="rb-deck rb-deck-b" data-deck="b">
+                <div class="rb-deck-header">
+                    <span class="rb-deck-time" data-deck="b">0:00 / 0:00</span>
+                    <span class="rb-deck-bpm" data-deck="b">--- BPM</span>
+                    <span class="rb-deck-label">DECK B</span>
+                </div>
+                <div class="rb-deck-title" data-deck="b">— load —</div>
+                <div class="rb-wave-wrap">
+                    <canvas class="rb-waveform" data-deck="b"></canvas>
+                    <div class="rb-playhead"></div>
+                </div>
+                <div class="rb-deck-controls">
+                    <label class="rb-knob">
+                        <span class="rb-knob-label">GAIN</span>
+                        <input class="rb-gain" type="range" min="0" max="100" value="80" data-deck="b" orient="vertical" />
+                    </label>
+                    <button class="rb-btn rb-prev" data-deck="b" title="Previous">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                            <path d="M12 3L6 8l6 5V3z" fill="currentColor" />
+                            <rect x="3" y="3" width="2" height="10" rx="0.5" fill="currentColor" />
+                        </svg>
+                    </button>
+                    <button class="rb-btn rb-play rb-play-btn" data-deck="b" title="Play / Pause">
+                        <svg class="rb-icon-play" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                            <path d="M4 2.5l9 5.5-9 5.5V2.5z" fill="currentColor" />
+                        </svg>
+                        <svg class="rb-icon-pause hidden" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                            <rect x="3" y="2" width="3.5" height="12" rx="0.8" fill="currentColor" />
+                            <rect x="9.5" y="2" width="3.5" height="12" rx="0.8" fill="currentColor" />
+                        </svg>
+                    </button>
+                    <button class="rb-btn rb-cue" data-deck="b" title="Cue (jump to start)">CUE</button>
+                    <button class="rb-btn rb-next" data-deck="b" title="Next">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                            <path d="M4 3l6 5-6 5V3z" fill="currentColor" />
+                            <rect x="11" y="3" width="2" height="10" rx="0.5" fill="currentColor" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
         <!-- Bottom music dock -->
         <footer id="music-dock">
             <div id="music-player" class="music-player">
@@ -656,6 +771,19 @@
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
                             />
+                        </svg>
+                        <svg
+                            id="mp-source-icon-rekordbox"
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            class="hidden"
+                        >
+                            <circle cx="7" cy="12" r="4.2" stroke="currentColor" stroke-width="1.5" />
+                            <circle cx="17" cy="12" r="4.2" stroke="currentColor" stroke-width="1.5" />
+                            <circle cx="7" cy="12" r="1.2" fill="currentColor" />
+                            <circle cx="17" cy="12" r="1.2" fill="currentColor" />
                         </svg>
                         <span id="mp-source-label" class="mp-source-label"
                             >Lofi</span

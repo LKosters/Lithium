@@ -1,11 +1,13 @@
 const app = require("./app");
 const { shuffleArray } = require("./helpers");
+const rekordbox = require("./rekordbox");
 
 const _audio = new Audio();
 _audio.preload = "auto";
 
 // Shared seek handler for both dock and compact track bars
 function handleTrackBarSeek(e, trackBar) {
+  if (musicPlayer.source === "rekordbox") return; // decks own their own scrubbing
   const rect = trackBar.getBoundingClientRect();
   const pct = (e.clientX - rect.left) / rect.width;
   if (musicPlayer.source === "device") {
@@ -24,7 +26,7 @@ const musicPlayer = {
   tracks: [],
   index: -1,
   playing: false,
-  source: "lofi",       // "lofi" | "device"
+  source: "lofi",       // "lofi" | "device" | "rekordbox"
   lofiTracks: [],
   devicePollTimer: null,
   _devicePollInFlight: false,
@@ -74,6 +76,7 @@ async function initMusicPlayer() {
   const tracks = await app.ipcRenderer.invoke("music:list");
   musicPlayer.lofiTracks = tracks || [];
   musicPlayer.tracks = shuffleArray(musicPlayer.lofiTracks);
+  rekordbox.initRekordbox(musicPlayer.lofiTracks);
   musicPlayer.audio.volume = parseInt(mpVolume.value, 10) / 100;
 
   musicPlayer.audio.addEventListener("ended", () => { playNextTrack(); });
@@ -119,6 +122,8 @@ async function initMusicPlayer() {
   const savedSource = localStorage.getItem("musicSource");
   if (savedSource === "device") {
     switchToDevice();
+  } else if (savedSource === "rekordbox") {
+    switchToRekordbox();
   } else if (musicPlayer.tracks.length > 0) {
     musicPlayer.index = 0;
     loadCurrentTrack();
@@ -131,21 +136,34 @@ async function initMusicPlayer() {
 
 // ── Source switching ───────────────────────────────────
 
+const SOURCE_ORDER = ["lofi", "device", "rekordbox"];
+
 async function handleSourceToggle() {
-  if (musicPlayer.source === "lofi") {
-    switchToDevice();
-  } else {
-    switchToLofi();
+  const idx = SOURCE_ORDER.indexOf(musicPlayer.source);
+  const next = SOURCE_ORDER[(idx + 1) % SOURCE_ORDER.length];
+  if (next === "lofi") switchToLofi();
+  else if (next === "device") switchToDevice();
+  else if (next === "rekordbox") switchToRekordbox();
+}
+
+function stopDevicePolling() {
+  if (musicPlayer.devicePollTimer) {
+    clearInterval(musicPlayer.devicePollTimer);
+    musicPlayer.devicePollTimer = null;
   }
 }
 
-function switchToDevice() {
-  // Stop lofi playback
+function pauseLofi() {
   if (musicPlayer.playing) {
     musicPlayer.audio.pause();
     musicPlayer.playing = false;
     updatePlayButton();
   }
+}
+
+function switchToDevice() {
+  pauseLofi();
+  if (rekordbox.isActive()) rekordbox.deactivateRekordbox();
 
   musicPlayer.source = "device";
   localStorage.setItem("musicSource", "device");
@@ -159,12 +177,33 @@ function switchToDevice() {
   musicPlayer.devicePollTimer = setInterval(pollDeviceMedia, 2000);
 }
 
-function switchToLofi() {
-  // Stop device polling
-  if (musicPlayer.devicePollTimer) {
-    clearInterval(musicPlayer.devicePollTimer);
-    musicPlayer.devicePollTimer = null;
+function switchToRekordbox() {
+  pauseLofi();
+  stopDevicePolling();
+
+  musicPlayer.source = "rekordbox";
+  localStorage.setItem("musicSource", "rekordbox");
+  updateSourceButton();
+
+  const mpTrackName = document.querySelector("#mp-track-name");
+  if (mpTrackName) {
+    mpTrackName.textContent = "DJ MODE — two decks";
+    mpTrackName.title = "Rekordbox DJ mode";
   }
+
+  // Reset dock progress (rekordbox runs its own waveforms)
+  const dockTrackBar = document.querySelector(".dock-track-bar");
+  const cpTrackBar = document.querySelector(".cp-track-bar");
+  if (dockTrackBar) dockTrackBar.style.setProperty("--track-progress", "0%");
+  if (cpTrackBar) cpTrackBar.style.setProperty("--track-progress", "0%");
+
+  rekordbox.activateRekordbox();
+  syncCompactPlayer();
+}
+
+function switchToLofi() {
+  stopDevicePolling();
+  if (rekordbox.isActive()) rekordbox.deactivateRekordbox();
 
   musicPlayer.source = "lofi";
   localStorage.setItem("musicSource", "lofi");
@@ -233,27 +272,42 @@ function updateSourceButton() {
   const mpSourceBtn = document.querySelector("#mp-source-btn");
   const iconLofi = document.querySelector("#mp-source-icon-lofi");
   const iconDevice = document.querySelector("#mp-source-icon-device");
+  const iconRekordbox = document.querySelector("#mp-source-icon-rekordbox");
   const label = document.querySelector("#mp-source-label");
 
-  const isDevice = musicPlayer.source === "device";
-  iconLofi.classList.toggle("hidden", isDevice);
-  iconDevice.classList.toggle("hidden", !isDevice);
-  label.textContent = isDevice ? "Device" : "Lofi";
-  mpSourceBtn.classList.toggle("active", isDevice);
+  const src = musicPlayer.source;
+  const isLofi = src === "lofi";
+  const isDevice = src === "device";
+  const isRekordbox = src === "rekordbox";
+
+  if (iconLofi) iconLofi.classList.toggle("hidden", !isLofi);
+  if (iconDevice) iconDevice.classList.toggle("hidden", !isDevice);
+  if (iconRekordbox) iconRekordbox.classList.toggle("hidden", !isRekordbox);
+  if (label) label.textContent = isRekordbox ? "DJ" : isDevice ? "Device" : "Lofi";
+  if (mpSourceBtn) {
+    mpSourceBtn.classList.toggle("active", isDevice);
+    mpSourceBtn.classList.toggle("rekordbox-active", isRekordbox);
+  }
 
   // Sync compact player source button
   const cpSourceBtn = document.querySelector("#cp-source-btn");
   const cpIconLofi = document.querySelector("#cp-source-icon-lofi");
   const cpIconDevice = document.querySelector("#cp-source-icon-device");
-  if (cpSourceBtn) cpSourceBtn.classList.toggle("active", isDevice);
-  if (cpIconLofi) cpIconLofi.classList.toggle("hidden", isDevice);
+  const cpIconRekordbox = document.querySelector("#cp-source-icon-rekordbox");
+  if (cpSourceBtn) {
+    cpSourceBtn.classList.toggle("active", isDevice);
+    cpSourceBtn.classList.toggle("rekordbox-active", isRekordbox);
+  }
+  if (cpIconLofi) cpIconLofi.classList.toggle("hidden", !isLofi);
   if (cpIconDevice) cpIconDevice.classList.toggle("hidden", !isDevice);
+  if (cpIconRekordbox) cpIconRekordbox.classList.toggle("hidden", !isRekordbox);
 
-  // Hide/show volume (doesn't apply to device)
+  // Hide dock volume for device/rekordbox (they have their own controls)
   const mpVolume = document.querySelector("#mp-volume");
   const volumeIcon = document.querySelector(".volume-icon");
-  mpVolume.style.display = isDevice ? "none" : "";
-  volumeIcon.style.display = isDevice ? "none" : "";
+  const hideVolume = isDevice || isRekordbox;
+  if (mpVolume) mpVolume.style.display = hideVolume ? "none" : "";
+  if (volumeIcon) volumeIcon.style.display = hideVolume ? "none" : "";
 }
 
 // ── Lofi playback ─────────────────────────────────────
@@ -270,6 +324,7 @@ function loadCurrentTrack() {
 }
 
 function togglePlay() {
+  if (musicPlayer.source === "rekordbox") return; // decks have their own transport
   if (musicPlayer.source === "device") {
     // Update UI immediately so the button feels instant
     musicPlayer.playing = !musicPlayer.playing;
@@ -332,6 +387,7 @@ function updateTrackProgress() {
 }
 
 function playNextTrack() {
+  if (musicPlayer.source === "rekordbox") return;
   if (musicPlayer.source === "device") {
     app.ipcRenderer.invoke("media:control", { action: "next" })
       .then(() => pollDeviceMedia())
@@ -357,6 +413,7 @@ function playNextTrack() {
 }
 
 function playPrevTrack() {
+  if (musicPlayer.source === "rekordbox") return;
   if (musicPlayer.source === "device") {
     app.ipcRenderer.invoke("media:control", { action: "prev" })
       .then(() => pollDeviceMedia())
