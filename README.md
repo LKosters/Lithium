@@ -52,6 +52,20 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
+## macOS: "Lithium.app is damaged" on install or update
+
+The macOS builds are ad‑hoc signed but not notarized (no paid Apple Developer account). When you download the DMG in a browser, Gatekeeper applies a quarantine attribute and may block the app with either "unidentified developer" or "Lithium.app is damaged and can't be opened".
+
+After dragging `Lithium.app` into `/Applications`, run once in Terminal:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Lithium.app
+```
+
+Then open the app normally. Alternatively, right‑click `Lithium.app` → **Open** and confirm the prompt.
+
+The in‑app updater strips this attribute automatically, so updates triggered from inside the app don't need the manual step.
+
 ## License
 
 MIT

@@ -93,8 +93,9 @@ function downloadFile(url, destPath, onProgress) {
 function installUpdate(filePath) {
   switch (process.platform) {
     case "darwin":
-      // Mount DMG and open it so the user can drag to Applications
-      exec(`open "${filePath}"`, () => {
+      // Strip quarantine so Gatekeeper doesn't flag the DMG (or the app copied out of it)
+      // as "damaged", then mount it so the user can drag to Applications.
+      exec(`/usr/bin/xattr -dr com.apple.quarantine "${filePath}" 2>/dev/null; open "${filePath}"`, () => {
         setTimeout(() => app.quit(), 1000);
       });
       break;
