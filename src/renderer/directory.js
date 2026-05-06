@@ -45,6 +45,7 @@ const dropdownTabs = document.querySelector("#dropdown-tabs");
 const btnPickDir = document.querySelector("#btn-pick-dir");
 const btnOpenFinder = document.querySelector("#btn-open-finder");
 const projectsListEl = document.querySelector("#projects-list");
+const projectsSearchEl = document.querySelector("#projects-search");
 
 const confirmModal = document.querySelector("#confirm-remove-modal");
 const confirmText = document.querySelector("#confirm-remove-text");
@@ -125,11 +126,17 @@ async function renderProjectsList() {
     }
   }
 
+  // Filter by search term
+  const searchTerm = projectsSearchEl ? projectsSearchEl.value.trim().toLowerCase() : "";
+  const filteredDirs = searchTerm
+    ? allDirs.filter((d) => dirName(d).toLowerCase().includes(searchTerm) || d.toLowerCase().includes(searchTerm))
+    : allDirs;
+
   // Detect frameworks for uncached dirs
-  await detectFrameworks(allDirs);
+  await detectFrameworks(filteredDirs);
 
   let html = "";
-  for (const dir of allDirs) {
+  for (const dir of filteredDirs) {
     const isActive = dir === state.currentDir;
     const activeClass = isActive ? "active" : "";
     const sessionCount = state.sessions.filter(
@@ -152,7 +159,7 @@ async function renderProjectsList() {
     </div>`;
   }
 
-  if (allDirs.length === 0) {
+  if (filteredDirs.length === 0) {
     html = `<div class="session-empty" style="padding:20px 8px;font-size:11px">No workspaces yet</div>`;
   }
 
@@ -269,6 +276,11 @@ btnOpenFinder.addEventListener("click", (e) => {
   e.stopPropagation();
   pickDirectory();
 });
+
+// Filter projects on search input
+if (projectsSearchEl) {
+  projectsSearchEl.addEventListener("input", () => renderProjectsList());
+}
 
 // Close dropdown on outside click
 document.addEventListener("click", () => {

@@ -42,6 +42,14 @@
   font-size: 10px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.15em; color: var(--muted);
 }
+.projects-search {
+  display: block; width: calc(100% - 16px); margin: 0 8px 6px;
+  padding: 4px 8px; font-size: 11px; border-radius: var(--radius-xs);
+  border: 1px solid var(--border); background: var(--raised);
+  color: var(--fg); outline: none;
+}
+.projects-search::placeholder { color: var(--muted); }
+.projects-search:focus { border-color: var(--primary); }
 .projects-list {
   flex: 1; overflow-y: auto; padding: 0 6px;
   display: flex; flex-direction: column; gap: 2px;
@@ -132,6 +140,9 @@
 }
 .sidebar-compact .project-item:hover .project-item-actions {
   opacity: 1; pointer-events: auto;
+}
+.sidebar-compact .projects-search {
+  display: none;
 }
 .sidebar-compact .btn-add-workspace {
   margin: 6px 6px 8px; padding: 6px;

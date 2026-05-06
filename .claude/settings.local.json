@@ -56,7 +56,8 @@
       "Bash(npm ls node-gyp 2>/dev/null; echo \"---\"; cat node_modules/node-gyp/package.json 2>/dev/null | grep '\"version\"' | head -1)",
       "Bash(npm ls @electron/rebuild 2>/dev/null; npm ls electron-builder 2>/dev/null)",
       "Bash(find node_modules/app-builder-lib -name \"package.json\" -path \"*node-gyp*\" 2>/dev/null | head -3; find node_modules/electron-builder -name \"package.json\" -path \"*node-gyp*\" 2>/dev/null | head -3; find node_modules -maxdepth 4 -name \"find-visualstudio.js\" 2>/dev/null | head -5)",
-      "Bash(npm ls node-gyp --all 2>/dev/null | head -20; echo \"---\"; npm ls @electron/rebuild --all 2>/dev/null | head -20)"
+      "Bash(npm ls node-gyp --all 2>/dev/null | head -20; echo \"---\"; npm ls @electron/rebuild --all 2>/dev/null | head -20)",
+      "Bash(grep -r \"projects-panel\\\\|projects-list\" /Users/laurenskosters/lithium-projects/Lithium/src/renderer/*.js)"
     ]
   }
 }
