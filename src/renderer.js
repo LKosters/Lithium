@@ -14,7 +14,7 @@ const { initBrowser, initBrowserTools } = require("./renderer/browser");
 const { initMusicPlayer, updateTrackProgress, setPlayerMode } = require("./renderer/music");
 const { closeSettings, isSettingsOpen } = require("./renderer/settings");
 const { closeGit, isGitOpen, refreshGit } = require("./renderer/git");
-const { pickDirectory, setDirectory, renderRecentDirs, renderProjectsList } = require("./renderer/directory");
+const { pickDirectory, setDirectory, renderRecentDirs, renderProjectsList, renderProjectsChatsList } = require("./renderer/directory");
 const { createChatPane, deleteChatState, handleStreamStart, handleChunk, handleStreamEnd, handleError, chatStates } = require("./renderer/chat");
 
 // ── Wire functions onto app for cross-module calls ────
@@ -44,6 +44,7 @@ app.deleteSession = deleteSession;
 app.pickDirectory = pickDirectory;
 app.setDirectory = setDirectory;
 app.renderProjectsList = renderProjectsList;
+app.renderProjectsChatsList = renderProjectsChatsList;
 app.refreshGit = refreshGit;
 app.setPlayerMode = setPlayerMode;
 app.chatStates = chatStates;

@@ -1,8 +1,8 @@
 const path = require("path");
 const fs = require("fs");
 const app = require("./app");
-const { state } = require("./state");
-const { shortDir, escapeHtml, dirName } = require("./helpers");
+const { state, terminals } = require("./state");
+const { shortDir, escapeHtml, dirName, timeAgo } = require("./helpers");
 
 // ── Framework icons from devicon/simple-icons ───────────
 const ICONS_DIR = path.join(__dirname, "..", "assets", "framework-icons");
@@ -45,7 +45,13 @@ const dropdownTabs = document.querySelector("#dropdown-tabs");
 const btnPickDir = document.querySelector("#btn-pick-dir");
 const btnOpenFinder = document.querySelector("#btn-open-finder");
 const projectsListEl = document.querySelector("#projects-list");
+const projectsChatsListEl = document.querySelector("#projects-chats-list");
 const projectsSearchEl = document.querySelector("#projects-search");
+const projectsPanelEl = document.querySelector("#projects-panel");
+const projectsTabsEl = document.querySelector("#projects-tabs");
+const btnAddWorkspaceEl = document.querySelector("#btn-add-workspace");
+
+let activeProjectsTab = localStorage.getItem("projectsTab") === "chat" ? "chat" : "code";
 
 const confirmModal = document.querySelector("#confirm-remove-modal");
 const confirmText = document.querySelector("#confirm-remove-text");
@@ -186,6 +192,103 @@ async function renderProjectsList() {
     });
 }
 
+function applyProjectsTab() {
+  if (!projectsPanelEl) return;
+  projectsPanelEl.dataset.activeTab = activeProjectsTab;
+
+  if (projectsTabsEl) {
+    projectsTabsEl.querySelectorAll(".projects-tab").forEach((t) => {
+      t.classList.toggle("active", t.dataset.projectsTab === activeProjectsTab);
+    });
+  }
+
+  const isChat = activeProjectsTab === "chat";
+  if (projectsListEl) projectsListEl.classList.toggle("hidden", isChat);
+  if (projectsChatsListEl) projectsChatsListEl.classList.toggle("hidden", !isChat);
+  if (btnAddWorkspaceEl) btnAddWorkspaceEl.classList.toggle("hidden", isChat);
+  if (projectsSearchEl) {
+    projectsSearchEl.placeholder = isChat ? "Search chats..." : "Search...";
+    projectsSearchEl.value = "";
+  }
+
+  if (isChat) renderProjectsChatsList();
+  else renderProjectsList();
+}
+
+function setProjectsTab(tab) {
+  if (tab !== "code" && tab !== "chat") return;
+  if (activeProjectsTab === tab) return;
+  activeProjectsTab = tab;
+  localStorage.setItem("projectsTab", tab);
+  applyProjectsTab();
+}
+
+function renderProjectsChatsList() {
+  if (!projectsChatsListEl) return;
+
+  const chats = state.sessions.filter((s) => s.mode === "chat");
+  const sorted = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
+
+  const searchTerm = projectsSearchEl ? projectsSearchEl.value.trim().toLowerCase() : "";
+  const filtered = searchTerm
+    ? sorted.filter((s) => {
+        const title = (s.title || "").toLowerCase();
+        const dir = (s.directory || "").toLowerCase();
+        return title.includes(searchTerm) || dir.includes(searchTerm);
+      })
+    : sorted;
+
+  let html = "";
+  for (const s of filtered) {
+    const isActive = s.id === state.activeId ? "active" : "";
+    const t = terminals.get(s.id);
+    const alive = t?.alive ? "alive" : "";
+    html += `<div class="project-item ${isActive}" data-chat-session-id="${escapeHtml(s.id)}" title="${escapeHtml(s.title || "Chat")}">
+      <span class="projects-chat-item-status ${alive}"></span>
+      <span class="project-item-name">${escapeHtml(s.title || "Chat")}</span>
+      <span class="projects-chat-item-meta">${timeAgo(s.updatedAt)}</span>
+      <span class="project-item-actions">
+        <button class="project-item-btn" data-delete-chat-id="${escapeHtml(s.id)}" title="Delete chat">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+            <path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M5 4v8.5a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </span>
+    </div>`;
+  }
+
+  if (filtered.length === 0) {
+    html = `<div class="session-empty" style="padding:20px 8px;font-size:11px">${searchTerm ? "No chats found" : "No AI chats yet"}</div>`;
+  }
+
+  projectsChatsListEl.innerHTML = html;
+
+  projectsChatsListEl
+    .querySelectorAll(".project-item[data-chat-session-id]")
+    .forEach((el) => {
+      el.addEventListener("click", (e) => {
+        if (e.target.closest("[data-delete-chat-id]")) return;
+        const sid = el.dataset.chatSessionId;
+        const session = state.sessions.find((ss) => ss.id === sid);
+        if (session && session.directory && session.directory !== state.currentDir) {
+          setDirectory(session.directory);
+        }
+        if (app.openTab) app.openTab(sid);
+      });
+    });
+
+  projectsChatsListEl
+    .querySelectorAll("[data-delete-chat-id]")
+    .forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const sid = btn.dataset.deleteChatId;
+        if (app.deleteSession) app.deleteSession(sid);
+        renderProjectsChatsList();
+      });
+    });
+}
+
 function renderRecentDirs() {
   const hasFavorites = state.starredDirs.length > 0;
 
@@ -277,10 +380,21 @@ btnOpenFinder.addEventListener("click", (e) => {
   pickDirectory();
 });
 
-// Filter projects on search input
+// Filter projects/chats on search input depending on active tab
 if (projectsSearchEl) {
-  projectsSearchEl.addEventListener("input", () => renderProjectsList());
+  projectsSearchEl.addEventListener("input", () => {
+    if (activeProjectsTab === "chat") renderProjectsChatsList();
+    else renderProjectsList();
+  });
 }
+
+// Tab switching
+if (projectsTabsEl) {
+  projectsTabsEl.querySelectorAll(".projects-tab").forEach((tab) => {
+    tab.addEventListener("click", () => setProjectsTab(tab.dataset.projectsTab));
+  });
+}
+applyProjectsTab();
 
 // Close dropdown on outside click
 document.addEventListener("click", () => {
@@ -330,6 +444,8 @@ module.exports = {
   setDirectory,
   renderRecentDirs,
   renderProjectsList,
+  renderProjectsChatsList,
+  setProjectsTab,
   getProjectIcon,
   frameworkCache,
   detectFrameworks,

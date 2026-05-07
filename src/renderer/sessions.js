@@ -67,6 +67,8 @@ sessionListEl.querySelectorAll("[data-rename-id]").forEach((btn) => {
       deleteSession(btn.dataset.deleteId);
     });
   });
+
+  if (app.renderProjectsChatsList) app.renderProjectsChatsList();
 }
 
 function deleteSession(id) {

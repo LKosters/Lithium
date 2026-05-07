@@ -112,12 +112,14 @@
             <!-- Sidebar: split into Projects + Sessions -->
             <aside id="sidebar">
                 <!-- Projects panel (left) -->
-                <div id="projects-panel" class="projects-panel">
-                    <div class="projects-header">
-                        <span class="projects-title">Projects</span>
+                <div id="projects-panel" class="projects-panel" data-active-tab="code">
+                    <div class="projects-tabs" id="projects-tabs">
+                        <button class="projects-tab active" data-projects-tab="code">Code</button>
+                        <button class="projects-tab" data-projects-tab="chat">Chat</button>
                     </div>
                     <input id="projects-search" class="projects-search" type="text" placeholder="Search..." />
                     <div id="projects-list" class="projects-list"></div>
+                    <div id="projects-chats-list" class="projects-list projects-chats-list hidden"></div>
                     <button id="btn-add-workspace" class="btn-add-workspace" title="Add workspace">
                         <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                             <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
