@@ -7,7 +7,7 @@ const { getBridgePort } = require("./browser-bridge");
 const { loadConfig } = require("./config");
 
 function createACPServerManager(config) {
-  const { name, command, args, authMethodId, logPrefix } = config;
+  const { name, command, args, authMethodId, modelEnvVar, logPrefix } = config;
   const prefix = logPrefix || `[${name}]`;
 
   let proc = null;
@@ -21,17 +21,23 @@ function createACPServerManager(config) {
   let onPermissionCallback = null;
   let lastError = null;
   let currentSpawnCwd = null;
+  let currentSpawnModel = null;
   let startupPromise = null;
 
-  function start(cwd) {
+  function start(cwd, model) {
     if (proc && !proc.killed) return;
 
     const spawnCwd = cwd || process.cwd();
     currentSpawnCwd = spawnCwd;
-    console.log(`${prefix} Starting in cwd:`, spawnCwd);
+    currentSpawnModel = model || null;
+    const env = { ...process.env };
+    if (modelEnvVar && model) {
+      env[modelEnvVar] = model;
+    }
+    console.log(`${prefix} Starting in cwd:`, spawnCwd, model ? `(${modelEnvVar}=${model})` : "");
 
     proc = spawn(command, args, {
-      env: process.env,
+      env,
       stdio: ["pipe", "pipe", "pipe"],
       shell: true,
       cwd: spawnCwd,
@@ -107,17 +113,22 @@ function createACPServerManager(config) {
     authenticated = false;
   }
 
-  async function ensureCwd(cwd) {
+  async function ensureCwd(cwd, model) {
     if (!cwd) return;
-    if (proc && !proc.killed && currentSpawnCwd === cwd) {
+    const modelChanged = !!modelEnvVar && (model || null) !== (currentSpawnModel || null);
+    if (proc && !proc.killed && currentSpawnCwd === cwd && !modelChanged) {
       if (startupPromise) await startupPromise;
       return;
     }
-    if (proc && !proc.killed && currentSpawnCwd !== cwd) {
-      console.log(`${prefix} Project directory changed from`, currentSpawnCwd, "to", cwd, "— restarting");
+    if (proc && !proc.killed) {
+      if (currentSpawnCwd !== cwd) {
+        console.log(`${prefix} Project directory changed from`, currentSpawnCwd, "to", cwd, "— restarting");
+      } else if (modelChanged) {
+        console.log(`${prefix} Model changed from`, currentSpawnModel, "to", model, "— restarting");
+      }
       stop();
     }
-    start(cwd);
+    start(cwd, model);
     if (startupPromise) await startupPromise;
   }
 

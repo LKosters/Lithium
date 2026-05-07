@@ -10,6 +10,7 @@ const {
   getAllProviderIds,
   getProviderLabel,
   getAllProviderConfigs,
+  getProviderModels,
 } = require("./provider-registry");
 
 // Chat history persistence
@@ -284,6 +285,11 @@ function registerAgentHandlers() {
       labels[cfg.id] = cfg.label;
     }
     return labels;
+  });
+
+  // Get models available for a provider
+  ipcMain.handle("agent:get-provider-models", (_e, providerName) => {
+    return getProviderModels(providerName);
   });
 }
 

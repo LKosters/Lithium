@@ -9,9 +9,10 @@ class BaseACPProvider {
     this.label = label;
     this.server = server;
 
-    this._sessions = new Map();     // chatSessionId -> acpSessionId
-    this._sessionCwds = new Map();  // chatSessionId -> cwd used
-    this._sessionUsage = new Map(); // chatSessionId -> { used, size }
+    this._sessions = new Map();      // chatSessionId -> acpSessionId
+    this._sessionCwds = new Map();   // chatSessionId -> cwd used
+    this._sessionModels = new Map(); // chatSessionId -> model used
+    this._sessionUsage = new Map();  // chatSessionId -> { used, size }
     this._activeCallbacks = new Map();
     this._resolvers = new Map();
 
@@ -138,25 +139,31 @@ class BaseACPProvider {
 
   async sendMessage(sessionId, messages, opts, onChunk) {
     const requestedCwd = opts.cwd || null;
+    const requestedModel = opts.model || null;
 
-    // Ensure server is running in the correct project directory
+    // Ensure server is running in the correct project directory and model
     if (requestedCwd) {
-      await this.server.ensureCwd(requestedCwd);
+      await this.server.ensureCwd(requestedCwd, requestedModel);
     }
 
     if (!this.server.isRunning()) {
       throw new Error(`${this.label} is not running. Start it in Settings > Agents.`);
     }
 
-    // Create session if needed, or if cwd changed
+    // Create session if needed, or if cwd/model changed
     const existingCwd = this._sessionCwds.get(sessionId) || null;
-    if (!this._sessions.has(sessionId) || (requestedCwd && requestedCwd !== existingCwd)) {
+    const existingModel = this._sessionModels.get(sessionId) || null;
+    const cwdChanged = requestedCwd && requestedCwd !== existingCwd;
+    const modelChanged = (requestedModel || null) !== existingModel;
+    if (!this._sessions.has(sessionId) || cwdChanged || modelChanged) {
       if (this._sessions.has(sessionId)) {
-        console.log(`[${this.name}] Project directory changed from`, existingCwd, "to", requestedCwd, "— creating new session");
+        if (cwdChanged) console.log(`[${this.name}] Project directory changed from`, existingCwd, "to", requestedCwd, "— creating new session");
+        if (modelChanged) console.log(`[${this.name}] Model changed from`, existingModel, "to", requestedModel, "— creating new session");
       }
       const acpSid = await this.server.createSession(requestedCwd);
       this._sessions.set(sessionId, acpSid);
       this._sessionCwds.set(sessionId, requestedCwd);
+      this._sessionModels.set(sessionId, requestedModel || null);
     }
 
     // Summarize if context is getting full
@@ -212,6 +219,7 @@ class BaseACPProvider {
   clearSession(sessionId) {
     this._sessions.delete(sessionId);
     this._sessionCwds.delete(sessionId);
+    this._sessionModels.delete(sessionId);
     this._sessionUsage.delete(sessionId);
     this._activeCallbacks.delete(sessionId);
     this._resolvers.delete(sessionId);

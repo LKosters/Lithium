@@ -79,6 +79,19 @@ function formatTokens(n) {
   return String(n);
 }
 
+function persistProviderModel(sessionId, cs) {
+  const sessionData = state.sessions.find((s) => s.id === sessionId);
+  if (!sessionData) return;
+  sessionData.provider = cs.provider;
+  sessionData.model = cs.model;
+  app.ipcRenderer.send("sessions:save", sessionData);
+}
+
+function refreshLockState(sessionId) {
+  const cs = chatStates.get(sessionId);
+  if (cs && typeof cs._applyLockState === "function") cs._applyLockState();
+}
+
 // ── Pane creation ───────────────────────────────────
 function createChatPane(sessionId, provider, model) {
   const cs = getChatState(sessionId);
@@ -128,7 +141,8 @@ function createChatPane(sessionId, provider, model) {
         </div>
       </div>
       <div class="chat-model-bar">
-        <select class="chat-model-select" title="Switch model"></select>
+        <select class="chat-provider-select" title="Switch provider"></select>
+        <select class="chat-model-name-select" title="Switch model"></select>
         <span class="chat-context-label hidden"></span>
       </div>
     </div>
@@ -139,7 +153,8 @@ function createChatPane(sessionId, provider, model) {
   const stopBtn = paneEl.querySelector(".chat-stop-btn");
   const clearBtn = paneEl.querySelector(".chat-clear-btn");
   const attachBtn = paneEl.querySelector(".chat-attach-btn");
-  const modelSelect = paneEl.querySelector(".chat-model-select");
+  const providerSelect = paneEl.querySelector(".chat-provider-select");
+  const modelNameSelect = paneEl.querySelector(".chat-model-name-select");
   const scrollBottomBtn = paneEl.querySelector(".chat-scroll-bottom");
   const messagesContainer = paneEl.querySelector(".chat-messages");
 
@@ -153,30 +168,74 @@ function createChatPane(sessionId, provider, model) {
     messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: "smooth" });
   });
 
-  // Populate model selector with enabled ACPs
+  async function populateModelOptions(provider) {
+    const data = await app.ipcRenderer.invoke("agent:get-provider-models", provider);
+    const models = (data && data.models) || [];
+    const fallback = data && data.defaultModel;
+
+    if (models.length === 0) {
+      modelNameSelect.innerHTML = "";
+      modelNameSelect.classList.add("hidden");
+      cs.model = null;
+      return;
+    }
+
+    modelNameSelect.classList.remove("hidden");
+    modelNameSelect.innerHTML = models
+      .map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.label || m.id)}</option>`)
+      .join("");
+
+    const desired = cs.model && models.some(m => m.id === cs.model)
+      ? cs.model
+      : (fallback || models[0].id);
+    modelNameSelect.value = desired;
+    cs.model = desired;
+  }
+
+  function applyLockState() {
+    const hasMessages = cs.messages && cs.messages.length > 0;
+    const lock = !!cs.streaming || hasMessages;
+    providerSelect.disabled = lock;
+    modelNameSelect.disabled = lock;
+    providerSelect.title = lock
+      ? "Locked — clear context to switch provider"
+      : "Switch provider";
+    modelNameSelect.title = lock
+      ? "Locked — clear context to switch model"
+      : "Switch model";
+  }
+  cs._applyLockState = applyLockState;
+
+  // Populate provider + model selectors
   Promise.all([
     app.ipcRenderer.invoke("agent:get-enabled-acps"),
     app.ipcRenderer.invoke("agent:get-provider-labels"),
-  ]).then(([enabledACPs, labels]) => {
-    modelSelect.innerHTML = enabledACPs
-      .map(p => `<option value="${p}">${labels[p] || p}</option>`)
+  ]).then(async ([enabledACPs, labels]) => {
+    providerSelect.innerHTML = enabledACPs
+      .map(p => `<option value="${escapeHtml(p)}">${escapeHtml(labels[p] || p)}</option>`)
       .join("");
 
     if (cs.provider && enabledACPs.includes(cs.provider)) {
-      modelSelect.value = cs.provider;
+      providerSelect.value = cs.provider;
     } else if (enabledACPs.length > 0) {
-      modelSelect.value = enabledACPs[0];
+      providerSelect.value = enabledACPs[0];
       cs.provider = enabledACPs[0];
     }
+
+    await populateModelOptions(cs.provider);
+    applyLockState();
   });
 
-  modelSelect.addEventListener("change", () => {
-    cs.provider = modelSelect.value;
-    const sessionData = state.sessions.find((s) => s.id === sessionId);
-    if (sessionData) {
-      sessionData.provider = modelSelect.value;
-      app.ipcRenderer.send("sessions:save", sessionData);
-    }
+  providerSelect.addEventListener("change", async () => {
+    cs.provider = providerSelect.value;
+    cs.model = null; // reset so populate picks the provider's default
+    await populateModelOptions(cs.provider);
+    persistProviderModel(sessionId, cs);
+  });
+
+  modelNameSelect.addEventListener("change", () => {
+    cs.model = modelNameSelect.value;
+    persistProviderModel(sessionId, cs);
   });
 
   inputEl.addEventListener("input", () => {
@@ -229,6 +288,7 @@ function createChatPane(sessionId, provider, model) {
     cs.streamStartTime = 0;
     updateStreamUI(sessionId);
     renderMessages(sessionId, paneEl);
+    applyLockState();
   });
 
   clearBtn.addEventListener("click", () => {
@@ -241,6 +301,7 @@ function createChatPane(sessionId, provider, model) {
     updateStreamUI(sessionId);
     updateContextBar(sessionId);
     renderMessages(sessionId, paneEl);
+    applyLockState();
   });
 
   // Load existing history + context usage
@@ -254,6 +315,7 @@ function createChatPane(sessionId, provider, model) {
       if (data.contextSize) cs.contextSize = data.contextSize;
       renderMessages(sessionId, paneEl);
       updateContextBar(sessionId);
+      applyLockState();
       // Ensure scroll to bottom after layout settles
       setTimeout(() => {
         const el = paneEl.querySelector(".chat-messages");
@@ -303,6 +365,7 @@ function sendMessage(sessionId, paneEl) {
   const msg = { role: "user", content: text, timestamp: Date.now() };
   if (images.length > 0) msg.images = images;
   cs.messages.push(msg);
+  refreshLockState(sessionId);
 
   inputEl.value = "";
   inputEl.style.height = "auto";
@@ -530,6 +593,7 @@ function handleStreamStart(sessionId) {
   cs.streamParts = [];
   cs.streamStartTime = Date.now();
   updateStreamUI(sessionId);
+  refreshLockState(sessionId);
 }
 
 function handleChunk(sessionId, chunk) {
@@ -629,6 +693,7 @@ function handleStreamEnd(sessionId, aborted) {
   cs.streamParts = [];
   cs.streamStartTime = 0;
   updateStreamUI(sessionId);
+  refreshLockState(sessionId);
 
   const paneEl = document.querySelector(`.chat-pane[data-session-id="${sessionId}"]`);
   if (paneEl) renderMessages(sessionId, paneEl);
@@ -639,6 +704,7 @@ function handleError(sessionId, error) {
   cs.streaming = false;
   cs.streamParts = [];
   updateStreamUI(sessionId);
+  refreshLockState(sessionId);
 
   cs.messages.push({
     role: "assistant",

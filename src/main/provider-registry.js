@@ -10,6 +10,13 @@ const PROVIDER_CONFIGS = [
     command: "npx",
     args: ["@zed-industries/codex-acp"],
     authMethodId: "chatgpt",
+    modelEnvVar: "OPENAI_MODEL",
+    models: [
+      { id: "gpt-5", label: "GPT-5" },
+      { id: "o3", label: "o3" },
+      { id: "o4-mini", label: "o4-mini" },
+    ],
+    defaultModel: "gpt-5",
   },
   {
     id: "cursor-acp",
@@ -17,6 +24,13 @@ const PROVIDER_CONFIGS = [
     command: "cursor-agent",
     args: ["acp"],
     authMethodId: "cursor_login",
+    modelEnvVar: "CURSOR_MODEL",
+    models: [
+      { id: "auto", label: "Auto" },
+      { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+      { id: "gpt-5", label: "GPT-5" },
+    ],
+    defaultModel: "auto",
   },
   {
     id: "claude-acp",
@@ -24,6 +38,13 @@ const PROVIDER_CONFIGS = [
     command: "npx",
     args: ["@agentclientprotocol/claude-agent-acp"],
     authMethodId: "claude-login",
+    modelEnvVar: "ANTHROPIC_MODEL",
+    models: [
+      { id: "claude-opus-4-7", label: "Claude Opus 4.7" },
+      { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+      { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+    ],
+    defaultModel: "claude-sonnet-4-6",
   },
 ];
 
@@ -37,6 +58,7 @@ for (const cfg of PROVIDER_CONFIGS) {
     command: cfg.command,
     args: cfg.args,
     authMethodId: cfg.authMethodId,
+    modelEnvVar: cfg.modelEnvVar,
     logPrefix: `[${cfg.id}]`,
   });
 
@@ -45,6 +67,12 @@ for (const cfg of PROVIDER_CONFIGS) {
     label: cfg.label,
     server: servers[cfg.id],
   });
+}
+
+function getProviderModels(id) {
+  const cfg = PROVIDER_CONFIGS.find(c => c.id === id);
+  if (!cfg) return { models: [], defaultModel: null };
+  return { models: cfg.models || [], defaultModel: cfg.defaultModel || null };
 }
 
 function getProvider(id) {
@@ -74,6 +102,7 @@ module.exports = {
   getAllProviderIds,
   getProviderLabel,
   getAllProviderConfigs,
+  getProviderModels,
   servers,
   providers,
 };
