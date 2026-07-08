@@ -2,7 +2,7 @@ const os = require("os");
 const path = require("path");
 const fs = require("fs");
 const pty = require("node-pty");
-const { ensureInstructionsFile, loadGlobalInstructions } = require("./config");
+const { ensureInstructionsFile, loadGlobalInstructions, ensureProjectDocsDir } = require("./config");
 
 // Make sure the (blank) global instructions file exists so the user can find
 // and edit it. Injection stays off until they put something in it.
@@ -27,6 +27,10 @@ const ptyProcesses = new Map();
 
 function spawnSession(sessionId, cwd, resume, senderWebContents) {
   if (ptyProcesses.has(sessionId)) return;
+
+  // Make sure this project's AI docs folder exists before the CLI starts, so the
+  // agent (told to maintain it via the injected system prompt) has a home for it.
+  ensureProjectDocsDir(cwd);
 
   const env = { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" };
   delete env.CLAUDECODE;

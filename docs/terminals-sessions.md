@@ -196,9 +196,14 @@ equivalent of a `CLAUDE.md`, but owned by Lithium rather than committed to each 
   to `""` means the `--append-system-prompt` flag is omitted entirely.
 - **Injection point:** `pty.js` spawn args — `--append-system-prompt <instructions>`
   is appended only when `loadGlobalInstructions()` is non-empty.
+- **Folder is created up front:** `spawnSession` calls `ensureProjectDocsDir(cwd)`
+  (`config.js`) before launching the CLI, creating `<project>/.lithium/docs/` with a
+  seed `README.md` if absent — so the folder reliably appears on session start rather
+  than only once the agent writes its first doc. No-ops when no real project is
+  selected (missing cwd / home dir). The doc *contents* are still written by the agent.
 - **Note on `.lithium/`:** the ACP path already uses a per-project `.lithium/` folder
-  for `approved-tools.json`; this default reuses the same `.lithium/` convention for
-  `docs/`, but the docs themselves are written by the agent at runtime, not by Lithium.
+  for `approved-tools.json`; this reuses the same `.lithium/` convention for `docs/`.
+  Only the CLI path calls `ensureProjectDocsDir` today; the ACP path could too.
 - **Status:** no settings UI yet; the file is edited by hand. Intent is a future
   Settings pane to edit this content.
 
@@ -339,6 +344,8 @@ for brand-new sessions.
 ## Change log
 
 Newest first. Each entry: date, who/what, and the change.
+
+- **2026-07-08** — CLI sessions now proactively create `<project>/.lithium/docs/` (with a seed `README.md`) on spawn via `ensureProjectDocsDir(cwd)` in `pty.js`, so the folder reliably appears rather than waiting for the agent to write its first doc. Confirmed `claude` v2.1.204 supports the `--append-system-prompt` flag the injection relies on.
 
 - **2026-07-08** — Broadened the default from per-feature to **per-area**: docs now cover any meaningful change (features, bug fixes, refactors, config changes) as change-log entries under the affected area's `<area>.md`, with a `feat|fix|refactor|chore` tag in the entry heading.
 - **2026-07-08** — Global instruction prompt (`~/.synthcode/instructions.md`) now ships with a `DEFAULT_INSTRUCTIONS` default: the agent silently maintains AI docs under each project's `.lithium/docs/` (read before working, dated change-log after) without surfacing it to the user. Adapted from the `feature-docs` skill, moved from `~/…/ai-docs/<project>` to per-project `.lithium/docs/`.

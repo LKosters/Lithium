@@ -146,6 +146,36 @@ function loadGlobalInstructions() {
   }
 }
 
+// Per-project home for the AI hand-off docs the agent maintains. Created on CLI
+// session start (see pty.js) so the folder reliably exists even before the agent
+// writes its first doc — mirroring the ACP path's own `.lithium/approved-tools.json`.
+// The system prompt (DEFAULT_INSTRUCTIONS) tells the agent what to write here; this
+// just guarantees the directory is present. (The ACP path could call this too.)
+const PROJECT_DOCS_README = `# .lithium/docs
+
+AI hand-off docs for this project, maintained automatically by the coding agent.
+
+One markdown file per feature/area. Every meaningful change — feature, bug fix,
+refactor, config/behavior change — is a dated change-log entry under the area it
+affects (not a file per change). The agent reads the relevant file before working
+on an area and updates it after.
+`;
+
+// Ensures <cwd>/.lithium/docs/ exists (with a seed README). No-ops when cwd is
+// missing, not a real directory, or the home dir (i.e. no project selected).
+function ensureProjectDocsDir(cwd) {
+  try {
+    if (!cwd || cwd === os.homedir() || !fs.existsSync(cwd)) return;
+    const dir = path.join(cwd, ".lithium", "docs");
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "README.md"), PROJECT_DOCS_README);
+    }
+  } catch (err) {
+    console.error("Failed to create project docs dir:", err.message);
+  }
+}
+
 // ── Session persistence ──────────────────────────────
 function loadAllSessions() {
   ensureDirs();
@@ -201,6 +231,7 @@ module.exports = {
   ensureDirs,
   ensureInstructionsFile,
   loadGlobalInstructions,
+  ensureProjectDocsDir,
   loadConfig,
   saveConfig,
   isValidSessionId,
