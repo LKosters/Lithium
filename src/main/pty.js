@@ -2,6 +2,11 @@ const os = require("os");
 const path = require("path");
 const fs = require("fs");
 const pty = require("node-pty");
+const { ensureInstructionsFile, loadGlobalInstructions } = require("./config");
+
+// Make sure the (blank) global instructions file exists so the user can find
+// and edit it. Injection stays off until they put something in it.
+ensureInstructionsFile();
 
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
@@ -31,6 +36,12 @@ function spawnSession(sessionId, cwd, resume, senderWebContents) {
     args.push("--resume", sessionId);
   } else {
     args.push("--session-id", sessionId);
+  }
+
+  // Global instruction prompt shared across every project (blank by default).
+  const instructions = loadGlobalInstructions();
+  if (instructions) {
+    args.push("--append-system-prompt", instructions);
   }
 
   let proc;
