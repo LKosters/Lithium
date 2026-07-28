@@ -99,7 +99,8 @@
   display: flex; align-items: center; justify-content: center;
   transition: all 0.15s var(--ease-out);
 }
-.project-item-btn:hover { color: var(--destructive); background: rgba(201,66,52,0.1); }
+.project-item-btn:hover { color: var(--fg); background: var(--surface); }
+.project-item-btn[data-remove-dir]:hover { color: var(--destructive); background: rgba(201,66,52,0.1); }
 .project-item-btn:active { transform: scale(0.88); }
 /* ── Compact sidebar view ────────────────────────── */
 .sidebar-compact .projects-panel {
@@ -342,6 +343,13 @@
 .session-item-btn:hover { color: var(--fg); background: var(--surface); }
 .session-item-btn:active { transform: scale(0.88); }
 .session-item-btn[data-delete-id]:hover { color: var(--destructive); background: rgba(201,66,52,0.1); }
+.session-item-btn[data-done-id]:hover { color: var(--secondary); background: var(--surface); }
+
+/* Sessions marked done — struck through and dimmed, but still openable */
+.session-item.done { opacity: 0.45; }
+.session-item.done:hover { opacity: 0.7; }
+.session-item.done .session-item-title { text-decoration: line-through; }
+.session-item.done .session-item-btn[data-done-id] { color: var(--secondary); }
 
 #session-list {
   flex: 1; display: flex; flex-direction: column;
@@ -380,6 +388,10 @@
 .dev-server-btn { -webkit-app-region: no-drag; }
 .dev-server-btn.running { color: var(--secondary); }
 .dev-server-btn.running:hover { color: var(--destructive); }
+
+/* Preview toggle — only present while the project's app is running */
+#btn-browser-preview { -webkit-app-region: no-drag; }
+#btn-browser-preview.active { background: var(--primary-soft); color: var(--primary); }
 
 /* ── Small settings action button ─────────────────── */
 .settings-row-action {

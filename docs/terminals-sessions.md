@@ -11,10 +11,11 @@ renderer. Sessions are scoped to a workspace directory, persisted to disk as one
 JSON file per session, restored across relaunches, and resumed (`--resume`) when a
 saved layout re-opens them.
 
-Sessions come in two `mode`s: `terminal` (classic PTY, documented here) and `chat`
-(the ACP/agent chat panes). This doc focuses on the terminal/PTY lifecycle; chat
-panes share the same `sessions` array, persistence, and list UI but stream over the
-`agent:*` IPC channels instead of `pty:*`.
+Every session is PTY-backed — Lithium drives the Claude Code CLI and nothing else.
+A session can also be flagged **done** (`session.done`), a bookkeeping flag that
+strikes its title through in the sidebar and tab bar and sinks it to the bottom of
+the session list. It changes nothing about the process; the session keeps working
+and can be un-done at any time (`toggleSessionDone`, `sessions.js`).
 
 ## Key files
 
@@ -92,20 +93,16 @@ is the single entry point used by both the quick-open modal and the search bar.
    `config.js`'s `isValidSessionId` regex — which it does (uuid is `[a-zA-Z0-9-]`).
 4. **Session object shape** (`session-create.js:24–33`):
    ```js
-   { id, directory: dir, title: name || shortDir(dir), mode,
-     provider: provider || "terminal", model: model || null,
+   { id, directory: dir, title: name || shortDir(dir),
      createdAt: Date.now(), updatedAt: Date.now() }
    ```
    `title` defaults to the shortened directory (`~/...`) when no name is given.
 5. **In-memory + disk:** `state.sessions.unshift(session)` then
    `persistSession(session)` (`session-create.js:35–36`). `persistSession`
    (`helpers.js:44`) stamps `updatedAt = Date.now()` and sends `sessions:save`.
-6. **Open the process:**
-   - `chat` mode → `app.createChatPane(id, provider, model)` (`session-create.js:40`).
-   - `terminal` mode → `app.createTerminal(id)` then
-     `ipcRenderer.send("pty:spawn", { sessionId: id, cwd: dir })` **with no `resume`
-     flag** so main spawns with `--session-id` (a brand-new session)
-     (`session-create.js:45–46`).
+6. **Open the process:** `app.createTerminal(id)` then
+   `ipcRenderer.send("pty:spawn", { sessionId: id, cwd: dir })` **with no `resume`
+   flag** so main spawns with `--session-id` (a brand-new session).
 7. **Directory + UI:** if `dir` differs from `state.currentDir`, `app.setDirectory(dir)`
    is called; then `app.openTab(id)` and `app.renderSessionList()`
    (`session-create.js:49–53`).
@@ -201,9 +198,8 @@ equivalent of a `CLAUDE.md`, but owned by Lithium rather than committed to each 
   seed `README.md` if absent — so the folder reliably appears on session start rather
   than only once the agent writes its first doc. No-ops when no real project is
   selected (missing cwd / home dir). The doc *contents* are still written by the agent.
-- **Note on `.lithium/`:** the ACP path already uses a per-project `.lithium/` folder
-  for `approved-tools.json`; this reuses the same `.lithium/` convention for `docs/`.
-  Only the CLI path calls `ensureProjectDocsDir` today; the ACP path could too.
+- **Note on `.lithium/`:** the same per-project `.lithium/` folder also holds the
+  project's own settings (`settings.json`, see [settings.md](./settings.md)).
 - **Status:** no settings UI yet; the file is edited by hand. Intent is a future
   Settings pane to edit this content.
 
@@ -229,10 +225,10 @@ On `pty:exit` the renderer:
 - **Workspace filter:** `state.sessions.filter(s => s.directory === state.currentDir)`
   — a session only appears under its own workspace (`sessions.js:12–14`). With no
   current dir the list is empty.
-- **Sort:** by `updatedAt` desc (`sessions.js:17`).
+- **Sort:** sessions flagged `done` sink to the bottom, then by `updatedAt` desc.
 - Each row renders a status dot (`.alive` from `terminals.get(s.id)?.alive`), the
-  title (HTML-escaped), a `timeAgo(updatedAt)` meta label, and rename/delete buttons
-  (`sessions.js:24–41`).
+  title (HTML-escaped), a `timeAgo(updatedAt)` meta label, and done/rename/delete
+  buttons. A row with `s.done` gets the `done` class (struck-through title, dimmed).
 - Row click opens the tab (`app.openTab`), ignoring clicks inside the actions area
   (`sessions.js:52–57`).
 
@@ -240,6 +236,12 @@ On `pty:exit` the renderer:
 the PTY), sends `sessions:delete` to remove the disk file, filters the session out of
 `state.sessions`, and re-renders. Note the `renderer.js` auto-delete path calls the
 same exported `deleteSession`.
+
+**Done** — `toggleSessionDone(id)` (`sessions.js`): flips `s.done`, `persistSession(s)`,
+re-renders the list, and `app.refreshLayout()` so the pane tab picks up its `.done`
+class too. It touches nothing about the process — a done session still runs and can
+be un-done. Because `persistSession` bumps `updatedAt`, the sort's done-last rule is
+what keeps a just-marked session from jumping to the top of the list.
 
 **Rename** — `startRename(sessionId)` (`sessions.js:79`): swaps the title span for an
 `input` pre-filled with the current title. On commit (`blur`, or `Enter`) it sets
@@ -260,7 +262,7 @@ title or directory substring, always prefixed with a "New Session" row.
 (`tabs.js:22–25`). So re-opening a previously-closed session resumes it rather than
 starting fresh. It then inserts the tab into the focused leaf of the layout tree.
 
-**Close** — `closeTab(sessionId)` (`tabs.js:51`): for terminal sessions sends
+**Close** — `closeTab(sessionId)` (`tabs.js`): sends
 `pty:kill`, then disposes the xterm instance, removes the pane element, and
 **deletes the `terminals` record** (`tabs.js:60–68`). Deleting the record first is
 what makes the subsequent `pty:exit` a no-op (see exit handling step 1) — closing a
@@ -303,8 +305,7 @@ throwing.
    `cleanupEmptyLeaves` (`renderer.js:216–224`).
 5. For every session id still referenced by a surviving leaf that has no live
    terminal record, it recreates the pane and **resumes**: terminal sessions call
-   `createTerminal(sid)` + `pty:spawn { sessionId: sid, cwd: s.directory, resume: true }`
-   (`renderer.js:230–236`); chat sessions call `createChatPane`.
+   `createTerminal(sid)` + `pty:spawn { sessionId: sid, cwd: s.directory, resume: true }`.
 
 So the resume path (`--resume`) is used both on relaunch restore and on re-opening a
 closed tab; the fresh path (`--session-id`) is used only by `createSessionAndOpen`
@@ -312,10 +313,10 @@ for brand-new sessions.
 
 ## State model (`src/renderer/state.js`)
 
-- `state.sessions` — flat array of all session objects (all workspaces, all modes).
+- `state.sessions` — flat array of all session objects (all workspaces).
 - `terminals` — a `Map<sessionId, { term, fitAddon, paneEl, alive }>` for live
-  terminal panes (chat panes store a different record with `isChat`). Presence in
-  this Map means "has a live pane"; `alive` means "PTY still running".
+  terminal panes. Presence in this Map means "has a live pane"; `alive` means
+  "PTY still running".
 - `state.layout` — a binary split-pane tree of `leaf`/`split` nodes; leaves hold
   `tabs` (session ids) and an `activeTab`. `getAllLeaves`, `findLeafBySession`,
   `cleanupEmptyLeaves`, etc. operate on it (`state.js:14–53`).
@@ -344,6 +345,14 @@ for brand-new sessions.
 ## Change log
 
 Newest first. Each entry: date, who/what, and the change.
+
+- **2026-07-22** — Removed chat/ACP sessions: every session is now PTY-backed, so
+  `mode`/`provider`/`model` are gone from newly created session objects and the
+  `createChatPane` branches were dropped from `tabs.js`, `session-create.js`, and
+  `renderer.js`. Pre-existing `mode: "chat"` sessions on disk now open as terminals;
+  `claude --resume` will fail for them and the resume crash guard deletes them.
+  Added a `done` flag with a toggle button in the session list (struck-through +
+  dimmed, sorted last, mirrored on the pane tab).
 
 - **2026-07-08** — CLI sessions now proactively create `<project>/.lithium/docs/` (with a seed `README.md`) on spawn via `ensureProjectDocsDir(cwd)` in `pty.js`, so the folder reliably appears rather than waiting for the agent to write its first doc. Confirmed `claude` v2.1.204 supports the `--append-system-prompt` flag the injection relies on.
 

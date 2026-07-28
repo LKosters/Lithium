@@ -53,6 +53,14 @@ const confirmCancel = document.querySelector("#confirm-remove-cancel");
 const confirmOk = document.querySelector("#confirm-remove-ok");
 const confirmBackdrop = confirmModal ? confirmModal.querySelector(".np-backdrop") : null;
 
+const scModal = document.querySelector("#start-commands-modal");
+const scProjectName = document.querySelector("#sc-project-name");
+const scCommands = document.querySelector("#sc-commands");
+const scCancel = document.querySelector("#sc-cancel");
+const scSave = document.querySelector("#sc-save");
+const scBackdrop = scModal ? scModal.querySelector(".np-backdrop") : null;
+let _scDir = null;
+
 let pendingRemoveDir = null;
 let activeDropdownTab = "favorites";
 
@@ -150,6 +158,12 @@ async function renderProjectsList() {
       <span class="project-item-name">${escapeHtml(dirName(dir))}</span>
       ${sessionCount > 0 ? `<span class="project-item-count">${sessionCount}</span>` : ""}
       <span class="project-item-actions">
+        <button class="project-item-btn" data-commands-dir="${escapeHtml(dir)}" title="Start commands">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.8"/>
+          </svg>
+        </button>
         <button class="project-item-btn" data-remove-dir="${escapeHtml(dir)}" title="Remove workspace">
           <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
             <path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M5 4v8.5a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -170,8 +184,18 @@ async function renderProjectsList() {
     .querySelectorAll(".project-item[data-project-dir]")
     .forEach((el) => {
       el.addEventListener("click", (e) => {
-        if (e.target.closest("[data-remove-dir]")) return;
+        if (e.target.closest(".project-item-actions")) return;
         setDirectory(el.dataset.projectDir);
+      });
+    });
+
+  // Click gear icon → edit this project's start commands
+  projectsListEl
+    .querySelectorAll("[data-commands-dir]")
+    .forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openStartCommands(btn.dataset.commandsDir);
       });
     });
 
@@ -325,6 +349,62 @@ if (confirmOk) {
   });
 }
 
+// ── Start-commands editor (per-project) ─────────────
+// Each project's start commands (what the play button runs) are edited from the
+// gear on its row, not app settings, since they belong to the project. Stored in
+// <project>/.lithium/settings.json via project:get/set-settings.
+
+async function openStartCommands(dir) {
+  if (!dir || !scModal) return;
+  _scDir = dir;
+  scProjectName.textContent = dirName(dir);
+  scCommands.value = "";
+  try {
+    const settings = await app.ipcRenderer.invoke("project:get-settings", dir);
+    scCommands.value = (settings.startCommands || []).join("\n");
+  } catch (err) {
+    console.error("Failed to load start commands:", err.message);
+  }
+  scModal.classList.remove("hidden");
+  scCommands.focus();
+}
+
+function closeStartCommands() {
+  if (!scModal) return;
+  app.animateClose(scModal, "fadeDown", 160);
+  _scDir = null;
+}
+
+async function saveStartCommands() {
+  if (!_scDir) return;
+  const startCommands = scCommands.value
+    .split("\n")
+    .map((c) => c.trim())
+    .filter(Boolean);
+  try {
+    await app.ipcRenderer.invoke("project:set-settings", { dir: _scDir, settings: { startCommands } });
+  } catch (err) {
+    console.error("Failed to save start commands:", err.message);
+  }
+  // The play button follows the configured commands for the current workspace.
+  if (_scDir === state.currentDir && app.refreshDevServerButton) app.refreshDevServerButton();
+  closeStartCommands();
+}
+
+function isStartCommandsOpen() {
+  return scModal && !scModal.classList.contains("hidden");
+}
+
+if (scModal) {
+  scCancel.addEventListener("click", closeStartCommands);
+  scSave.addEventListener("click", saveStartCommands);
+  if (scBackdrop) scBackdrop.addEventListener("click", closeStartCommands);
+  scCommands.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.preventDefault(); closeStartCommands(); }
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveStartCommands(); }
+  });
+}
+
 module.exports = {
   pickDirectory,
   setDirectory,
@@ -333,4 +413,6 @@ module.exports = {
   getProjectIcon,
   frameworkCache,
   detectFrameworks,
+  closeStartCommands,
+  isStartCommandsOpen,
 };

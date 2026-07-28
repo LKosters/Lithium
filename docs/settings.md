@@ -1,8 +1,8 @@
 # Settings
 
 > The settings overlay and the on-disk config store that backs app preferences —
-> sidebar view, player mode, projects directory, agent/ACP configuration, and the
-> update checker.
+> sidebar view, player mode, projects directory, per-project start commands, and
+> the update checker.
 
 ## Overview
 
@@ -52,18 +52,19 @@ Shows the resolved default projects directory. `loadProjectsDirSetting` calls
 `config:set { key: "projectsDir" }`; the create button calls
 `config:create-default-projects-dir` (creates `~/lithium-projects`).
 
-### Agent / ACP settings (`settings.js:159-237`)
-- **Default agent mode** — `.agent-card` elements (`terminal` vs `acp`).
-  Loaded via `agent:get-default`, saved via `agent:set-default`.
-- **Enabled ACP providers** — `data-acp-toggle` checkboxes. Loaded via
-  `agent:get-enabled-acps`, toggled via `agent:set-acp-enabled { provider, enabled }`.
-- **Tool approval mode** — `#toggle-tool-approval`. Checked ⇒ `"manual"`,
-  unchecked ⇒ `"auto"`. Loaded via `agent:get-tool-approval-mode`, saved via
-  `agent:set-tool-approval-mode`.
-- **ACP server start/stop** — `data-acp-server` buttons call
-  `agent:<providerId>-server-status|-start|-stop`. Status is polled every 3 s
-  while the overlay is open (`pollACPServerStatus`, `settings.js:284-291`) and
-  the polling interval is cleared on close (`stopACPStatusPolling`).
+### Project settings (`settings.js:157-215`)
+Settings for the workspace that is currently open (`app.state.currentDir`), stored
+**with the project** rather than in `config.json` — see "Per-project settings"
+below. The panel is disabled with a "No project selected" label when there is no
+current workspace.
+
+- **Start commands** — a `#settings-start-commands` textarea, one command per
+  line. `loadProjectSettings()` fills it from `project:get-settings`;
+  `#btn-save-start-commands` splits/trims the lines and sends
+  `project:set-settings { dir, settings: { startCommands } }`, then calls
+  `app.refreshDevServerButton()` so the toolbar play button reflects the new
+  commands. It deliberately does **not** call `app.checkDevServerAvailable()`,
+  which would stop a running app.
 
 ### Update checker (`settings.js:300-371`)
 - Current version shown via `updater:get-version`.
@@ -92,6 +93,22 @@ Shows the resolved default projects directory. `loadProjectsDirSetting` calls
 | `currentDir` | `config:set` from `directory.js` | Last active workspace |
 | `sidebarView` | `config:set` from `settings.js` | `"default"` / `"compact"` |
 
+## Per-project settings (`<project>/.lithium/settings.json`)
+
+Settings that belong to a project, not to the app, live next to the project's AI
+docs in `<project>/.lithium/settings.json`, so they travel with the repo.
+`loadProjectSettings(dir)` / `saveProjectSettings(dir, settings)` (`config.js`)
+are the only accessors; both normalize the shape and never throw — a missing or
+unreadable file reads as `{ startCommands: [] }`, and saving to a non-existent
+directory returns `false`.
+
+| Key | Meaning |
+| --- | --- |
+| `startCommands` | `string[]` — what the toolbar play button runs for this project (see [dev-server.md](./dev-server.md)) |
+
+Values are trimmed and non-string/blank entries dropped on both read and write,
+so callers can rely on getting a clean `string[]`.
+
 **Caching.** `loadConfig` memoizes into `_configCache` (`config.js:19-29`);
 `saveConfig` overwrites both the file and the cache. Because the cache is never
 invalidated externally, all writes must go through `saveConfig` or the in-memory
@@ -108,6 +125,8 @@ Renderer → main, all registered in `main.js`:
 | `config:resolve-projects-dir` | invoke | → dir string or `null` (auto-adopts `~/lithium-projects` if it exists) | `main.js:219` |
 | `config:create-default-projects-dir` | invoke | → creates + returns `~/lithium-projects` | `main.js:230` |
 | `directory:pick` | invoke | → `{ dir, recents, starred }` or `null` | `main.js:105` |
+| `project:get-settings` | invoke | `dir` → `{ startCommands: string[] }` | `project.js:9` |
+| `project:set-settings` | invoke | `{ dir, settings }` → `{ ok }` | `project.js:11` |
 
 Main → renderer:
 
@@ -134,9 +153,9 @@ directly mutate the DOM (toggle `.sidebar-compact`, call `setPlayerMode`, etc.).
 - **Player mode persistence is elsewhere:** clicking a player-mode card does not
   itself save anything; it delegates to `music.js` `setPlayerMode`, which owns the
   `localStorage["playerMode"]` write. Removing that call silently loses persistence.
-- **ACP status polling leaks if not stopped:** `openSettings` starts a 3 s
-  interval; `closeSettings` must call `stopACPStatusPolling` (it does) or the
-  interval keeps firing `agent:*-server-status` after the overlay closes.
+- **Project settings are not in `config.json`:** they live in the project's own
+  `.lithium/settings.json`, so they are per-repo and travel with it. Opening the
+  overlay re-reads them for whatever workspace is current at that moment.
 - **Config cache is process-local:** editing `config.json` on disk while the app
   runs has no effect until relaunch, because `loadConfig` returns the cached copy.
 
@@ -144,4 +163,8 @@ directly mutate the DOM (toggle `.sidebar-compact`, call `setPlayerMode`, etc.).
 
 Newest first. Each entry: date, who/what, and the change.
 
+- **2026-07-22** — Removed the Agents/ACP panel along with ACP chat support.
+  Replaced it with a **Project** panel that edits the current workspace's start
+  commands, backed by a new per-project store (`<project>/.lithium/settings.json`)
+  and the `project:get-settings` / `project:set-settings` IPC.
 - **2026-07-08** — Initial doc created.

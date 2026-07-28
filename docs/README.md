@@ -23,10 +23,9 @@ other doc assumes that context.
 | --- | --- | --- |
 | Architecture (read first) | [architecture.md](./architecture.md) | Process split, module load order, IPC catalog, `~/.synthcode` persistence |
 | Terminals / sessions | [terminals-sessions.md](./terminals-sessions.md) | PTY-backed terminal sessions, xterm setup, resume, lifecycle |
-| Chat / ACP agents | [chat-acp.md](./chat-acp.md) | Chat panes and the ACP agent-provider system (`agent:*` IPC) |
 | Split-pane layout & tabs | [layout-tabs.md](./layout-tabs.md) | Binary-tree panes, per-pane tabs, drag/split, layout persistence |
-| Built-in browser preview | [browser-preview.md](./browser-preview.md) | `<webview>` preview + MCP/TCP bridge for agent browser control |
-| Dev server controls | [dev-server.md](./dev-server.md) | Start/stop `npm run dev`, URL detection, auto-open preview |
+| Built-in browser preview | [browser-preview.md](./browser-preview.md) | `<webview>` preview, opened from the toolbar while the app runs, + MCP/TCP bridge |
+| Dev server controls | [dev-server.md](./dev-server.md) | Per-project start commands, URL detection, preview toggle |
 | Git integration | [git.md](./git.md) | Git sidebar, `runGit` primitive, `git:*` IPC, polling refresh |
 | Projects & workspaces | [projects-directories.md](./projects-directories.md) | Scaffolding (create-next-app), workspace/directory switching |
 | Settings | [settings.md](./settings.md) | Settings overlay and `config.json` store |
@@ -43,4 +42,4 @@ These were flagged while documenting (recorded, not changed) — verify before r
 - **`~/.synthcode`** is the on-disk config/session/layout directory (historical name).
 - **Focus mode** (`src/styles/focus.css`) is not imported by `main.css` nor toggled by any JS — currently dead. See [theme-focus-music.md](./theme-focus-music.md).
 - **Quick-open modal** (`openQuickOpen` in `quick-open.js`) is never invoked; the active launcher is the search bar. See [quick-open-search.md](./quick-open-search.md).
-- **Legacy ACP files** (`acp-server.js`, `cursor-acp-server.js`, `providers/acp.js`, `providers/cursor-acp.js`) appear superseded by the generic factory and not wired into live code. See [chat-acp.md](./chat-acp.md).
+- **Browser MCP server** (`src/main/browser-mcp-server.js` + `browser-bridge.js`) has no in-app consumer since ACP chat was removed — the bridge still starts, but nothing registers the MCP server. See [browser-preview.md](./browser-preview.md).

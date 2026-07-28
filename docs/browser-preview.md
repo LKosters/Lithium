@@ -8,11 +8,18 @@
 
 Lithium embeds a browser in a right-hand panel (`#browser-panel`). A user can type a
 URL, navigate back/forward/reload, and switch between responsive/mobile/tablet/desktop
-viewport widths. When the built-in dev server starts, its URL is auto-loaded into this
-panel (see `renderer/dev-server.js`).
+viewport widths. The panel is opened from the toolbar's preview button, which only
+appears **while the project's app is running** — starting the app no longer opens the
+panel by itself (see `renderer/dev-server.js` and [dev-server.md](./dev-server.md)).
+
+> **Note:** nothing in the app registers the `browser` MCP server any more. It was
+> registered by the ACP backends on `session/new`, and ACP chat has been removed. The
+> TCP bridge still starts at app-ready and the renderer still answers
+> `browser-tool:exec`, so the plumbing works for an MCP client wired up by hand — but
+> there is currently no in-app consumer.
 
 The same panel is exposed to agents as an **MCP server** named `browser`. An agent
-running under one of the ACP backends can call tools like `browser_screenshot`,
+that has this MCP server registered can call tools like `browser_screenshot`,
 `browser_navigate`, `browser_get_text`, `browser_execute_js`, and `browser_click` to
 inspect and manipulate exactly what the user sees in the panel. This works through a
 three-hop chain: the MCP server (a standalone stdio child process) → a TCP bridge in
@@ -27,7 +34,6 @@ the Electron main process → IPC to the renderer → the `<webview>`.
 | `src/main/browser-bridge.js` | TCP bridge in the main process (`startBrowserBridge`, `stopBrowserBridge`, `registerBridgeIPC`, `getBridgePort`) |
 | `src/main/browser-mcp-server.js` | Standalone stdio MCP server, spawned per agent session; talks to the bridge over TCP |
 | `main.js` | Starts the bridge at app-ready (lines 315–319), tears it down on window-all-closed (line 341); sets `webviewTag: true` (line 53) |
-| `src/main/acp-server.js`, `acp-server-factory.js`, `cursor-acp-server.js` | Register the `browser` MCP server on `session/new` using `getBridgePort()` |
 | `src/renderer/dev-server.js` | Auto-opens the panel to the dev-server URL; closes it on stop |
 
 ## The browser panel (renderer UI)
@@ -47,14 +53,14 @@ why the code can call webview-only methods like `capturePage()`, `getURL()`,
   `#browser-panel` and `#browser-resize-handle`, persists the flag to
   `localStorage["browserOpen"]` (`"1"` / `""`), and re-fits all visible terminals on
   the next animation frame (the panel steals horizontal space).
-- On init (`browser.js:127`) it restores `browserOpen` + `browserUrl` from
-  `localStorage`, re-pointing `browserWebview.src` and re-opening the panel if it was
-  open last session.
-- `app.openBrowserUrl(url)` (`browser.js:85`) — opens the panel if needed, sets the
-  webview `src`, updates the URL input, and persists the URL. This is the hook the dev
-  server uses.
-- `app.closeBrowser()` (`browser.js:93`) — closes the panel if open. Used by the dev
-  server on stop.
+- On init it restores **only** `browserUrl` from `localStorage`, re-pointing
+  `browserWebview.src`. The open state is deliberately not restored: the panel is
+  reachable only while an app is running, so it always starts closed.
+- `app.openBrowserUrl(url)` — opens the panel if needed, sets the webview `src`,
+  updates the URL input, and persists the URL.
+- `app.openBrowser()` — opens the panel on whatever it last showed, without a URL.
+- `app.closeBrowser()` — closes the panel if open. Used by the dev server on stop.
+- `app.isBrowserOpen()` — current open state; the preview button uses it to toggle.
 
 ### URL bar & navigation (`browser.js:23`)
 
@@ -137,8 +143,8 @@ run as a **stdio child process** and speaking **MCP JSON-RPC 2.0 over stdin/stdo
 (line-delimited). It is *not* a network server itself — the "transport" to the agent is
 stdio; its only network activity is an outbound TCP connection to the bridge.
 
-The ACP backends register it on `session/new`. Example (`acp-server.js:231`–239, mirrored
-in `acp-server-factory.js:416` and `cursor-acp-server.js:221`):
+It is registered by giving an agent runtime an MCP server entry like this (the shape
+the removed ACP backends used on `session/new`):
 
 ```js
 const bridgePort = getBridgePort();
@@ -252,11 +258,12 @@ agent
 
 ## Dev-server integration (`renderer/dev-server.js`)
 
-- When the main-process dev server emits its URL, the renderer receives
-  `ipcRenderer.on("devserver:url", …)` and calls `app.openBrowserUrl(url)`
-  (`dev-server.js:65`) — auto-opening the panel to the running app.
+- When the main-process dev server emits its URL, the renderer stores it and
+  re-points the panel **only if it is already open**. It never opens it.
+- `#btn-browser-preview` is shown while the app runs and toggles the panel: open on
+  the detected URL (or the last-visited one if no URL has been seen yet), or close.
 - Stopping the dev server (`devserver:stop` invoke, or a `devserver:stopped` push)
-  calls `app.closeBrowser()` (`dev-server.js:31`, `dev-server.js:71`).
+  calls `app.closeBrowser()` and hides the preview button.
 
 ## Gotchas & invariants
 
@@ -282,8 +289,8 @@ agent
   it can act — nothing auto-opens the panel for the agent.
 - **Panel visibility is inferred from the `hidden` class**, and the panel width steals
   from the terminal area, so toggling it calls `fitAllVisibleTerminals()`.
-- **Persistence**: `browserOpen` and `browserUrl` live in `localStorage` and are restored
-  on init; the last-visited URL survives relaunch.
+- **Persistence**: only `browserUrl` lives in `localStorage` and is restored on init;
+  the last-visited URL survives relaunch, the open state does not.
 - **Line framing**: every TCP and stdio hop is newline-delimited JSON with a residual
   buffer (`buffer = lines.pop()`), so partial reads across packet boundaries are handled;
   malformed lines are logged and skipped, never crashing the socket.
@@ -292,4 +299,9 @@ agent
 
 Newest first. Each entry: date, who/what, and the change.
 
+- **2026-07-22** — The panel is no longer auto-opened by the dev server; a toolbar
+  preview button (visible only while the project's app runs) toggles it, and the open
+  state is no longer restored from `localStorage`. Added `app.openBrowser()` and
+  `app.isBrowserOpen()`. The `browser` MCP server lost its only registrar when ACP
+  chat was removed — the bridge and server files are kept but unused.
 - **2026-07-08** — Initial doc created.

@@ -148,9 +148,8 @@ function loadGlobalInstructions() {
 
 // Per-project home for the AI hand-off docs the agent maintains. Created on CLI
 // session start (see pty.js) so the folder reliably exists even before the agent
-// writes its first doc — mirroring the ACP path's own `.lithium/approved-tools.json`.
-// The system prompt (DEFAULT_INSTRUCTIONS) tells the agent what to write here; this
-// just guarantees the directory is present. (The ACP path could call this too.)
+// writes its first doc. The system prompt (DEFAULT_INSTRUCTIONS) tells the agent
+// what to write here; this just guarantees the directory is present.
 const PROJECT_DOCS_README = `# .lithium/docs
 
 AI hand-off docs for this project, maintained automatically by the coding agent.
@@ -173,6 +172,45 @@ function ensureProjectDocsDir(cwd) {
     }
   } catch (err) {
     console.error("Failed to create project docs dir:", err.message);
+  }
+}
+
+// ── Per-project settings ─────────────────────────────
+// Settings that belong to a project rather than to the app live next to the
+// project's AI docs, in `<project>/.lithium/settings.json`, so they travel with
+// the repo. Shape: { startCommands: string[] } — what the play button runs.
+function projectSettingsPath(dir) {
+  return path.join(dir, ".lithium", "settings.json");
+}
+
+function normalizeStartCommands(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((c) => typeof c === "string" && c.trim())
+    .map((c) => c.trim());
+}
+
+function loadProjectSettings(dir) {
+  if (!dir) return { startCommands: [] };
+  try {
+    const raw = JSON.parse(fs.readFileSync(projectSettingsPath(dir), "utf-8"));
+    return { startCommands: normalizeStartCommands(raw.startCommands) };
+  } catch {
+    return { startCommands: [] };
+  }
+}
+
+function saveProjectSettings(dir, settings) {
+  if (!dir || !fs.existsSync(dir)) return false;
+  try {
+    const filePath = projectSettingsPath(dir);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    const next = { startCommands: normalizeStartCommands(settings && settings.startCommands) };
+    fs.writeFileSync(filePath, JSON.stringify(next, null, 2) + "\n");
+    return true;
+  } catch (err) {
+    console.error("Failed to save project settings:", err.message);
+    return false;
   }
 }
 
@@ -232,6 +270,8 @@ module.exports = {
   ensureInstructionsFile,
   loadGlobalInstructions,
   ensureProjectDocsDir,
+  loadProjectSettings,
+  saveProjectSettings,
   loadConfig,
   saveConfig,
   isValidSessionId,

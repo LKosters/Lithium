@@ -82,10 +82,9 @@ view (`search-bar.js:196-200`). Escape is also handled globally in
 
 Selecting "New Session" opens the inline form:
 
-- **Search bar** (`sbShowCreateForm`, `search-bar.js:60-78`): seeds the name from
-  the query, loads the default provider via `agent:get-default`, renders the
-  project list, and creates via `createSessionAndOpen({ name, dir, provider,
-  model: null, onDone: closeSearchBar })`.
+- **Search bar** (`sbShowCreateForm`, `search-bar.js`): seeds the name from the
+  query, renders the project list, and creates via
+  `createSessionAndOpen({ name, dir, onDone: closeSearchBar })`.
 - **Quick open** (`showCreateForm` / `doCreateSession`, `quick-open.js:57-74`):
   seeds the name, uses a directory dropdown (`renderDirDropdown` with
   favorites/recent tabs) instead of an inline project list, and calls
@@ -102,7 +101,6 @@ These surfaces are almost entirely renderer-side (they read `state.sessions`,
 | Channel | Kind | Where | Purpose |
 | --- | --- | --- | --- |
 | `directory:pick` | invoke | `quick-open.js:189`, `search-bar` via create flow | Native folder picker; returns `{ dir, recents, starred }` and refreshes `state.recentDirs`/`state.starredDirs` |
-| `agent:get-default` | invoke | `search-bar.js:71` | Preselect the provider for a new session |
 
 Session creation itself is delegated to `createSessionAndOpen`
 (`session-create.js`), which performs the session-spawn IPC.
@@ -128,4 +126,7 @@ Session creation itself is delegated to `createSessionAndOpen`
 
 Newest first. Each entry: date, who/what, and the change.
 
+- **2026-07-22** — Dropped the `agent:get-default` lookup from the search bar's
+  create form along with ACP chat support; `createSessionAndOpen` now takes only
+  `{ name, dir, onDone }` and always creates a terminal session.
 - **2026-07-08** — Initial doc created.

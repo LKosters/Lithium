@@ -16,7 +16,6 @@ function initBrowser() {
     browserOpen = open;
     browserPanel.classList.toggle("hidden", !open);
     browserResizeHandle.classList.toggle("hidden", !open);
-    localStorage.setItem("browserOpen", open ? "1" : "");
     requestAnimationFrame(() => app.fitAllVisibleTerminals());
   }
 
@@ -89,9 +88,18 @@ function initBrowser() {
     localStorage.setItem("browserUrl", url);
   };
 
+  // Open the panel on whatever it last showed (no URL to point it at yet)
+  app.openBrowser = function () {
+    if (!browserOpen) setBrowserOpen(true);
+  };
+
   // Expose function to close the browser panel
   app.closeBrowser = function () {
     if (browserOpen) setBrowserOpen(false);
+  };
+
+  app.isBrowserOpen = function () {
+    return browserOpen;
   };
 
   // Browser panel resize
@@ -123,15 +131,12 @@ function initBrowser() {
     });
   }
 
-  // Restore browser panel state from previous session
-  const savedOpen = localStorage.getItem("browserOpen");
+  // Restore the last URL, but never the open state: the preview is only
+  // reachable while a dev server runs, so it always starts closed.
   const savedUrl = localStorage.getItem("browserUrl");
-  if (savedOpen === "1") {
-    if (savedUrl) {
-      browserWebview.src = savedUrl;
-      browserUrl.value = savedUrl;
-    }
-    setBrowserOpen(true);
+  if (savedUrl) {
+    browserWebview.src = savedUrl;
+    browserUrl.value = savedUrl;
   }
 }
 

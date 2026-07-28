@@ -3,7 +3,14 @@ const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 
-const { addRecentDir } = require("./config");
+const { addRecentDir, loadProjectSettings, saveProjectSettings } = require("./config");
+
+// ── Per-project settings (<project>/.lithium/settings.json) ──
+ipcMain.handle("project:get-settings", (_e, dir) => loadProjectSettings(dir));
+
+ipcMain.handle("project:set-settings", (_e, { dir, settings }) => ({
+  ok: saveProjectSettings(dir, settings),
+}));
 
 ipcMain.handle("project:create", async (_e, { framework, name, projectsDir }) => {
   if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) {

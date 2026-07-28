@@ -201,6 +201,10 @@
 
 .pane-tab-title { overflow: hidden; text-overflow: ellipsis; }
 
+/* Sessions marked done in the sidebar read the same way in the tab bar */
+.pane-tab.done { opacity: 0.5; }
+.pane-tab.done .pane-tab-title { text-decoration: line-through; }
+
 .pane-tab-rename {
   display: flex; align-items: center; justify-content: center;
   width: 14px; height: 14px; border: none; background: none;

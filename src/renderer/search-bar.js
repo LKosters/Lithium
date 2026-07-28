@@ -20,7 +20,6 @@ let _sbSelectedIdx = 0;
 let _sbCreateMode = false;
 let _sbCreateDir = null;
 let _sbKeyboardNav = false;
-let _sbSelectedProvider = "terminal";
 
 // ── Functions ────────────────────────────────────────
 function updateSearchBarWorkspace() {
@@ -66,13 +65,6 @@ async function sbShowCreateForm() {
   sbCreateName.select();
   if (sbProjectSearch) sbProjectSearch.value = "";
 
-  // Load default agent from settings
-  try {
-    _sbSelectedProvider = await app.ipcRenderer.invoke("agent:get-default") || "terminal";
-  } catch {
-    _sbSelectedProvider = "terminal";
-  }
-
   // Render the project list
   await renderSbProjectList();
 }
@@ -88,8 +80,6 @@ function sbDoCreate() {
   createSessionAndOpen({
     name,
     dir: _sbCreateDir,
-    provider: _sbSelectedProvider,
-    model: null,
     onDone: closeSearchBar,
   });
 }

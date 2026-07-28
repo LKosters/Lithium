@@ -13,21 +13,29 @@ function renderSessionList() {
     ? state.sessions.filter((s) => s.directory === currentDir)
     : [];
 
-  // Sort by most recently updated
-  const sorted = [...filtered].sort((a, b) => b.updatedAt - a.updatedAt);
+  // Sort by most recently updated, with finished sessions sunk to the bottom
+  const sorted = [...filtered].sort(
+    (a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0) || b.updatedAt - a.updatedAt
+  );
 
   let html = "";
   for (const s of sorted) {
     const active = s.id === state.activeId ? "active" : "";
     const t = terminals.get(s.id);
     const alive = t?.alive ? "alive" : "";
+    const done = s.done ? "done" : "";
     html += `
-      <div class="session-item ${active}" data-session-id="${s.id}">
+      <div class="session-item ${active} ${done}" data-session-id="${s.id}">
         <span class="session-item-status ${alive}"></span>
         <span class="session-item-title">${escapeHtml(s.title || "Session")}</span>
         <span class="session-item-meta">${timeAgo(s.updatedAt)}</span>
         <div class="session-item-actions">
-<button class="session-item-btn" data-rename-id="${s.id}" title="Rename">
+          <button class="session-item-btn" data-done-id="${s.id}" title="${s.done ? "Mark as not done" : "Mark as done"}">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+              <path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="session-item-btn" data-rename-id="${s.id}" title="Rename">
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
               <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -55,7 +63,13 @@ function renderSessionList() {
       app.openTab(el.dataset.sessionId);
     });
   });
-sessionListEl.querySelectorAll("[data-rename-id]").forEach((btn) => {
+  sessionListEl.querySelectorAll("[data-done-id]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleSessionDone(btn.dataset.doneId);
+    });
+  });
+  sessionListEl.querySelectorAll("[data-rename-id]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       startRename(btn.dataset.renameId);
@@ -67,6 +81,17 @@ sessionListEl.querySelectorAll("[data-rename-id]").forEach((btn) => {
       deleteSession(btn.dataset.deleteId);
     });
   });
+}
+
+// Marks a session done (or undoes it). Purely a bookkeeping flag — the session
+// keeps working; it just reads as finished in the sidebar and the tab bar.
+function toggleSessionDone(id) {
+  const s = getSession(id);
+  if (!s) return;
+  s.done = !s.done;
+  persistSession(s);
+  renderSessionList();
+  app.refreshLayout();
 }
 
 function deleteSession(id) {
@@ -109,4 +134,4 @@ function startRename(sessionId) {
   });
 }
 
-module.exports = { renderSessionList, deleteSession, startRename };
+module.exports = { renderSessionList, deleteSession, toggleSessionDone, startRename };

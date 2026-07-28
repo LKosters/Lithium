@@ -125,8 +125,8 @@ workspace directory. The focused pane is where `openTab` drops new tabs.
 `openTab(sessionId)`:
 1. If the session is already a tab somewhere, just activates it there and focuses
    that pane (`tabs.js:8-14`) — **a session lives in at most one pane**.
-2. Otherwise ensures a terminal/chat pane exists for it (spawning the PTY with
-   `resume: true`, or `createChatPane` for `mode === 'chat'`).
+2. Otherwise ensures a terminal pane exists for it, spawning the PTY with
+   `resume: true`.
 3. Places it: if there's no layout, creates the root leaf; else appends to the
    focused leaf (falling back to the first leaf) and makes it the active tab.
 4. `refreshLayout()`.
@@ -136,10 +136,9 @@ session-create.
 
 ### Creating sessions (`newSession` / `splitNewSession`, `tabs.js:93` / `136`)
 
-Both create a session object (`uuidv4` id, `directory: currentDir`, title from
-`shortDir`), resolve the default mode (`terminal` vs `chat`, via
-`agent:get-default` / `agent:get-enabled-acps`), `unshift` it into
-`state.sessions`, and `persistSession`.
+Both go through `spawnNewSession()`, which creates the session object (`uuidv4`
+id, `directory: currentDir`, title from `shortDir`), `unshift`es it into
+`state.sessions`, `persistSession`s it, and spawns its PTY.
 
 - `newSession` then calls `openTab(id)` (adds a tab to the focused pane).
 - `splitNewSession(direction)` **splits the focused leaf in two**: it converts the
@@ -156,9 +155,8 @@ pane's tabs as one of the children.
 ### Closing tabs & panes (`closeTab`, `tabs.js:51`)
 
 `closeTab(sessionId)`:
-1. Tears down the runtime: chat panes remove the element, delete chat state, and
-   send `agent:clear-history`; terminal panes send `pty:kill`, dispose the xterm
-   instance, remove the element (`tabs.js:53-68`).
+1. Tears down the runtime: sends `pty:kill`, disposes the xterm instance, removes
+   the element, and deletes the `terminals` record.
 2. Removes the id from its leaf's `tabs`; if it was the `activeTab`, promotes the
    **last remaining tab** (`tabs.length - 1`) or `null` (`tabs.js:71-77`).
 3. `state.layout = cleanupEmptyLeaves(state.layout)` — an emptied leaf disappears
@@ -245,8 +243,8 @@ existing sessions**:
 1. For each leaf, filter `tabs` to session IDs that still exist
    (`sessions:list`); fix `activeTab` if it was pruned.
 2. `cleanupEmptyLeaves` the whole tree.
-3. For every surviving tab, recreate its runtime (`createChatPane` for chat, else
-   `createTerminal` + `pty:spawn { resume: true }`).
+3. For every surviving tab, recreate its runtime (`createTerminal` +
+   `pty:spawn { resume: true }`).
 4. Adopt the cleaned tree as `state.layout`; set `focusedPaneId` to the saved id if
    it still resolves, else the first leaf. If nothing survived, `clearSavedLayout()`.
 
@@ -299,4 +297,9 @@ instead of leaving a broken pane.
 
 Newest first. Each entry: date, who/what, and the change.
 
+- **2026-07-22** — ACP chat panes removed: `openTab`/`closeTab`/`newSession`/
+  `splitNewSession` are terminal-only, and session creation is shared through a new
+  `spawnNewSession()` helper (both entry points are now synchronous). Pane tabs pick
+  up a `.done` class from `session.done` (struck-through, dimmed) — see
+  [terminals-sessions.md](./terminals-sessions.md).
 - **2026-07-08** — Initial doc created.

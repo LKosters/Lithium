@@ -366,19 +366,39 @@
   background: var(--bg);
 }
 
-/* ── Server error message ─────────────────────────── */
-.settings-server-error {
-  font-size: 11px;
-  font-family: var(--font-mono);
-  color: var(--destructive);
-  background: rgba(201, 66, 52, 0.08);
-  border: 1px solid rgba(201, 66, 52, 0.2);
-  border-radius: var(--radius-xs);
-  padding: 6px 10px;
-  line-height: 1.4;
-  word-break: break-word;
+/* ── Grouped sub-sections ─────────────────────────── */
+.settings-group-title {
+  font-size: 12.5px; font-weight: 500; color: var(--fg-dim);
+  margin: 24px 0 2px;
 }
-.settings-server-error.hidden { display: none; }
+.settings-group-hint {
+  font-size: 11px; color: var(--muted); line-height: 1.5;
+  margin: 0 0 10px; max-width: 560px;
+}
+.settings-group-hint code,
+.settings-panel-desc code {
+  font-family: var(--font-mono); font-size: 10.5px;
+  background: var(--raised); border-radius: 3px; padding: 1px 4px;
+}
+
+/* ── Stacked row (label-less editor + actions) ────── */
+.settings-row-stack {
+  flex-direction: column; align-items: stretch; gap: 10px;
+}
+.settings-row-actions {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+}
+
+.settings-textarea {
+  width: 100%; resize: vertical; min-height: 72px;
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.6;
+  color: var(--fg); background: var(--bg);
+  border: 1px solid var(--border); border-radius: var(--radius-xs);
+  padding: 8px 10px;
+  transition: border-color 0.15s var(--ease-out);
+}
+.settings-textarea:focus { outline: none; border-color: var(--primary-border); }
+.settings-textarea:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ── Update checker ───────────────────────────────── */
 .update-actions {

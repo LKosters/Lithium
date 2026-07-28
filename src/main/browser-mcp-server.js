@@ -1,6 +1,8 @@
 #!/usr/bin/env node
-// Standalone MCP server for browser control — spawned by codex-acp as stdio child process.
-// Zero npm dependencies. Communicates with Electron main process via TCP bridge.
+// Standalone MCP server for browser control, run as a stdio child process by an
+// agent runtime. Zero npm dependencies; talks to the Electron main process over
+// the TCP bridge (browser-bridge.js). NOTE: since ACP chat was removed nothing in
+// the app registers this server — it is kept for MCP clients wired up manually.
 
 const net = require("net");
 const readline = require("readline");

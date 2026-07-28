@@ -14,8 +14,7 @@ const { initBrowser, initBrowserTools } = require("./renderer/browser");
 const { initMusicPlayer, updateTrackProgress, setPlayerMode } = require("./renderer/music");
 const { closeSettings, isSettingsOpen } = require("./renderer/settings");
 const { closeGit, isGitOpen, refreshGit } = require("./renderer/git");
-const { pickDirectory, setDirectory, renderRecentDirs, renderProjectsList } = require("./renderer/directory");
-const { createChatPane, deleteChatState, handleStreamStart, handleChunk, handleStreamEnd, handleError, chatStates } = require("./renderer/chat");
+const { pickDirectory, setDirectory, renderRecentDirs, renderProjectsList, closeStartCommands, isStartCommandsOpen } = require("./renderer/directory");
 
 // ── Wire functions onto app for cross-module calls ────
 app.state = state;
@@ -27,12 +26,6 @@ app.dom = {
   welcomeEl: document.querySelector("#welcome"),
 };
 app.createTerminal = createTerminal;
-app.createChatPane = (sessionId, provider, model) => {
-  const paneEl = createChatPane(sessionId, provider, model);
-  // Store in terminals map with a chat flag for layout compatibility
-  terminals.set(sessionId, { paneEl, alive: true, isChat: true });
-  return paneEl;
-};
 app.fitAllVisibleTerminals = fitAllVisibleTerminals;
 app.renderLayout = renderLayout;
 app.refreshLayout = refreshLayout;
@@ -46,17 +39,16 @@ app.setDirectory = setDirectory;
 app.renderProjectsList = renderProjectsList;
 app.refreshGit = refreshGit;
 app.setPlayerMode = setPlayerMode;
-app.chatStates = chatStates;
-app.deleteChatState = deleteChatState;
 
 // ── Load feature modules (must come after app wiring) ─
 const { openSearchBar, closeSearchBar, isSearchBarOpen, updateSearchBarWorkspace } = require("./renderer/search-bar");
 const { closeQuickOpen, isQuickOpenVisible } = require("./renderer/quick-open");
 const { closeNewProject, isNewProjectVisible } = require("./renderer/new-project");
-const { checkDevServerAvailable, restoreDevServer } = require("./renderer/dev-server");
+const { checkDevServerAvailable, refreshDevServerButton, restoreDevServer } = require("./renderer/dev-server");
 
 app.updateSearchBarWorkspace = updateSearchBarWorkspace;
 app.checkDevServerAvailable = checkDevServerAvailable;
+app.refreshDevServerButton = refreshDevServerButton;
 
 // ── Version tag ──────────────────────────────────────
 {
@@ -114,6 +106,7 @@ document.addEventListener("keyup", (e) => {
 
 // ── Global keydown ────────────────────────────────────
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && isStartCommandsOpen()) { closeStartCommands(); return; }
   if (e.key === "Escape" && isNewProjectVisible()) { closeNewProject(); return; }
   if (e.key === "Escape" && isSearchBarOpen()) { closeSearchBar(); return; }
   if (e.key === "Escape" && isQuickOpenVisible()) { closeQuickOpen(); return; }
@@ -163,24 +156,6 @@ ipcRenderer.on("pty:exit", (_e, { sessionId, exitCode, resume, lifetime }) => {
   refreshLayout();
 });
 
-
-// ── Agent events from main ───────────────────────────
-ipcRenderer.on("agent:stream-start", (_e, { sessionId }) => {
-  handleStreamStart(sessionId);
-});
-
-ipcRenderer.on("agent:chunk", (_e, { sessionId, chunk }) => {
-  handleChunk(sessionId, chunk);
-});
-
-ipcRenderer.on("agent:stream-end", (_e, { sessionId, aborted }) => {
-  handleStreamEnd(sessionId, aborted);
-});
-
-ipcRenderer.on("agent:error", (_e, { sessionId, error }) => {
-  handleError(sessionId, error);
-});
-
 // ── Resize observer ───────────────────────────────────
 const ro = new ResizeObserver(() => {
   requestAnimationFrame(() => fitAllVisibleTerminals());
@@ -228,12 +203,8 @@ async function init() {
         for (const sid of leaf.tabs) {
           const s = state.sessions.find((ss) => ss.id === sid);
           if (s && !terminals.has(sid)) {
-            if (s.mode === "chat") {
-              app.createChatPane(sid, s.provider, s.model);
-            } else {
-              createTerminal(sid);
-              ipcRenderer.send("pty:spawn", { sessionId: sid, cwd: s.directory, resume: true });
-            }
+            createTerminal(sid);
+            ipcRenderer.send("pty:spawn", { sessionId: sid, cwd: s.directory, resume: true });
           }
         }
       }

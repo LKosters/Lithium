@@ -5,8 +5,8 @@ Guidance for AI agents (Claude Code) working in this repository.
 ## What Lithium is
 
 Lithium is an **Electron desktop UI for Claude Code** — it wraps the Claude Code CLI
-(and other ACP agent providers) in a native app with split-pane terminals, session
-management, a built-in browser preview, dev-server controls, and Git integration.
+in a native app with split-pane terminals, session management, a built-in browser
+preview, per-project run commands, and Git integration.
 
 - App name: **Lithium** (`package.json` → `name: "lithium"`)
 - Type: Electron desktop app (macOS / Windows / Linux)
@@ -21,11 +21,11 @@ main.js                     Electron main process entry — creates the window,
                             wires up IPC, loads all src/main/* modules.
 
 src/main/*.js               Main process (Node.js). Owns the OS: PTYs, child
-                            processes, filesystem, Git, ACP agent servers,
-                            dev server, auto-updater, config on disk.
+                            processes, filesystem, Git, the project's run
+                            commands, auto-updater, config on disk.
 
 src/renderer/*.js           Renderer process (browser context). Owns the UI:
-                            terminals (xterm), tabs, layout/split panes, chat,
+                            terminals (xterm), tabs, layout/split panes,
                             settings, browser preview, music, quick-open.
 
 src/renderer.js             Renderer bootstrap; src/index.html is the shell.
@@ -41,21 +41,21 @@ Each row has a matching deep-dive in `docs/` (see the next section).
 
 | Feature | Renderer | Main | Doc |
 | --- | --- | --- | --- |
-| Terminals / sessions | `renderer/terminal.js`, `renderer/sessions.js`, `renderer/session-create.js` | `main/pty.js`, `main/agents.js` | `docs/terminals-sessions.md` |
+| Terminals / sessions | `renderer/terminal.js`, `renderer/sessions.js`, `renderer/session-create.js` | `main/pty.js` | `docs/terminals-sessions.md` |
 | Split-pane layout & tabs | `renderer/layout.js`, `renderer/tabs.js` | — | `docs/layout-tabs.md` |
-| Chat (ACP agents) | `renderer/chat.js` | `main/agents.js`, `main/acp-server-factory.js`, `main/provider-registry.js`, `main/providers/*` | `docs/chat-acp.md` |
 | Built-in browser preview | `renderer/browser.js` | `main/browser-bridge.js`, `main/browser-mcp-server.js` | `docs/browser-preview.md` |
 | Dev server controls | `renderer/dev-server.js` | `main/dev-server.js` | `docs/dev-server.md` |
 | Git integration | `renderer/git.js` | `main/git.js` | `docs/git.md` |
 | Projects / scaffolding | `renderer/new-project.js`, `renderer/directory.js` | `main/project.js` | `docs/projects-directories.md` |
 | Quick open / search | `renderer/quick-open.js`, `renderer/search-bar.js` | — | `docs/quick-open-search.md` |
-| Settings | `renderer/settings.js` | `main/config.js` | `docs/settings.md` |
+| Settings (app + per-project) | `renderer/settings.js` | `main/config.js`, `main/project.js` | `docs/settings.md` |
 | Theme / focus mode | `renderer/theme.js` | — | `docs/theme-focus-music.md` |
 | Music player | `renderer/music.js` | `main/media.js` | `docs/theme-focus-music.md` |
 | Auto-update | — | `main/updater.js` | `docs/auto-update.md` |
 
 Config, sessions, and layout persist on disk under **`~/.synthcode`** (historical
-name) — see `main/config.js` and `docs/architecture.md`.
+name); settings that belong to a project live in that project's
+`.lithium/settings.json`. See `main/config.js` and `docs/architecture.md`.
 
 ## Running & building
 

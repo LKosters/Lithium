@@ -4,7 +4,7 @@ const fs = require("fs");
 
 // Fix PATH before loading any module that spawns child processes — GUI-launched
 // Electron apps don't inherit the login shell's PATH, which breaks `env node`
-// shebangs used by claude / npx / codex-acp. Must run before pty/agents load.
+// shebangs used by claude / npx. Must run before pty / dev-server load.
 require("./src/main/shell-env").fixPath();
 
 // ── Load modules ──────────────────────────────────────
@@ -29,11 +29,8 @@ const { killDevServer } = require("./src/main/dev-server");
 require("./src/main/git");
 require("./src/main/project");
 
-// Register agent provider handlers
-const { registerAgentHandlers, stopAllServers } = require("./src/main/agents");
 const { startBrowserBridge, stopBrowserBridge, registerBridgeIPC } = require("./src/main/browser-bridge");
 const { registerUpdaterHandlers } = require("./src/main/updater");
-registerAgentHandlers();
 registerUpdaterHandlers();
 
 // ── Window ─────────────────────────────────────────────
@@ -110,22 +107,6 @@ ipcMain.handle("directory:pick", async (e) => {
   const recents = addRecentDir(dir);
   const config = loadConfig();
   return { dir, recents, starred: config.starredDirs || [] };
-});
-
-ipcMain.handle("dialog:pick-images", async (e) => {
-  const win = BrowserWindow.fromWebContents(e.sender) || BrowserWindow.getFocusedWindow();
-  const result = await dialog.showOpenDialog(win, {
-    properties: ["openFile", "multiSelections"],
-    filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] }],
-  });
-  if (result.canceled || result.filePaths.length === 0) return [];
-  return result.filePaths.map((fp) => {
-    const ext = path.extname(fp).toLowerCase().replace(".", "");
-    const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", bmp: "image/bmp" };
-    const mimeType = mimeMap[ext] || "image/png";
-    const base64 = fs.readFileSync(fp).toString("base64");
-    return { dataUrl: `data:${mimeType};base64,${base64}`, mimeType, name: path.basename(fp) };
-  });
 });
 
 ipcMain.handle("directory:recents", () => {
@@ -337,19 +318,13 @@ app.on("window-all-closed", () => {
   for (const [, entry] of ptyProcesses) entry.proc.kill();
   ptyProcesses.clear();
   killDevServer();
-  stopAllServers();
   stopBrowserBridge();
   if (process.platform !== "darwin") app.quit();
 });
 
 app.on("before-quit", () => {
   killDevServer();
-  stopAllServers();
   stopBrowserBridge();
-});
-
-app.on("will-quit", () => {
-  stopAllServers();
 });
 
 app.on("render-process-gone", () => {});

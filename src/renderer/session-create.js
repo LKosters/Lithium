@@ -11,23 +11,17 @@ const { escapeHtml, shortDir, persistSession } = require("./helpers");
  * @param {Object} opts
  * @param {string|null} opts.name - Session name (optional)
  * @param {string|null} opts.dir - Working directory
- * @param {string} opts.provider - Provider name ("terminal", "acp")
- * @param {string|null} opts.model - Model to use (optional)
  * @param {Function} opts.onDone - Called after creation
  * @returns {boolean} true if created, false if dir is missing
  */
-function createSessionAndOpen({ name, dir, provider, model, onDone }) {
+function createSessionAndOpen({ name, dir, onDone }) {
   if (!dir) return false;
 
-  const mode = (provider && provider !== "terminal") ? "chat" : "terminal";
   const id = uuidv4();
   const session = {
     id,
     directory: dir,
     title: name || shortDir(dir),
-    mode,
-    provider: provider || "terminal",
-    model: model || null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -35,16 +29,8 @@ function createSessionAndOpen({ name, dir, provider, model, onDone }) {
   state.sessions.unshift(session);
   persistSession(session);
 
-  if (mode === "chat") {
-    // Chat mode — create chat pane via app.createChatPane
-    if (app.createChatPane) {
-      app.createChatPane(id, provider, model);
-    }
-  } else {
-    // Terminal mode — classic PTY
-    app.createTerminal(id);
-    app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: dir });
-  }
+  app.createTerminal(id);
+  app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: dir });
 
   if (dir !== state.currentDir && app.setDirectory) {
     app.setDirectory(dir);
