@@ -9,6 +9,8 @@ let settingsOpen = false;
 const chatSettings = require('./chat-settings').createChatSettings(ipcRenderer, settingsOverlay);
 const dataSettings = require('./data-settings').createDataSettings(ipcRenderer, settingsOverlay);
 
+const webSettings = require('./web-settings').createWebSettings(ipcRenderer, settingsOverlay);
+
 const navItems = settingsOverlay.querySelectorAll("[data-settings-tab]");
 const panels = settingsOverlay.querySelectorAll("[data-settings-panel]");
 
@@ -19,6 +21,7 @@ navItems.forEach((btn) => {
     panels.forEach((p) => p.classList.toggle("active", p.dataset.settingsPanel === tab));
     if (tab === 'chats') chatSettings.load();
     if (tab === 'data') dataSettings.load();
+    if (tab === 'web') webSettings.load();
   });
 });
 
@@ -90,6 +93,7 @@ function openSettings() {
 
   // Load settings data
   loadProjectsDirSetting();
+  if (settingsOverlay.querySelector('[data-settings-panel="web"].active')) webSettings.load();
   if (settingsOverlay.querySelector('[data-settings-panel="data"].active')) dataSettings.load();
   if (settingsOverlay.querySelector('[data-settings-panel="chats"].active')) chatSettings.load();
 }

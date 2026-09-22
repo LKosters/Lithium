@@ -46,3 +46,5 @@ These were flagged while documenting (recorded, not changed) — verify before r
 - **Browser MCP server** (`src/main/browser-mcp-server.js` + `browser-bridge.js`) has no in-app consumer since ACP chat was removed — the bridge still starts, but nothing registers the MCP server. See [browser-preview.md](./browser-preview.md).
 
 - [Local storage & backups](./storage.md) — SQLite migration, app data, export/import and recovery.
+
+- [Web access](web-access.md) — Optional authenticated LAN/Tailscale browser interface.

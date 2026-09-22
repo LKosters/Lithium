@@ -1,4 +1,4 @@
-const { ipcMain } = require("electron");
+const { ipcMain } = require("./ipc");
 const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");

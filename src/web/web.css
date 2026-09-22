@@ -1,0 +1,24 @@
+body { visibility: hidden; }
+body.web-client { visibility: visible; }
+#web-login { visibility: visible; position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; background: #0c0b09; color: #eee9df; padding: 24px; }
+#web-login form { width: min(420px, 100%); display: grid; gap: 18px; }
+#web-login h1 { font-size: 36px; }
+#web-login input, #web-login button { padding: 14px; border-radius: 8px; border: 1px solid #514b3e; color: inherit; background: #201e18; font: inherit; }
+#web-login button { background: #c4a66a; color: #17140e; cursor: pointer; }
+#web-login [role=status] { color: #e9b17c; overflow-wrap: anywhere; }
+#web-connection { visibility: visible; position: fixed; bottom: 12px; left: 12px; right: 12px; z-index: 20000; padding: 12px; background: #5d3925; color: white; border-radius: 8px; }
+.web-client .titlebar-drag { -webkit-app-region: no-drag; }
+.web-client #music-dock, .web-client #compact-player { display: none !important; }
+.web-client #titlebar { padding-left: 12px; }
+.web-client .settings-row a { color: inherit; }
+#web-projects-toggle { display: none; }
+@media (max-width: 700px) {
+  #web-projects-toggle { display: inline-block; }
+  .web-client #sidebar { display: none; position: fixed; top: 48px; bottom: 0; left: 0; z-index: 100; width: min(360px, 95vw) !important; box-shadow: 8px 0 30px #0008; }
+  .web-client.web-sidebar-open #sidebar { display: flex; }
+  .web-client #sidebar-resize-handle { display: none; }
+  .web-client .settings-nav { min-width: 130px; width: 130px; }
+  .web-client .settings-main { padding: 18px; min-width: 0; }
+  .web-client .settings-row { flex-wrap: wrap; gap: 12px; }
+  .web-client .chat-composer { padding: 8px; }
+}

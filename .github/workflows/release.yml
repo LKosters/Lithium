@@ -49,6 +49,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Build web assets
+        run: npm run web:build
+
       - name: Build
         run: npx electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
         env:

@@ -31,11 +31,21 @@ No app update, migration or export rewrites those provider files.
 ## One-time migration and update safety
 
 At startup, before windows open, copy legacy `config.json`, `layout.json`,
-`sessions/`, `chats/` and `instructions.md` to `backups/before-sqlite-<timestamp>/`.
+`sessions/`, `chats/`, the historical `chat/` directory and `instructions.md` to `backups/before-sqlite-<timestamp>/`.
 Import config, layout, sessions and chats transactionally. Only then write the
 `legacyMigrated` marker. Originals stay in place but are never re-read after the
 marker, including when sessions are deleted. Invalid input aborts migration and
 startup with a recoverable error; no partial data or skipped chats are accepted.
+
+Historical `messages` documents are converted into timeline `entries`; original
+message objects and document metadata are retained, and backup copies remain
+unchanged. The ACP `chat/<session-id>.json` format obtains its missing ID from the
+validated filename. Standalone histories receive a session-list record so they
+remain accessible. Converted chats start with native default permission settings;
+legacy IDs are not guessed to be native resume IDs. Imported history is retained
+for viewing, but a new native conversation does not automatically inherit it.
+Unknown message shapes or conflicting IDs still abort transactionally and report
+the source filename instead of silently skipping history.
 
 Future schema changes must increment `user_version`, back up first and migrate in
 transactions. Never delete/recreate the database for a version upgrade. Do not
@@ -103,6 +113,11 @@ rollback and staged-file cleanup. Existing chat permission/lifecycle/UI tests
 continue to run with the SQLite store. Manual UI tests use isolated data directories.
 
 ## Change log
+
+- **2026-09-22** — Fixed startup failure on historical `messages` chat files.
+  Added lossless conversion for `chats/` and ACP `chat/`, backup coverage for both,
+  session records for orphan histories and contextual migration errors. Verified
+  migration/reopen against an isolated copy of existing data and regression tests.
 
 - **2026-09-22** — Introduced SQLite, preserved JSON migration backups, durable
   app preferences/drafts and Settings export/import with recovery backup and restart.

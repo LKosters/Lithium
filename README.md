@@ -93,3 +93,11 @@ saves chats/drafts, backs up SQLite and retains the previous app. This uses no p
 Apple signing account; macOS can still show its own security prompts. Existing
 versions using the old updater need one manual installation of an updater-enabled
 build. See [update documentation](docs/auto-update.md).
+
+### Web access (LAN and Tailscale)
+
+Open **Settings → Web access**, choose a port and click **Start web version**.
+Open a displayed address on another device and enter the access code. Keep Lithium
+running on the host; chats and project commands execute there. Both devices must
+be able to reach the host through the LAN or Tailscale. See [web access](docs/web-access.md)
+for browser behavior, networking and access details.

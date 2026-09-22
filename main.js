@@ -1,4 +1,5 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog, protocol, net } = require("electron");
+const { app, BrowserWindow, Menu, dialog, protocol, net } = require("electron");
+const { ipcMain } = require("./src/main/ipc");
 const path = require("path");
 const fs = require("fs");
 if (process.env.LITHIUM_DATA_DIR) app.setPath('userData', path.join(process.env.LITHIUM_DATA_DIR, 'electron'));
@@ -37,6 +38,7 @@ const { service: chatService } = require("./src/main/chat");
 const { isRestoring } = require("./src/main/data");
 const { registerMediaHandlers } = require("./src/main/media");
 const { killDevServer } = require("./src/main/dev-server");
+const { webServer } = require("./src/main/web");
 
 // Register git & project IPC handlers (side-effect modules)
 require("./src/main/git");
@@ -76,7 +78,7 @@ function createWindow() {
         ptyProcesses.delete(sid);
       }
     }
-    killDevServer();
+    if (!webServer.status().running) killDevServer();
   });
 
   return win;
@@ -339,6 +341,7 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  if (webServer.status().running) return;
   for (const [, entry] of ptyProcesses) entry.proc.kill();
   ptyProcesses.clear();
   killDevServer();
@@ -348,6 +351,7 @@ app.on("window-all-closed", () => {
 
 let chatShutdown = false;
 app.on("before-quit", (event) => {
+  webServer.stop().catch(console.error);
   if (!chatShutdown && chatService.sessions.size) {
     event.preventDefault();
     chatShutdown = true;

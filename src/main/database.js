@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const Database = require('better-sqlite3');
-const { validateSettings } = require('../shared/chat-options');
+const { validateSettings, DEFAULT_CHAT_SETTINGS } = require('../shared/chat-options');
 const DATA_DIR = process.env.LITHIUM_DATA_DIR || path.join(os.homedir(), '.synthcode');
 const validId = id => typeof id === 'string' && /^[a-zA-Z0-9_-]{1,255}$/.test(id);
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -20,6 +20,26 @@ function validateChat(doc) {
       if (!object(image) || (image.assetId && !validId(image.assetId)) || !['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(image.mime)) throw new Error('Invalid chat image.');
     }
   }
+}
+
+// Convert only known historical formats; malformed current documents still fail.
+// Keep original message objects and document metadata for lossless recovery.
+function migrateLegacyChat(doc, session) {
+  if (doc.entries !== undefined || !Array.isArray(doc.messages)) return doc;
+  const provider = session?.provider || doc.provider;
+  const entries = doc.messages.map((message, index) => {
+    if (!object(message) || !['user', 'assistant', 'system'].includes(message.role)) throw new Error(`Unsupported legacy message ${index + 1}`);
+    let text = message.content;
+    if (Array.isArray(text) && text.every(block => object(block) && block.type === 'text' && typeof block.text === 'string')) text = text.map(block => block.text).join('\n');
+    if (typeof text !== 'string') throw new Error(`Unsupported legacy message content at position ${index + 1}`);
+    return { id: `legacy-${index}`, kind: message.role === 'system' ? 'notice' : message.role, text, ...(Number.isFinite(message.timestamp) ? { createdAt: message.timestamp } : {}), legacyMessage: message };
+  });
+  return {
+    ...doc, version: 1, entries, status: 'idle',
+    settings: { ...DEFAULT_CHAT_SETTINGS, provider: ['codex', 'codex-acp'].includes(provider) ? 'codex' : 'claude' },
+    // A legacy sessionId was not necessarily a resumable native provider ID.
+    nativeId: null, legacyFormat: 'messages',
+  };
 }
 
 class LithiumDatabase {
@@ -87,7 +107,7 @@ class LithiumDatabase {
   }
   migrateLegacy() {
     if (this.get('legacyMigrated')) return;
-    const names = ['config.json', 'layout.json', 'sessions', 'chats', 'instructions.md'].filter(name => fs.existsSync(path.join(this.root, name)));
+    const names = ['config.json', 'layout.json', 'sessions', 'chats', 'chat', 'instructions.md'].filter(name => fs.existsSync(path.join(this.root, name)));
     if (names.length) {
       const backup = path.join(this.root, 'backups', `before-sqlite-${Date.now()}`);
       fs.mkdirSync(backup, { recursive: true, mode: 0o700 });
@@ -101,13 +121,34 @@ class LithiumDatabase {
       catch (error) { throw new Error(`Cannot migrate ${file}: ${error.message}. Original files are preserved.`); }
     };
     const documents = dir => fs.existsSync(path.join(this.root, dir)) ? fs.readdirSync(path.join(this.root, dir)).filter(f => f.endsWith('.json')).map(file => {
-      const doc = read(path.join(dir, file));
-      if (!validId(doc?.id) || file !== `${doc.id}.json`) throw new Error(`Invalid ID in ${dir}/${file}. Original files are preserved.`);
-      return doc;
+      const source = path.join(dir, file);
+      const doc = read(source);
+      // The original ACP store used chat/<session-id>.json without an id field.
+      const id = dir === 'chat' && object(doc) && doc.id === undefined ? path.basename(file, '.json') : doc?.id;
+      if (!validId(id) || file !== `${id}.json`) throw new Error(`Invalid ID in ${source}. Original files are preserved.`);
+      return { doc: { ...doc, id }, source };
     }) : [];
     const config = read('config.json', { recentDirs: [] });
     if (!object(config)) throw new Error('Invalid legacy config. Original files are preserved.');
-    const snapshot = { config: { recentDirs: [], ...config }, layout: read('layout.json', null), preferences: {}, sessions: documents('sessions'), chats: documents('chats') };
+    const sessions = documents('sessions').map(({ doc }) => doc);
+    const chats = [];
+    const sources = new Map();
+    for (const { doc, source } of [...documents('chats'), ...documents('chat')]) {
+      try {
+        if (sources.has(doc.id)) throw new Error(`Duplicate chat ID, also present in ${sources.get(doc.id)}`);
+        sources.set(doc.id, source);
+        let session = sessions.find(session => session.id === doc.id);
+        const converted = migrateLegacyChat(doc, session);
+        validateChat(converted);
+        chats.push(converted);
+        // Older standalone chats did not necessarily have a session-list record.
+        if (!session) {
+          session = { id: doc.id, directory: typeof doc.directory === 'string' ? doc.directory : '', title: typeof doc.title === 'string' ? doc.title : 'Imported chat', createdAt: doc.createdAt || 0, updatedAt: doc.updatedAt || 0, mode: 'chat' };
+          sessions.push(session);
+        } else session.mode = 'chat';
+      } catch (error) { throw new Error(`Cannot migrate ${source}: ${error.message}. Original files are preserved.`); }
+    }
+    const snapshot = { config: { recentDirs: [], ...config }, layout: read('layout.json', null), preferences: {}, sessions, chats };
     this.db.transaction(() => { this.replace(snapshot); this.set('legacyMigrated', true); })();
   }
   applyPendingInstructions() {

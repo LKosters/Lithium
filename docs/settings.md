@@ -167,6 +167,8 @@ directly mutate the DOM (toggle `.sidebar-compact`, call `setPlayerMode`, etc.).
 
 ## Change log
 
+- **2026-09-22** — Added Web access: explicit start/stop, remembered port, LAN/Tailscale addresses and access code. Hosting controls stay desktop-only. See [web-access.md](web-access.md).
+
 Newest first. Each entry: date, who/what, and the change.
 
 - **2026-09-22** — About/toast now share update state with separate download and restart/install actions. Removed duplicated download listeners.

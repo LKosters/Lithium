@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const { ipcMain, dialog, BrowserWindow, shell } = require('electron');
+const { dialog, BrowserWindow, shell } = require('electron');
+const { ipcMain } = require('./ipc');
 const { ChatService } = require('./chat/service');
 const { loadAllSessions, loadConfig, saveConfig } = require('./config');
 const { chatDefaults, validateSettings } = require('../shared/chat-options');

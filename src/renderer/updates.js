@@ -27,6 +27,7 @@ async function invoke(channel) {
   catch (error) { render({ ...state, status: 'error', error: error.message, message: error.message }); }
 }
 function initialize() {
+  if (ipcRenderer.isWeb) { $('#about-version').textContent = require('../../package.json').version; return; }
   ipcRenderer.on('updater:state', (_event, next) => render(next));
   ipcRenderer.on('updater:flush', (_event, token) => {
     preferences.flush();
@@ -47,6 +48,7 @@ function initialize() {
   invoke('updater:state');
 }
 async function onAppReady() {
+  if (ipcRenderer.isWeb) return;
   ipcRenderer.send('updater:healthy');
   // Let restore/install results remain visible; check normal startup in the background.
   const current = await ipcRenderer.invoke('updater:state');

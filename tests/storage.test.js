@@ -105,3 +105,36 @@ test('backup rejects malformed layout and settings before changing any records',
   assert.throws(() => restoreBackup(db, resign(badSettings)), /favorite/);
   assert.deepEqual(db.loadChat('chat'), chat());
 });
+
+test('historical messages and ACP chat directories migrate without losing history or orphaned chats', t => {
+  const root = temp(t);
+  for (const dir of ['sessions', 'chats', 'chat']) fs.mkdirSync(path.join(root, dir));
+  const standalone = { id: 'standalone', sessionId: 'old-provider-session', directory: '/old-project', title: 'Old chat', messages: [{ role: 'user', content: 'Original question' }, { role: 'assistant', content: [{ type: 'text', text: 'Original reply' }] }], createdAt: 10, updatedAt: 20 };
+  const acp = { messages: [{ role: 'assistant', content: 'ACP reply', timestamp: 123 }], contextUsed: 10, contextSize: 100 };
+  fs.writeFileSync(path.join(root, 'chats/standalone.json'), JSON.stringify(standalone));
+  fs.writeFileSync(path.join(root, 'chat/acp.json'), JSON.stringify(acp));
+  fs.writeFileSync(path.join(root, 'sessions/acp.json'), JSON.stringify({ ...session('acp'), provider: 'claude-acp' }));
+  const db = open(t, root);
+  assert.equal(db.get('legacyMigrated'), true);
+  assert.equal(db.sessions().length, 2);
+  assert.equal(db.sessions().find(s => s.id === 'standalone').directory, '/old-project');
+  assert.deepEqual(db.loadChat('standalone').messages, standalone.messages);
+  assert.deepEqual(db.loadChat('standalone').entries.map(e => e.text), ['Original question', 'Original reply']);
+  assert.equal(db.loadChat('standalone').nativeId, null);
+  assert.equal(db.loadChat('acp').settings.provider, 'claude');
+  assert.deepEqual(db.loadChat('acp').entries[0].legacyMessage, acp.messages[0]);
+  assert.equal(db.loadChat('acp').entries[0].createdAt, 123);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(db.migrationBackup, 'chat/acp.json'), 'utf8')), acp);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'chats/standalone.json'), 'utf8')), standalone);
+  db.close();
+  assert.equal(open(t, root).loadChat('acp').entries.length, 1);
+});
+
+test('unsupported legacy messages report their source and roll back without marking migration complete', t => {
+  const root = temp(t); fs.mkdirSync(path.join(root, 'chats'));
+  fs.writeFileSync(path.join(root, 'chats/old.json'), JSON.stringify({ id: 'old', messages: [{ role: 'user', content: { unexpected: true } }] }));
+  assert.throws(() => new LithiumDatabase(root), /Cannot migrate chats\/old.json: Unsupported legacy message content/);
+  const db = new LithiumDatabase(root, { migrate: false }); t.after(() => db.close());
+  assert.equal(db.get('legacyMigrated'), null); assert.equal(db.sessions().length, 0);
+  assert.equal(db.loadChat('old'), null);
+});

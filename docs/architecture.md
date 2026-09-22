@@ -377,6 +377,8 @@ server, and the browser bridge.
 
 ## Change log
 
+- **2026-09-22** — Added an authenticated HTTP/SSE transport and a bundled browser renderer. Shared IPC registration lives in `src/main/ipc.js`; web dispatch has a separate allowlist. See [web-access.md](web-access.md).
+
 - **2026-09-22** — Added single-process ownership with multiple in-app windows and the detached macOS updater; see auto-update.md for save/backup/shutdown ordering.
 
 - **2026-09-22** — SQLite now owns app data; startup migrates legacy JSON with a backup. Added validated export/restore, restart handling and renderer preference hydration.
