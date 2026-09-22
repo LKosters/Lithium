@@ -84,12 +84,11 @@
 .mp-source-btn {
   display: flex; align-items: center; gap: 5px;
   padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: none; color: var(--muted); cursor: pointer;
+  background: none; color: var(--muted); cursor: default;
   font-family: var(--font-mono); font-size: 10px;
   transition: all 0.2s var(--ease-out);
   white-space: nowrap;
 }
-.mp-source-btn:hover { color: var(--fg-dim); border-color: var(--muted); background: var(--raised); }
 .mp-source-btn.active { color: var(--primary); border-color: var(--primary-muted, rgba(232,168,56,0.3)); }
 .mp-source-label { line-height: 1; }
 
@@ -156,8 +155,7 @@
   display: flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; border: 1px solid var(--border);
   border-radius: var(--radius-xs); background: none;
-  color: var(--muted); cursor: pointer; flex-shrink: 0;
+  color: var(--muted); cursor: default; flex-shrink: 0;
   transition: all 0.15s var(--ease-out);
 }
-.cp-source-btn:hover { color: var(--fg-dim); border-color: var(--muted); background: var(--raised); }
 .cp-source-btn.active { color: var(--primary); border-color: rgba(232,168,56,0.3); }

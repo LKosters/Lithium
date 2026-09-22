@@ -6,36 +6,43 @@
 
 ## Overview
 
-Settings live in a full-screen overlay (`#settings-overlay`) opened from the
-titlebar gear button or the app menu (`Cmd+,`). The overlay is tabbed; each nav
-item toggles one panel. Individual settings persist through two mechanisms:
-
-- **`~/.synthcode/config.json`** — the durable, main-process config store
-  (`src/main/config.js`), read/written over IPC.
-- **`localStorage`** — a fast renderer-side mirror used for a few UI-only
-  preferences (`sidebarView`, `playerMode`, `musicSource`).
-
-Some settings (sidebar view) are written to *both* stores; others live in only
-one. There is no config → renderer broadcast: a change made in one window is not
-pushed to another window until that window re-reads config.
+Settings live in a full-screen tabbed overlay opened from the titlebar gear or
+`Cmd+,`. Durable app config, appearance preferences and chat drafts are stored in
+`~/.synthcode/lithium.sqlite`. The renderer keeps a localStorage mirror initialized
+from SQLite before loading other modules. See [storage.md](./storage.md).
+Changes are re-read on opening a window; there is no live cross-window preference broadcast.
 
 ## Key files
 
 | File | Responsibility |
 | --- | --- |
 | `src/renderer/settings.js` | Settings overlay UI, tab switching, every setting's event wiring |
-| `src/main/config.js` | On-disk config load/save, cached in memory; data-dir paths |
+| `src/main/config.js` | SQLite config facade; per-project settings and data-dir paths |
 | `main.js` | Registers the `config:*`, `directory:pick`, `updater:*` IPC handlers |
 | `src/renderer/music.js` | `setPlayerMode` (player-mode setting is applied here) |
 
 ## Settings exposed in the UI
 
-All wiring is in `src/renderer/settings.js`.
+Overlay wiring is in `src/renderer/settings.js`; chat defaults use `src/renderer/chat-settings.js`.
+
+### Chat defaults
+The **Chats** tab selects provider, live model, model-supported reasoning effort,
+and native permission mode. **Save defaults** persists a validated settings object
+under the SQLite config object’s `chatDefaults` key, through `chat:defaults:get/set` (invoke, using
+the chat `{ ok, value/error }` response envelope). `chat:defaults:catalog` loads
+models using the provider's native login in the home directory, without a model
+prompt. Missing providers/offline catalogs preserve saved choices. Provider/model
+changes reset incompatible choices; stale catalog responses are ignored.
+
+New chat documents snapshot these defaults on first open and are persisted even
+when empty. Existing chats are never rewritten by a defaults change. Native
+“Provider default” model/effort and permission settings still resolve in each
+chat's workspace. Invalid stored defaults fall back to Claude's default mode.
 
 ### Sidebar view (`settings.js:20-49`)
 Buttons carrying `data-sidebar-view` (`default` / `compact`). `setSidebarView`
 (`settings.js:23`) writes to **both** `localStorage["sidebarView"]` and
-`config.json` via `config:set`, then toggles `.sidebar-compact` on `#sidebar`.
+SQLite via `config:set`, then toggles `.sidebar-compact` on `#sidebar`.
 Restored on load (`settings.js:45-49`) preferring `config:get` → `localStorage` →
 `"default"`.
 
@@ -43,7 +50,7 @@ Restored on load (`settings.js:45-49`) preferring `config:get` → `localStorage
 Buttons carrying `data-player-mode` (`full` / `compact` / `none`) with live
 previews. Clicking calls `app.setPlayerMode(mode)` (implemented in `music.js:35`),
 which toggles `#music-dock` / `#compact-player` visibility and saves
-`localStorage["playerMode"]`. Note: `settings.js` itself does **not** persist the
+SQLite through the preferences facade and its `localStorage["playerMode"]` mirror. Note: `settings.js` itself does **not** persist the
 player mode — persistence lives in `music.js:43`.
 
 ### Projects directory (`settings.js:111-157`)
@@ -66,24 +73,19 @@ current workspace.
   commands. It deliberately does **not** call `app.checkDevServerAvailable()`,
   which would stop a running app.
 
-### Update checker (`settings.js:300-371`)
-- Current version shown via `updater:get-version`.
-- **Check for Updates** → `updater:check` → `{ updateAvailable, latestVersion,
-  currentVersion, downloadUrl, assetName, releaseUrl, error }`.
-- **Download & Install** → `updater:download-and-install { downloadUrl, assetName }`,
-  with progress streamed on the `updater:download-progress` event (percent). If
-  there is no matching asset it falls back to `updater:open-release`.
+### Updates
+The About panel and startup toast share `src/renderer/updates.js`. Download and
+installation are separate actions. The main process owns release metadata,
+checksum verification and update state; the renderer never supplies executable
+URLs. See [auto-update.md](./auto-update.md) for the unsigned macOS installer,
+rollback, release manifest and save-before-restart protocol.
 
 ## Config store (`src/main/config.js`)
 
-**Location.** `DATA_DIR = ~/.synthcode` (`config.js:8`). Within it:
-`config.json` (`CONFIG_PATH`, `config.js:10`), `sessions/` (`config.js:9`), and
-`layout.json` (`config.js:11`). `DEFAULT_PROJECTS_DIR = ~/lithium-projects`
-(`config.js:12`).
-
-**Shape.** A flat JSON object, pretty-printed with 2-space indent
-(`saveConfig`, `config.js:31-34`). Default when missing/unparseable is
-`{ recentDirs: [] }` (`config.js:26`). Keys written by the app include:
+**Location:** `~/.synthcode/lithium.sqlite`, or `LITHIUM_DATA_DIR/lithium.sqlite`.
+Config remains a JSON-shaped object exposed by `loadConfig`/`saveConfig`, now stored
+as a SQLite setting. Reads are detached; writes are transactional. Legacy JSON is
+imported once and preserved. Keys include:
 
 | Key | Written by | Meaning |
 | --- | --- | --- |
@@ -109,10 +111,14 @@ directory returns `false`.
 Values are trimmed and non-string/blank entries dropped on both read and write,
 so callers can rely on getting a clean `string[]`.
 
-**Caching.** `loadConfig` memoizes into `_configCache` (`config.js:19-29`);
-`saveConfig` overwrites both the file and the cache. Because the cache is never
-invalidated externally, all writes must go through `saveConfig` or the in-memory
-copy drifts from disk.
+## Data & backups
+
+The **Data & backups** tab (`src/renderer/data-settings.js`) shows the database
+location and counts. Export creates a checksummed versioned JSON backup including
+images. Import validates the file, previews session/chat counts, requires an
+explicit restore confirmation, saves a recovery backup, replaces app data and
+restarts. Project files and native provider credentials/history are excluded.
+See [storage.md](./storage.md) for limits and IPC.
 
 ## IPC contract
 
@@ -148,20 +154,29 @@ directly mutate the DOM (toggle `.sidebar-compact`, call `setPlayerMode`, etc.).
 ## Gotchas
 
 - **Dual-write invariant for `sidebarView`:** it is stored in both `localStorage`
-  and `config.json`. Keep both in sync — `setSidebarView` writes both; the restore
+  and SQLite. Keep both in sync — `setSidebarView` writes both; the restore
   path prefers config but falls back to `localStorage`.
 - **Player mode persistence is elsewhere:** clicking a player-mode card does not
   itself save anything; it delegates to `music.js` `setPlayerMode`, which owns the
-  `localStorage["playerMode"]` write. Removing that call silently loses persistence.
+  preferences facade write. Removing that call silently loses persistence.
 - **Project settings are not in `config.json`:** they live in the project's own
   `.lithium/settings.json`, so they are per-repo and travel with it. Opening the
   overlay re-reads them for whatever workspace is current at that moment.
-- **Config cache is process-local:** editing `config.json` on disk while the app
-  runs has no effect until relaunch, because `loadConfig` returns the cached copy.
+- **Legacy JSON is archival:** editing `config.json` has no effect after the one-time
+  migration. Use app settings or the validated import flow.
 
 ## Change log
 
 Newest first. Each entry: date, who/what, and the change.
+
+- **2026-09-22** — About/toast now share update state with separate download and restart/install actions. Removed duplicated download listeners.
+
+- **2026-09-22** — Added Data & backups, migrated app settings/drafts to SQLite and initialized renderer mirrors from the database before module startup.
+
+- **2026-09-22** — Added Chats settings for provider/model/effort/permissions,
+  acknowledged saves and live catalogs. New sessions capture defaults once;
+  existing and reopened empty chats retain their own settings. Config cache is
+  updated after the write succeeds so failed default saves do not take effect.
 
 - **2026-07-22** — Removed the Agents/ACP panel along with ACP chat support.
   Replaced it with a **Project** panel that edits the current workspace's start

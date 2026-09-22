@@ -1,3 +1,4 @@
+const preferences = require('./preferences');
 const { ipcRenderer } = require("electron");
 const app = require("./app");
 
@@ -5,6 +6,8 @@ const settingsOverlay = document.querySelector("#settings-overlay");
 const btnSettings = document.querySelector("#btn-settings");
 const btnSettingsBack = document.querySelector("#btn-settings-back");
 let settingsOpen = false;
+const chatSettings = require('./chat-settings').createChatSettings(ipcRenderer, settingsOverlay);
+const dataSettings = require('./data-settings').createDataSettings(ipcRenderer, settingsOverlay);
 
 const navItems = settingsOverlay.querySelectorAll("[data-settings-tab]");
 const panels = settingsOverlay.querySelectorAll("[data-settings-panel]");
@@ -14,6 +17,8 @@ navItems.forEach((btn) => {
     const tab = btn.dataset.settingsTab;
     navItems.forEach((n) => n.classList.toggle("active", n === btn));
     panels.forEach((p) => p.classList.toggle("active", p.dataset.settingsPanel === tab));
+    if (tab === 'chats') chatSettings.load();
+    if (tab === 'data') dataSettings.load();
   });
 });
 
@@ -21,7 +26,7 @@ navItems.forEach((btn) => {
 const sidebarViewBtns = document.querySelectorAll("[data-sidebar-view]");
 
 function setSidebarView(mode) {
-  localStorage.setItem("sidebarView", mode);
+  preferences.setItem("sidebarView", mode);
   ipcRenderer.send("config:set", { key: "sidebarView", value: mode });
   const sidebar = document.querySelector("#sidebar");
   if (sidebar) {
@@ -85,6 +90,8 @@ function openSettings() {
 
   // Load settings data
   loadProjectsDirSetting();
+  if (settingsOverlay.querySelector('[data-settings-panel="data"].active')) dataSettings.load();
+  if (settingsOverlay.querySelector('[data-settings-panel="chats"].active')) chatSettings.load();
 }
 
 function closeSettings() {
@@ -152,79 +159,6 @@ btnCreateProjectsDir.addEventListener("click", async () => {
     console.error("Failed to create projects directory:", err.message);
   }
 });
-
-// ── Update checker ───────────────────────────────────
-const aboutVersion = document.querySelector("#about-version");
-const updateStatus = document.querySelector("#update-status");
-const btnCheckUpdate = document.querySelector("#btn-check-update");
-const btnDownloadUpdate = document.querySelector("#btn-download-update");
-let _updateResult = null;
-
-// Show current version in about panel
-(async () => {
-  try {
-    const version = await ipcRenderer.invoke("updater:get-version");
-    if (aboutVersion) aboutVersion.textContent = version;
-  } catch {}
-})();
-
-if (btnCheckUpdate) {
-  btnCheckUpdate.addEventListener("click", async () => {
-    btnCheckUpdate.disabled = true;
-    btnCheckUpdate.textContent = "Checking...";
-    updateStatus.textContent = "Checking for updates...";
-    btnDownloadUpdate.classList.add("hidden");
-
-    try {
-      const result = await ipcRenderer.invoke("updater:check");
-      if (result.error) {
-        updateStatus.textContent = `Failed to check: ${result.error}`;
-      } else if (result.updateAvailable) {
-        updateStatus.textContent = `New version available: v${result.latestVersion}`;
-        _updateResult = result;
-        btnDownloadUpdate.textContent = "Download & Install";
-        btnDownloadUpdate.disabled = false;
-        btnDownloadUpdate.classList.remove("hidden");
-      } else {
-        updateStatus.textContent = `You're on the latest version (v${result.currentVersion})`;
-      }
-    } catch (err) {
-      updateStatus.textContent = `Failed to check: ${err.message}`;
-    }
-
-    btnCheckUpdate.disabled = false;
-    btnCheckUpdate.textContent = "Check for Updates";
-  });
-}
-
-if (btnDownloadUpdate) {
-  btnDownloadUpdate.addEventListener("click", async () => {
-    if (!_updateResult) return;
-    if (_updateResult.downloadUrl) {
-      btnDownloadUpdate.disabled = true;
-      btnDownloadUpdate.textContent = "Downloading 0%";
-      updateStatus.textContent = "Downloading update...";
-      ipcRenderer.on("updater:download-progress", (_e, percent) => {
-        btnDownloadUpdate.textContent = `Downloading ${percent}%`;
-      });
-      const res = await ipcRenderer.invoke("updater:download-and-install", {
-        downloadUrl: _updateResult.downloadUrl,
-        assetName: _updateResult.assetName,
-      });
-      if (res.error) {
-        updateStatus.textContent = `Download failed: ${res.error}`;
-        btnDownloadUpdate.textContent = "Retry";
-        btnDownloadUpdate.disabled = false;
-      } else {
-        updateStatus.textContent = "Installing update...";
-        btnDownloadUpdate.textContent = "Installing...";
-      }
-    } else {
-      // Fallback if no matching asset
-      ipcRenderer.send("updater:open-release", _updateResult.releaseUrl);
-    }
-  });
-}
 
 // ── IPC: open settings from app menu (Cmd+,) ─────────
 ipcRenderer.on("menu:open-settings", () => {

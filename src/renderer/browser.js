@@ -1,3 +1,4 @@
+const preferences = require('./preferences');
 const { ipcRenderer } = require("electron");
 const app = require("./app");
 const { startDragOverlay, stopDragOverlay } = require("./layout");
@@ -32,12 +33,12 @@ function initBrowser() {
 
   browserWebview.addEventListener("did-navigate", (e) => {
     browserUrl.value = e.url;
-    localStorage.setItem("browserUrl", e.url);
+    preferences.setItem("browserUrl", e.url);
   });
   browserWebview.addEventListener("did-navigate-in-page", (e) => {
     if (e.isMainFrame) {
       browserUrl.value = e.url;
-      localStorage.setItem("browserUrl", e.url);
+      preferences.setItem("browserUrl", e.url);
     }
   });
 
@@ -85,7 +86,7 @@ function initBrowser() {
     if (!browserOpen) setBrowserOpen(true);
     browserWebview.src = url;
     browserUrl.value = url;
-    localStorage.setItem("browserUrl", url);
+    preferences.setItem("browserUrl", url);
   };
 
   // Open the panel on whatever it last showed (no URL to point it at yet)

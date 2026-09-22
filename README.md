@@ -1,12 +1,16 @@
 # Lithium
 
-A desktop UI for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+A desktop chat UI for [Claude Code](https://code.claude.com/docs) and [Codex](https://developers.openai.com/codex).
 
-Lithium wraps Claude Code in a native desktop app with split panes, session management, a built-in browser, and dev server controls.
+Lithium connects to your installed agents with streaming chat, native session permissions,
+model selection, tool approvals, split panes, a built-in browser, and dev server controls.
+Existing terminal sessions remain available. See [chat setup and architecture](docs/chat.md).
 
 ## Features
 
-- **Multi-session terminals** — Run multiple Claude Code sessions side-by-side with split panes and tabs
+- **Agent chats** — Claude and Codex side-by-side, with streaming Markdown, code blocks, images and tool activity
+- **Native permissions** — Per-session modes, including Auto and Full access, with in-chat approvals
+- **Split panes and tabs** — Keep multiple chats and existing terminal sessions open
 - **Session persistence** — Sessions and layout restore automatically on relaunch
 - **Built-in browser** — Preview your app with responsive viewport presets (mobile, tablet, desktop)
 - **Dev server controls** — Start/stop your dev server with one click, auto-opens the browser preview
@@ -19,7 +23,8 @@ Lithium wraps Claude Code in a native desktop app with split panes, session mana
 
 ## Requirements
 
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated
+- Install the official CLI for each provider you want to use: [Claude Code](https://code.claude.com/docs) and/or [Codex](https://developers.openai.com/codex)
+- Sign in with `claude auth login` and/or `codex login` using an eligible subscription
 - Node.js 18+
 
 ## Development
@@ -69,3 +74,22 @@ The in‑app updater strips this attribute automatically, so updates triggered f
 ## License
 
 MIT
+
+### Data and backups
+
+Chats, sessions and app preferences are stored in `~/.synthcode/lithium.sqlite`,
+outside the application, so normal updates preserve them. Existing JSON data is
+backed up and migrated automatically on first launch. Use **Settings → Data & backups**
+to export or restore a portable backup, including chat images and drafts. Restoring
+replaces app data after confirmation, creates a recovery backup and restarts Lithium.
+Project files and native provider credentials/history are separate. See
+[storage documentation](docs/storage.md).
+
+### In-app updates
+
+On macOS, new releases can be downloaded and installed with **Restart and install**
+without dragging another DMG into Applications. The updater verifies the download,
+saves chats/drafts, backs up SQLite and retains the previous app. This uses no paid
+Apple signing account; macOS can still show its own security prompts. Existing
+versions using the old updater need one manual installation of an updater-enabled
+build. See [update documentation](docs/auto-update.md).

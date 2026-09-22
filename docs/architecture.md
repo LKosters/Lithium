@@ -6,6 +6,10 @@
 
 ## Overview
 
+As of 2026-09-22, new sessions use the native-provider chat architecture described
+in [chat.md](./chat.md). Legacy terminal sessions remain supported. The PTY-only
+flow documented below describes those legacy sessions, not all newly created ones.
+
 Lithium is an Electron desktop app that wraps Claude Code (and other agent providers)
 in a multi-pane terminal UI. It is a classic two-process Electron app:
 
@@ -91,7 +95,7 @@ renderer reaches it through `ipcRenderer.invoke` / `.send`. Two directions exist
    `fixed` flag so it only runs once. **Any new module that spawns processes must be
    required after this line.**
 2. **`./src/main/config`** (`main.js:11`) — persistence primitives; pure Node, no side
-   effects beyond an in-memory cache. Everything else depends on it.
+   effects until the lazy SQLite connection is opened. Everything else depends on it.
 3. **`./src/main/pty`** (`main.js:24`) — exports `ptyProcesses`, `spawnSession`,
    `killSession`. Resolves the `claude` binary at require time (`pty.js:9`).
 4. **`./src/main/media`** (`registerMediaHandlers`, called later at `main.js:208`).
@@ -298,31 +302,24 @@ Requests time out after 30s (`browser-bridge.js:79`). `registerBridgeIPC()` is c
 
 ## Config & persistence
 
-Everything lives under **`~/.synthcode`** (`config.js:8`), created lazily by
-`ensureDirs()` (`config.js:14`, also called in `whenReady`). Layout:
+App settings, preferences/drafts, sessions, layouts and chat messages live in
+**`~/.synthcode/lithium.sqlite`**. `LITHIUM_DATA_DIR` overrides this root and Electron
+userData for isolated testing. See [storage.md](./storage.md) for schemas,
+transaction boundaries, JSON migration, backup/restore and native module setup.
 
 ```
 ~/.synthcode/
-  config.json         # app config (recentDirs, starredDirs, currentDir, agent settings…)
-  layout.json         # last split-pane layout (written by layout:save)
-  sessions/
-    <sessionId>.json  # one file per terminal session
+  lithium.sqlite       # source of truth (with -wal/-shm sidecars while open)
+  chats/images/        # immutable image assets referenced by messages
+  instructions.md      # editable global agent instructions
+  backups/             # pre-migration originals and pre-import recovery backups
 ```
 
-- **Config** (`config.js:21`) is read once and cached in `_configCache`; `saveConfig`
-  writes pretty-printed JSON and refreshes the cache. A missing file yields
-  `{ recentDirs: [] }`. `addRecentDir` keeps the 10 most-recent dirs (`MAX_RECENT_DIRS`).
-- **Sessions** (`config.js:48-77`): `loadAllSessions` reads every `*.json` in
-  `sessions/`, tolerates parse failures, and sorts by `updatedAt` desc. `saveSession` /
-  `deleteSession` validate the id against `SESSION_ID_RE` (`^[a-zA-Z0-9_-]+$`, <256 chars)
-  before touching disk — a guard against path traversal in the filename.
-- **Layout** (`config.js:80-94`): `saveLayoutToDisk` / `loadLayoutFromDisk` write/read
-  `layout.json` (compact JSON), returning `null` on any read error.
-- **Per-project settings** do *not* live here: `<project>/.lithium/settings.json`
-  holds settings that belong to the project (currently `startCommands`), via
-  `loadProjectSettings` / `saveProjectSettings` (`config.js`).
-- **`DEFAULT_PROJECTS_DIR`** is `~/lithium-projects` (`config.js:12`) — the default
-  scaffolding target, created on demand by `config:create-default-projects-dir`.
+Legacy JSON files are retained as originals but no longer read after migration.
+Config reads return detached values from SQLite; callers still use
+`loadConfig()` / `saveConfig()`. Session IDs remain validated. Session list queries
+use an `updated_at` index. Per-project `.lithium/settings.json` stays in its project
+and is not part of app backups. `DEFAULT_PROJECTS_DIR` remains `~/lithium-projects`.
 
 **Save/load lifecycle.** On startup `init()` (renderer) hydrates `state` from
 `directory:recents`, `config:get`, `sessions:list`, and layout (localStorage → disk).
@@ -357,8 +354,8 @@ server, and the browser bridge.
   window can be gone by the time async output arrives. Preserve this.
 - **Validate session ids before disk I/O.** Use `isValidSessionId` (`config.js:36`) for
   anything that turns an id into a filename.
-- **Config is cached.** Mutate via `loadConfig()` → mutate object → `saveConfig()`; don't
-  write `config.json` directly, or the in-memory cache goes stale.
+- **SQLite is authoritative.** Use `loadConfig()` → mutate object → `saveConfig()`;
+  legacy `config.json` is no longer read after migration.
 - **No preload / no context isolation.** The renderer has full Node access. Don't add a
   `contextBridge` layer without a deliberate migration — lots of code assumes direct
   `ipcRenderer` and `require`.
@@ -368,8 +365,8 @@ server, and the browser bridge.
 - On-disk directory is `~/.synthcode`, not `~/.lithium` — a legacy name that persists for
   backwards compatibility.
 - The renderer's saved-layout restore (`renderer.js:210`) reads **localStorage first**,
-  then falls back to the disk `layout.json` — two sources of truth that must stay
-  reconciled.
+  then falls back to SQLite. The localStorage mirror is hydrated from SQLite before
+  any renderer modules initialize.
 - macOS-specific: `media.js` (AppleScript now-playing) and the `Settings…` menu item are
   gated on `process.platform === "darwin"`; the dev server is killed with a
   process-group signal (`process.kill(-pid)`, `dev-server.js:61`) because it's spawned
@@ -379,6 +376,15 @@ server, and the browser bridge.
   [browser-preview.md](./browser-preview.md).
 
 ## Change log
+
+- **2026-09-22** — Added single-process ownership with multiple in-app windows and the detached macOS updater; see auto-update.md for save/backup/shutdown ordering.
+
+- **2026-09-22** — SQLite now owns app data; startup migrates legacy JSON with a backup. Added validated export/restore, restart handling and renderer preference hydration.
+
+- **2026-09-22** — Added `src/main/chat.js` IPC and native provider adapters; main
+  process owns chat state, approvals and atomic transcript writes. Added owner
+  cleanup on window close and async flush/stop on quit. Renderer dispatches chat
+  and legacy terminal panes through `app.createSessionPane`.
 
 Newest first. Each entry: date, who/what, and the change.
 

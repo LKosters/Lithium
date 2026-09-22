@@ -1,5 +1,10 @@
 # Split-pane layout & tabs
 
+**Storage update (2026-09-22):** Sessions and layouts now live in SQLite, with a
+one-time backed-up migration from JSON. The renderer mirror is hydrated from the
+database at startup. See [storage.md](./storage.md); older file-path references
+below describe the previous implementation.
+
 > The tiling split-pane workspace and per-pane tab bars that host terminal/chat
 > sessions, plus how that arrangement persists and restores across relaunch.
 
@@ -294,6 +299,12 @@ instead of leaving a broken pane.
   expected.
 
 ## Change log
+
+- **2026-09-22** — Migrated persistence to SQLite while preserving the existing session/layout IPC contracts. Added backup/restore in Settings.
+
+- **2026-09-22** — Tabs and splits host native chat panes alongside legacy terminals.
+  New sessions default to chat. Pane focus/disposal dispatches by runtime type;
+  closing chat awaits native interruption and history flush in the main process.
 
 Newest first. Each entry: date, who/what, and the change.
 

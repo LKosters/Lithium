@@ -146,6 +146,7 @@
                         </button>
                     </div>
 
+                    <input id="sessions-search" class="sessions-search" type="text" placeholder="Search..." aria-label="Search sessions, including done sessions" spellcheck="false" autocomplete="off" />
                     <div class="sidebar-section session-list-section">
                         <div id="session-list"></div>
                     </div>
@@ -237,49 +238,20 @@
                             </svg>
                         </button>
                         <span id="cp-track-name" class="cp-track-name"
-                            >No music</span
+                            >Nothing playing</span
                         >
-                        <button
+                        <span
                             id="cp-source-btn"
-                            class="cp-source-btn"
-                            title="Switch source"
+                            class="cp-source-btn active"
+                            title="Device audio"
                         >
-                            <svg
-                                id="cp-source-icon-lofi"
-                                width="11"
-                                height="11"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                            >
-                                <path
-                                    d="M9 18V5l12-2v13"
-                                    stroke="currentColor"
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                />
-                                <circle
-                                    cx="6"
-                                    cy="18"
-                                    r="3"
-                                    stroke="currentColor"
-                                    stroke-width="1.5"
-                                />
-                                <circle
-                                    cx="18"
-                                    cy="16"
-                                    r="3"
-                                    stroke="currentColor"
-                                    stroke-width="1.5"
-                                />
-                            </svg>
                             <svg
                                 id="cp-source-icon-device"
                                 width="11"
                                 height="11"
                                 viewBox="0 0 24 24"
                                 fill="none"
-                                class="hidden"
+
                             >
                                 <rect
                                     x="4"
@@ -304,7 +276,7 @@
                                     stroke-linejoin="round"
                                 />
                             </svg>
-                        </button>
+                        </span>
                     </div>
                 </div>
                 </div>
@@ -566,81 +538,22 @@
             </div>
             <div class="dock-track">
                 <div class="dock-track-bar"></div>
-                <span id="mp-track-name" class="mp-track-name">No music</span>
+                <span id="mp-track-name" class="mp-track-name">Nothing playing</span>
             </div>
             <div class="dock-volume">
-                <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    class="volume-icon"
-                >
-                    <path
-                        d="M11 5L6 9H2v6h4l5 4V5z"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    />
-                    <path
-                        d="M15.5 8.5a5 5 0 0 1 0 7"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                    />
-                </svg>
-                <input
-                    id="mp-volume"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value="40"
-                    class="mp-volume"
-                    title="Volume"
-                />
                 <div class="mp-source-toggle">
-                    <button
+                    <span
                         id="mp-source-btn"
-                        class="mp-source-btn"
-                        title="Switch source"
+                        class="mp-source-btn active"
+                        title="Device audio"
                     >
-                        <svg
-                            id="mp-source-icon-lofi"
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                        >
-                            <path
-                                d="M9 18V5l12-2v13"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            />
-                            <circle
-                                cx="6"
-                                cy="18"
-                                r="3"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                            />
-                            <circle
-                                cx="18"
-                                cy="16"
-                                r="3"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                            />
-                        </svg>
                         <svg
                             id="mp-source-icon-device"
                             width="14"
                             height="14"
                             viewBox="0 0 24 24"
                             fill="none"
-                            class="hidden"
+
                         >
                             <rect
                                 x="4"
@@ -666,9 +579,9 @@
                             />
                         </svg>
                         <span id="mp-source-label" class="mp-source-label"
-                            >Lofi</span
+                            >Device</span
                         >
-                    </button>
+                    </span>
                 </div>
             </div>
         </footer>

@@ -45,7 +45,7 @@ function fitAllVisibleTerminals() {
   for (const leaf of leaves) {
     if (leaf.activeTab) {
       const t = terminals.get(leaf.activeTab);
-      if (t && t.paneEl.offsetParent !== null) {
+      if (t?.fitAddon && t.paneEl.offsetParent !== null) {
         try { t.fitAddon.fit(); } catch (err) {
           console.warn("fitAddon.fit() failed:", err.message);
         }
@@ -61,7 +61,7 @@ function fitAllVisibleTerminals() {
     for (const leaf of getAllLeaves(state.layout)) {
       if (leaf.activeTab) {
         const t = terminals.get(leaf.activeTab);
-        if (t && t.paneEl.offsetParent !== null) {
+        if (t?.fitAddon && t.paneEl.offsetParent !== null) {
           try { t.fitAddon.fit(); } catch (err) {
             console.warn("fitAddon.fit() failed:", err.message);
           }

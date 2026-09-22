@@ -17,8 +17,7 @@ function openTab(sessionId) {
   if (!terminals.has(sessionId)) {
     const s = getSession(sessionId);
     if (s) {
-      app.createTerminal(sessionId);
-      app.ipcRenderer.send("pty:spawn", { sessionId, cwd: s.directory, resume: true });
+      app.createSessionPane(s, true);
     }
   }
 
@@ -47,9 +46,11 @@ function openTab(sessionId) {
 function closeTab(sessionId) {
   const t = terminals.get(sessionId);
 
-  app.ipcRenderer.send("pty:kill", { sessionId });
+  if (t?.kind === 'chat') {
+    app.ipcRenderer.invoke('chat:close', { sessionId }).catch(console.error);
+  } else app.ipcRenderer.send("pty:kill", { sessionId });
   if (t) {
-    t.term.dispose();
+    t.dispose ? t.dispose() : t.term.dispose();
     t.paneEl.remove();
     terminals.delete(sessionId);
   }
@@ -82,8 +83,9 @@ function spawnNewSession() {
   const id = uuidv4();
   const session = {
     id,
+    mode: 'chat',
     directory: state.currentDir,
-    title: shortDir(state.currentDir),
+    title: 'New chat',
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -91,8 +93,7 @@ function spawnNewSession() {
   state.sessions.unshift(session);
   persistSession(session);
 
-  app.createTerminal(id);
-  app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: state.currentDir });
+  app.createSessionPane(session, false);
   return id;
 }
 

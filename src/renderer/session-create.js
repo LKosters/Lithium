@@ -20,8 +20,9 @@ function createSessionAndOpen({ name, dir, onDone }) {
   const id = uuidv4();
   const session = {
     id,
+    mode: 'chat',
     directory: dir,
-    title: name || shortDir(dir),
+    title: name || 'New chat',
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -29,8 +30,7 @@ function createSessionAndOpen({ name, dir, onDone }) {
   state.sessions.unshift(session);
   persistSession(session);
 
-  app.createTerminal(id);
-  app.ipcRenderer.send("pty:spawn", { sessionId: id, cwd: dir });
+  app.createSessionPane(session, false);
 
   if (dir !== state.currentDir && app.setDirectory) {
     app.setDirectory(dir);

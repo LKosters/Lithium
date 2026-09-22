@@ -1,12 +1,16 @@
 const { ipcRenderer } = require("electron");
+require("./renderer/preferences").initialize(ipcRenderer);
 
 // ── Shared context ────────────────────────────────────
 const app = require("./renderer/app");
 app.ipcRenderer = ipcRenderer;
+const updates = require("./renderer/updates");
+updates.initialize();
 
 // ── Load modules ──────────────────────────────────────
 const { state, terminals } = require("./renderer/state");
 const { createTerminal, fitAllVisibleTerminals } = require("./renderer/terminal");
+const { createChatPane } = require('./renderer/chat');
 const { renderLayout, refreshLayout, startDragOverlay, stopDragOverlay, getSavedLayout, clearSavedLayout } = require("./renderer/layout");
 const { openTab, closeTab, newSession, splitNewSession } = require("./renderer/tabs");
 const { renderSessionList, deleteSession } = require("./renderer/sessions");
@@ -26,6 +30,11 @@ app.dom = {
   welcomeEl: document.querySelector("#welcome"),
 };
 app.createTerminal = createTerminal;
+app.createSessionPane = (session, resume) => {
+  if (session.mode === 'chat') return createChatPane(session);
+  createTerminal(session.id);
+  ipcRenderer.send('pty:spawn', { sessionId: session.id, cwd: session.directory, resume });
+};
 app.fitAllVisibleTerminals = fitAllVisibleTerminals;
 app.renderLayout = renderLayout;
 app.refreshLayout = refreshLayout;
@@ -135,7 +144,7 @@ document.addEventListener("keydown", (e) => {
 // ── PTY events from main ──────────────────────────────
 ipcRenderer.on("pty:data", (_e, { sessionId, data }) => {
   const t = terminals.get(sessionId);
-  if (t) t.term.write(data);
+  if (t?.term) t.term.write(data);
 });
 
 ipcRenderer.on("pty:exit", (_e, { sessionId, exitCode, resume, lifetime }) => {
@@ -143,7 +152,7 @@ ipcRenderer.on("pty:exit", (_e, { sessionId, exitCode, resume, lifetime }) => {
 
   // If the terminal was already removed from the map, the tab was closed
   // intentionally (e.g. via context menu / close button) — don't delete the session.
-  if (!t) return;
+  if (!t?.term) return;
 
   // Auto-delete sessions that crash immediately on resume
   if (resume && lifetime < 5000 && exitCode !== 0) {
@@ -203,8 +212,7 @@ async function init() {
         for (const sid of leaf.tabs) {
           const s = state.sessions.find((ss) => ss.id === sid);
           if (s && !terminals.has(sid)) {
-            createTerminal(sid);
-            ipcRenderer.send("pty:spawn", { sessionId: sid, cwd: s.directory, resume: true });
+            app.createSessionPane(s, true);
           }
         }
       }
@@ -225,43 +233,7 @@ async function init() {
 
   await restoreDevServer();
 
-  // Auto-check for updates
-  try {
-    const result = await ipcRenderer.invoke("updater:check");
-    if (result.updateAvailable) {
-      const toast = document.getElementById("update-toast");
-      const versionEl = document.getElementById("update-toast-version");
-      const btnUpdate = document.getElementById("btn-toast-update");
-      versionEl.textContent = `v${result.latestVersion} is ready`;
-      toast.classList.remove("hidden");
-
-      btnUpdate.addEventListener("click", async () => {
-        if (result.downloadUrl) {
-          btnUpdate.disabled = true;
-          btnUpdate.textContent = "0%";
-          ipcRenderer.on("updater:download-progress", (_e, percent) => {
-            btnUpdate.textContent = `${percent}%`;
-          });
-          const res = await ipcRenderer.invoke("updater:download-and-install", {
-            downloadUrl: result.downloadUrl,
-            assetName: result.assetName,
-          });
-          if (res.error) {
-            btnUpdate.textContent = "Failed";
-            btnUpdate.disabled = false;
-            setTimeout(() => { btnUpdate.textContent = "Retry"; }, 2000);
-          }
-        } else {
-          // Fallback: no matching asset, open release page
-          ipcRenderer.send("updater:open-release", result.releaseUrl);
-          toast.classList.add("hidden");
-        }
-      });
-      document.getElementById("btn-toast-dismiss").addEventListener("click", () => {
-        toast.classList.add("hidden");
-      });
-    }
-  } catch {}
+  await updates.onAppReady();
 }
 
 init();

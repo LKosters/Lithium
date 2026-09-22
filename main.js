@@ -1,6 +1,17 @@
 const { app, BrowserWindow, Menu, ipcMain, dialog, protocol, net } = require("electron");
 const path = require("path");
 const fs = require("fs");
+if (process.env.LITHIUM_DATA_DIR) app.setPath('userData', path.join(process.env.LITHIUM_DATA_DIR, 'electron'));
+// One process owns app data and updates; additional windows remain available in-app.
+if (!app.requestSingleInstanceLock()) app.exit(0);
+app.on('second-instance', () => {
+  const show = () => {
+    const win = BrowserWindow.getAllWindows()[0] || createWindow();
+    if (win.isMinimized()) win.restore();
+    win.show(); win.focus();
+  };
+  if (app.isReady()) show();
+});
 
 // Fix PATH before loading any module that spawns child processes — GUI-launched
 // Electron apps don't inherit the login shell's PATH, which breaks `env node`
@@ -22,6 +33,8 @@ const {
 } = require("./src/main/config");
 
 const { ptyProcesses, spawnSession, killSession } = require("./src/main/pty");
+const { service: chatService } = require("./src/main/chat");
+const { isRestoring } = require("./src/main/data");
 const { registerMediaHandlers } = require("./src/main/media");
 const { killDevServer } = require("./src/main/dev-server");
 
@@ -56,6 +69,7 @@ function createWindow() {
 
   const wc = win.webContents;
   win.on("closed", () => {
+    chatService.closeOwner(wc).catch(console.error);
     for (const [sid, entry] of ptyProcesses) {
       if (entry.webContents === wc) {
         entry.proc.kill();
@@ -93,9 +107,16 @@ ipcMain.on("pty:kill", (_e, { sessionId }) => {
 
 // ── IPC: Sessions & Layout ────────────────────────────
 ipcMain.handle("sessions:list", () => loadAllSessions());
-ipcMain.on("sessions:save", (_e, session) => saveSession(session));
-ipcMain.on("sessions:delete", (_e, sessionId) => deleteSession(sessionId));
-ipcMain.on("layout:save", (_e, layoutData) => saveLayoutToDisk(layoutData));
+ipcMain.on("sessions:save", (_e, session) => { if (!isRestoring()) saveSession(session); });
+ipcMain.on("sessions:delete", async (e, sessionId) => {
+  if (isRestoring()) return;
+  try {
+    if (chatService.sessions.has(sessionId)) await chatService.close(sessionId, e.sender);
+    deleteSession(sessionId);
+    chatService.store.delete(sessionId);
+  } catch (error) { console.error('Could not delete session:', error); }
+});
+ipcMain.on("layout:save", (_e, layoutData) => { if (!isRestoring()) saveLayoutToDisk(layoutData); });
 ipcMain.handle("layout:load", () => loadLayoutFromDisk());
 
 // ── IPC: Directory ────────────────────────────────────
@@ -192,6 +213,7 @@ registerMediaHandlers();
 ipcMain.handle("config:get", (_e, key) => loadConfig()[key] ?? null);
 
 ipcMain.on("config:set", (_e, { key, value }) => {
+  if (isRestoring()) return;
   const c = loadConfig();
   c[key] = value;
   saveConfig(c);
@@ -291,6 +313,8 @@ app.whenReady().then(() => {
   });
 
   ensureDirs();
+  try { require('./src/main/database').getDatabase(); }
+  catch (error) { dialog.showErrorBox('Could not open Lithium data', `${error.message}\n\nYour existing files have been preserved.`); app.quit(); return; }
   buildAppMenu();
 
   // Start browser bridge for MCP tool server
@@ -322,7 +346,14 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", () => {
+let chatShutdown = false;
+app.on("before-quit", (event) => {
+  if (!chatShutdown && chatService.sessions.size) {
+    event.preventDefault();
+    chatShutdown = true;
+    const owners = new Set([...chatService.sessions.values()].map(r => r.owner));
+    Promise.all([...owners].map(owner => chatService.closeOwner(owner))).catch(console.error).finally(() => app.quit());
+  }
   killDevServer();
   stopBrowserBridge();
 });

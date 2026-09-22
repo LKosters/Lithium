@@ -1,9 +1,17 @@
 # Terminals / sessions
 
+**Storage update (2026-09-22):** Sessions and layouts now live in SQLite, with a
+one-time backed-up migration from JSON. The renderer mirror is hydrated from the
+database at startup. See [storage.md](./storage.md); older file-path references
+below describe the previous implementation.
+
 > PTY-backed Claude Code terminal sessions — spawning, resuming, rendering, and the
 > session list UI.
 
 ## Overview
+
+**2026-09-22:** New sessions are now native Claude/Codex chats; see [chat.md](./chat.md).
+The PTY lifecycle below remains applicable to legacy sessions without `mode: "chat"`.
 
 Each terminal session is a Claude Code process running in a pseudo-terminal (PTY)
 managed by `node-pty` in the main process, mirrored into an xterm.js instance in the
@@ -343,6 +351,13 @@ for brand-new sessions.
   `--session-id` / `--resume` id, which must stay within `isValidSessionId`.
 
 ## Change log
+
+- **2026-09-22** — Migrated persistence to SQLite while preserving the existing session/layout IPC contracts. Added backup/restore in Settings.
+
+- **2026-09-22** — New sessions use the chat pane by default. Legacy PTY records
+  keep their original renderer/resume path; PTY handlers and fit/focus logic now
+  guard against chat panes sharing the pane registry. Chat transcripts are never
+  deleted by the legacy PTY resume crash guard.
 
 Newest first. Each entry: date, who/what, and the change.
 

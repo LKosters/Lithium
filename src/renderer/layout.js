@@ -357,7 +357,8 @@ function refreshLayout() {
         const leaf = findLeafById(state.layout, state.focusedPaneId);
         if (leaf?.activeTab) {
           const t = terminals.get(leaf.activeTab);
-          if (t) t.term.focus();
+          if (t?.focus) t.focus();
+          else if (t?.term) t.term.focus();
         }
       }
     });
