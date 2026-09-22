@@ -48,7 +48,8 @@ The native embedded preview is replaced by a new browser tab. Localhost preview
 URLs use the host's current address; the project's dev server must also listen on
 the network interface and allow the chosen host. Lithium does not proxy arbitrary
 ports. Music control, native backup/restore and app updates remain desktop-only.
-On narrow screens, **Projects** toggles the sidebar.
+Phones use bottom navigation for Projects, Chats and Settings. Tablets keep a
+persistent sidebar. See [responsive interface](responsive.md) for phone/tablet behavior.
 
 ## Key files
 

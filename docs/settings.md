@@ -167,6 +167,9 @@ directly mutate the DOM (toggle `.sidebar-compact`, call `setPlayerMode`, etc.).
 
 ## Change log
 
+- **2026-09-22** — Phone settings now use a full-screen category list and drill-down
+  pages with a back button. Tablets retain a narrower sidebar. Fields and dialogs
+  fit small viewports; touch inputs avoid iOS auto-zoom. See [responsive.md](responsive.md).
 - **2026-09-22** — Added Web access: explicit start/stop, remembered port, LAN/Tailscale addresses and access code. Hosting controls stay desktop-only. See [web-access.md](web-access.md).
 
 Newest first. Each entry: date, who/what, and the change.

@@ -21,13 +21,6 @@ async function boot() {
     document.body.classList.remove('web-loading');
     document.body.classList.add('web-client');
     login.remove();
-    const projects = document.createElement('button'); projects.id = 'web-projects-toggle';
-    projects.className = 'settings-btn-sm'; projects.textContent = 'Projects'; projects.setAttribute('aria-expanded', 'false');
-    const closeProjects = () => { document.body.classList.remove('web-sidebar-open'); projects.setAttribute('aria-expanded', 'false'); };
-    projects.addEventListener('click', () => projects.setAttribute('aria-expanded', String(document.body.classList.toggle('web-sidebar-open'))));
-    document.querySelector('.titlebar-left').prepend(projects);
-    document.querySelector('#sidebar').addEventListener('click', event => { if (event.target.closest('[data-session-id], #btn-new-session')) closeProjects(); });
-    document.querySelector('#terminal-area').addEventListener('click', closeProjects);
   }
   login.querySelector('form').addEventListener('submit', async event => {
     event.preventDefault(); const button = login.querySelector('button'); button.disabled = true;

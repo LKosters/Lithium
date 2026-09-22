@@ -58,6 +58,7 @@ const { checkDevServerAvailable, refreshDevServerButton, restoreDevServer } = re
 app.updateSearchBarWorkspace = updateSearchBarWorkspace;
 app.checkDevServerAvailable = checkDevServerAvailable;
 app.refreshDevServerButton = refreshDevServerButton;
+require('./renderer/responsive').initialize();
 
 // ── Version tag ──────────────────────────────────────
 {

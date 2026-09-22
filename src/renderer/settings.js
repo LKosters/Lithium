@@ -13,10 +13,18 @@ const webSettings = require('./web-settings').createWebSettings(ipcRenderer, set
 
 const navItems = settingsOverlay.querySelectorAll("[data-settings-tab]");
 const panels = settingsOverlay.querySelectorAll("[data-settings-panel]");
+const mobileBack = document.createElement('button');
+mobileBack.type = 'button'; mobileBack.className = 'settings-detail-back'; mobileBack.textContent = '‹ Settings';
+mobileBack.addEventListener('click', () => {
+  settingsOverlay.classList.remove('settings-detail-open');
+  settingsOverlay.querySelector('.settings-nav-item.active')?.focus();
+});
+settingsOverlay.querySelector('.settings-main').prepend(mobileBack);
 
 navItems.forEach((btn) => {
   btn.addEventListener("click", () => {
     const tab = btn.dataset.settingsTab;
+    settingsOverlay.classList.add('settings-detail-open');
     navItems.forEach((n) => n.classList.toggle("active", n === btn));
     panels.forEach((p) => p.classList.toggle("active", p.dataset.settingsPanel === tab));
     if (tab === 'chats') chatSettings.load();
@@ -79,9 +87,11 @@ playerModeBtns.forEach((btn) => {
 });
 
 function openSettings() {
+  settingsOverlay.classList.remove('settings-detail-open');
   settingsOpen = true;
   settingsOverlay.classList.remove("hidden");
   btnSettings.classList.add("active");
+  app.onSettingsOpen?.();
 
   // Restore current sidebar view in UI
   const currentSidebarView = localStorage.getItem("sidebarView") || "default";
@@ -102,7 +112,9 @@ function closeSettings() {
   if (!settingsOpen) return;
   settingsOpen = false;
   btnSettings.classList.remove("active");
-  app.animateClose(settingsOverlay, "fadeDown", 180);
+  if (window.matchMedia('(max-width: 700px)').matches) settingsOverlay.classList.add('hidden');
+  else app.animateClose(settingsOverlay, "fadeDown", 180);
+  app.onSettingsClose?.();
 }
 
 btnSettings.addEventListener("click", () => {

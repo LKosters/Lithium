@@ -11,14 +11,5 @@ body.web-client { visibility: visible; }
 .web-client #music-dock, .web-client #compact-player { display: none !important; }
 .web-client #titlebar { padding-left: 12px; }
 .web-client .settings-row a { color: inherit; }
-#web-projects-toggle { display: none; }
-@media (max-width: 700px) {
-  #web-projects-toggle { display: inline-block; }
-  .web-client #sidebar { display: none; position: fixed; top: 48px; bottom: 0; left: 0; z-index: 100; width: min(360px, 95vw) !important; box-shadow: 8px 0 30px #0008; }
-  .web-client.web-sidebar-open #sidebar { display: flex; }
-  .web-client #sidebar-resize-handle { display: none; }
-  .web-client .settings-nav { min-width: 130px; width: 130px; }
-  .web-client .settings-main { padding: 18px; min-width: 0; }
-  .web-client .settings-row { flex-wrap: wrap; gap: 12px; }
-  .web-client .chat-composer { padding: 8px; }
-}
+#web-login { overflow-y: auto; }
+#web-login input { min-width: 0; width: 100%; font-size: 16px; }

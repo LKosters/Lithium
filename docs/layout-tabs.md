@@ -10,6 +10,10 @@ below describe the previous implementation.
 
 ## Overview
 
+On phone-sized viewports (up to 700px), only the focused pane is displayed, with
+a selector to switch panes. The full split layout is preserved and reappears on
+wider screens. See [responsive.md](responsive.md).
+
 The terminal area is a **tiling layout** built from a binary tree. Each **leaf**
 is a pane that owns an ordered list of **tabs** (session IDs) and one active tab.
 Each **split** node divides its space between exactly two children, either

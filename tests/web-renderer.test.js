@@ -16,7 +16,8 @@ test(`browser authenticates with ${linkCode || 'manual login'}, opens settings a
   window.HTMLCanvasElement.prototype.getContext = () => null;
   window.HTMLElement.prototype.scrollIntoView = () => {};
   window.ResizeObserver = class { observe() {} disconnect() {} };
-  window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
+  window.matchMedia = () => ({ matches: true, addListener() {}, removeListener() {} });
+  window.visualViewport = Object.assign(new window.EventTarget(), { height: window.innerHeight, scale: 1, offsetTop: 0 });
   window.EventSource = class {
     constructor() { setTimeout(() => this.onopen?.(), 0); }
     close() {}
@@ -51,6 +52,26 @@ test(`browser authenticates with ${linkCode || 'manual login'}, opens settings a
   await tick(); await tick();
   assert.equal(window.document.querySelector('#web-login'), null);
   assert.ok(window.document.body.classList.contains('web-client'));
+  assert.equal(window.document.documentElement.style.getPropertyValue('--visible-height'), '');
+  window.visualViewport.height = 320;
+  window.visualViewport.dispatchEvent(new window.Event('resize'));
+  assert.equal(window.document.documentElement.style.getPropertyValue('--visible-height'), '320px');
+  window.visualViewport.height = window.innerHeight;
+  window.dispatchEvent(new window.Event('resize'));
+  assert.equal(window.document.documentElement.style.getPropertyValue('--visible-height'), '', 'normal resizing uses dynamic viewport height');
+  const nav = window.document.querySelector('#navigation-toggle');
+  const tab = name => window.document.querySelector(`#mobile-tab-bar [data-mobile-screen="${name}"]`);
+  tab('projects').click();
+  assert.equal(window.document.body.dataset.mobileScreen, 'projects');
+  assert.equal(window.document.querySelector('#sidebar').inert, false);
+  tab('settings').click();
+  assert.equal(window.document.body.dataset.mobileScreen, 'settings');
+  window.document.querySelector('[data-settings-tab=appearance]').click();
+  assert.ok(window.document.querySelector('#settings-overlay').classList.contains('settings-detail-open'));
+  window.document.querySelector('.settings-detail-back').click();
+  assert.ok(!window.document.querySelector('#settings-overlay').classList.contains('settings-detail-open'));
+  tab('chats').click();
+  assert.equal(window.document.body.dataset.mobileScreen, 'chats');
   assert.equal(window.document.querySelector('[data-settings-tab=data]').hidden, true);
   window.document.querySelector('#btn-settings').click();
   window.document.querySelector('[data-settings-tab=web]').click(); await tick();
@@ -63,9 +84,24 @@ test(`browser authenticates with ${linkCode || 'manual login'}, opens settings a
   window.document.querySelector('#btn-new-session').click();
   await tick(); await tick();
   assert.ok(window.document.querySelector('.chat-input'));
+  assert.equal(window.document.body.dataset.mobileScreen, 'conversation');
+  assert.equal(window.document.querySelector('#sidebar').inert, true);
+  nav.click();
+  assert.equal(window.document.body.dataset.mobileScreen, 'chats');
+  window.document.querySelector('[data-session-id]').click();
+  assert.equal(window.document.body.dataset.mobileScreen, 'conversation');
   const saveIndex = calls.findIndex(call => call.channel === 'sessions:save');
   const openIndex = calls.findIndex(call => call.channel === 'chat:open');
   assert.ok(saveIndex >= 0 && openIndex > saveIndex, 'session persists before chat opens');
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'd', code: 'KeyD', metaKey: true, bubbles: true }));
+  await tick(); await tick();
+  const chooser = window.document.querySelector('#compact-pane-select');
+  assert.equal(chooser.options.length, 2);
+  assert.equal(chooser.hidden, false);
+  chooser.value = chooser.options[0].value;
+  chooser.dispatchEvent(new window.Event('change'));
+  assert.equal(window.document.querySelectorAll('.pane-container').length, 2, 'compact switching preserves the split layout');
+  assert.equal(window.document.querySelectorAll('.pane-container.focused').length, 1);
   assert.deepEqual(errors, []);
 });
 }

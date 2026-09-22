@@ -255,6 +255,7 @@ function renderLayout(node, parentEl) {
           }
         }
         app.renderSessionList();
+        app.updateResponsivePanes?.();
       }
     });
 
@@ -366,6 +367,7 @@ function refreshLayout() {
 
   app.renderSessionList();
   if (app.updateSearchBarWorkspace) app.updateSearchBarWorkspace();
+  app.updateResponsivePanes?.();
 
   // Persist open tabs layout for restore on relaunch
   saveLayoutState();

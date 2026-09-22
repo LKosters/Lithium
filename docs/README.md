@@ -48,3 +48,4 @@ These were flagged while documenting (recorded, not changed) — verify before r
 - [Local storage & backups](./storage.md) — SQLite migration, app data, export/import and recovery.
 
 - [Web access](web-access.md) — Optional authenticated LAN/Tailscale browser interface.
+- [Responsive interface](responsive.md) — Shared phone, tablet and small-window layouts.
