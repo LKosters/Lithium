@@ -122,6 +122,10 @@ old-to-new GitHub upgrade still needs two compatible published releases.
 
 ## Change log
 
+- **2026-09-22** — Fixed release manifest generation for Linux: electron-builder
+  expands AppImage `${arch}` to `x86_64`, while updater platform metadata remains
+  `x64`. The regression fixture uses the installed builder's architecture naming;
+  missing-artifact errors list the expected name and available files.
 - **2026-09-22** — Replaced DMG-opening macOS updates with a verified ZIP download,
   detached replacement helper and explicit restart action. Added draft/chat flush,
   SQLite backup, rollback on swap/open failure, dual-architecture CI and manifests.

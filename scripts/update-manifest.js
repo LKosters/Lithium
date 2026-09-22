@@ -6,7 +6,10 @@ async function createManifest(directory, version) {
   const assets = [];
   const targets = [['mac', 'darwin', 'arm64', 'zip'], ['mac', 'darwin', 'x64', 'zip'], ['win', 'win32', 'x64', 'exe'], ['linux', 'linux', 'x64', 'AppImage']];
   for (const [os, platform, arch, ext] of targets) {
-    const name = `Lithium-${version}-${os}-${arch}.${ext}`, file = path.join(directory, name);
+    // electron-builder uses x86_64 for AppImage filenames; Node reports x64.
+    const artifactArch = ext === 'AppImage' && arch === 'x64' ? 'x86_64' : arch;
+    const name = `Lithium-${version}-${os}-${artifactArch}.${ext}`, file = path.join(directory, name);
+    if (!fs.existsSync(file)) throw new Error(`Missing release artifact: ${name}. Available files: ${fs.readdirSync(directory).sort().join(', ')}`);
     const hash = createHash('sha256');
     for await (const chunk of fs.createReadStream(file)) hash.update(chunk);
     assets.push({ platform, arch, name, size: fs.statSync(file).size, sha256: hash.digest('hex') });

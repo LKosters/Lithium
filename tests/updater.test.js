@@ -53,11 +53,14 @@ test('download checks size and SHA-256, cleans partial files, and rechecks befor
 
 test('manifest generation includes both Mac architectures and fails on missing release artifacts', async t => {
   const dir = root(t);
-  for (const name of ['mac-arm64.zip', 'mac-x64.zip', 'win-x64.exe', 'linux-x64.AppImage']) fs.writeFileSync(path.join(dir, `Lithium-1.2.3-${name}`), name);
+  const { Arch, getArtifactArchName } = require('builder-util');
+  const linuxArch = getArtifactArchName(Arch.x64, 'AppImage');
+  for (const name of ['mac-arm64.zip', 'mac-x64.zip', 'win-x64.exe', `linux-${linuxArch}.AppImage`]) fs.writeFileSync(path.join(dir, `Lithium-1.2.3-${name}`), name);
   const manifest = await createManifest(dir, '1.2.3'); assert.equal(manifest.assets.length, 4);
+  assert.equal(selectAsset(manifest, '1.2.3', 'linux', 'x64').name, `Lithium-1.2.3-linux-${linuxArch}.AppImage`);
   for (const a of manifest.assets) await verifyFile(path.join(dir, a.name), a);
   fs.unlinkSync(path.join(dir, 'Lithium-1.2.3-mac-x64.zip'));
-  await assert.rejects(createManifest(dir, '1.2.3'));
+  await assert.rejects(createManifest(dir, '1.2.3'), /Missing release artifact: Lithium-1\.2\.3-mac-x64\.zip\. Available files:/);
 });
 
 test('Mac preflight rejects unsafe archives, mounted disk images, and wrong application identity', async t => {
